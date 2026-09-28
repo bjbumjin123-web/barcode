@@ -327,7 +327,7 @@ window.apiLookup = async function(lot){
         lot_no: lot,
         item_no: stockRow.item_no || '-',
         item_name: stockRow.item_name || '-',
-        qty: Number(stockRow.qty || 0),
+        qty: isRecent1Day ? Number(stockRow.qty || 0) : 0, // 📌 당일 최신 데이터가 아니면 수량을 0으로 강제 설정
         unit: stockRow.unit || '',
         upload_date: stockRow.upload_date || '-'
     };
