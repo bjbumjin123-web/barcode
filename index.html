@@ -56,7 +56,6 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 }
 #video{ width:100%; height:100%; object-fit:cover; display:block; position:relative; z-index:1; transform-origin:center center; transition: transform 0.1s ease; }
 
-/* 녹색 가이드 박스가 항상 카메라 줌 위 레이어에 위치하도록 z-index 상향 조정 */
 #guideBox{
     position:absolute; left:50%; top:50%; width:280px; max-width:92%; height:78px;
     transform:translate(-50%,-50%); border:4px solid #00e676; border-radius:10px;
@@ -125,11 +124,24 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
     align-items:center; justify-content:center; padding:16px;
 }
 #qtyModalBox{
-    background:#1c1c1c; border:2px solid #00e676; border-radius:14px; padding:20px;
+    background:#1c1c1c; border:2px solid #00e676; border-radius:14px; padding:18px;
     max-width:360px; width:100%; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,0.9);
 }
-#qtyModalBox h3{ margin:0 0 8px; color:#00e676; font-size:18px; }
-#modalLotNo{ font-size:13px; color:#aaa; margin-bottom:14px; word-break:break-all; line-height:1.4; }
+#qtyModalBox h3{ margin:0 0 10px; color:#00e676; font-size:18px; }
+
+/* 1. 모달 LOT, 품번, 품명 각각 한 줄씩 정렬 스타일 */
+.modal-info-group {
+    background:#111; border:1px solid #333; border-radius:8px; padding:10px 12px;
+    margin-bottom:14px; text-align:left; font-size:13px;
+}
+.modal-info-item {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:3px 0; border-bottom:1px solid #222;
+}
+.modal-info-item:last-child { border-bottom:none; }
+.modal-info-label { color:#888; font-weight:bold; width:45px; flex-shrink:0; }
+.modal-info-val { color:#fff; font-weight:bold; word-break:break-all; text-align:right; flex-grow:1; }
+
 #modalQtyInput{
     width:100%; height:48px; font-size:22px; font-weight:bold; text-align:center;
     border-radius:8px; border:1px solid #00e676; background:#111; color:#fff; margin-bottom:14px;
@@ -154,7 +166,7 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 <button id="startDataBtn">🚀 시작 (최근 10일 재고 데이터 다운로드)</button>
 
 <div id="scannerRow">
-<input id="scannerInput" type="text" placeholder="작성자 입력">
+<input id="scannerInput" type="text" placeholder="작성자 입력 (최초 1회 입력 시 자동 저장)">
 </div>
 
 <div id="deptRow">
@@ -185,12 +197,16 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 
 <div id="lotInfo"></div>
 
-<!-- 화면 중앙 실수량 입력 모달 팝업 -->
+<!-- 화면 중앙 실수량 입력 모달 팝업 (1. LOT, 품번, 품명 각 한 줄씩 분리) -->
 <div id="qtyModalOverlay">
 <div id="qtyModalBox">
 <h3>📝 실수량 입력</h3>
-<div id="modalLotNo">LOT: -</div>
-<input id="modalQtyInput" type="number" placeholder="실사수량 입력" autofocus>
+<div class="modal-info-group">
+    <div class="modal-info-item"><span class="modal-info-label">LOT</span><span id="modalLotNo" class="modal-info-val">-</span></div>
+    <div class="modal-info-item"><span class="modal-info-label">품번</span><span id="modalItemNo" class="modal-info-val">-</span></div>
+    <div class="modal-info-item"><span class="modal-info-label">품명</span><span id="modalItemName" class="modal-info-val">-</span></div>
+</div>
+<input id="modalQtyInput" type="number" placeholder="실사수량 입력">
 <div class="modal-btn-group">
 <button id="modalSaveBtn">저장</button>
 <button id="modalCloseBtn">취소</button>
@@ -224,6 +240,13 @@ const STOCK_COL = "lot_stock";
 const LOG_COL = "lot_scan_log";
 
 window.cachedStockMap = new Map();
+
+// 날짜 포맷 변환 보조 함수 (특수문자 제거 후 8자리 YYYYMMDD 추출)
+function cleanDate8Digits(str) {
+    if (!str) return '';
+    const digits = String(str).replace(/[^0-9]/g, '');
+    return digits.substring(0, 8); // 예: '20260928'
+}
 
 window.download10DaysStock = async function(){
     const status = document.getElementById("status");
@@ -262,7 +285,6 @@ function nowParts(){
     return { date, datetime: `${date} ${time}` };
 }
 
-// 최근 1일(당일) vs 최근 10일 재고 조회 판별 로직
 window.apiLookup = async function(lot){
     lot = (lot || '').trim();
     if (!lot) return { found:false, error:'LOT 번호가 없습니다.' };
@@ -292,9 +314,10 @@ window.apiLookup = async function(lot){
         return { found: false, lot_no: lot };
     }
 
-    // 최근 1일(당일 업로드) 데이터인지 검사
-    const uploadDateStr = (stockRow.upload_date || '').substring(0, 10);
-    const isRecent1Day = (uploadDateStr === today);
+    // 2. 파이썬/DB 업로드 날짜 포맷 차이 완벽 호환 (YYYYMMDD 8자리 숫자 비교)
+    const todayNum = cleanDate8Digits(today);
+    const uploadNum = cleanDate8Digits(stockRow.upload_date);
+    const isRecent1Day = (uploadNum !== '' && uploadNum === todayNum);
 
     return {
         found: true,
@@ -302,10 +325,9 @@ window.apiLookup = async function(lot){
         lot_no: lot,
         item_no: stockRow.item_no || '-',
         item_name: stockRow.item_name || '-',
-        // 최근 1일 재고에 없으면(10일 이내에만 있으면) 수량은 0 표시
         qty: isRecent1Day ? Number(stockRow.qty || 0) : 0,
         unit: stockRow.unit || '',
-        upload_date: uploadDateStr
+        upload_date: stockRow.upload_date || '-'
     };
 };
 
@@ -333,6 +355,8 @@ window.apiSaveQty = async function(lot, actualQtyRaw, systemQty){
 </script>
 
 <script>
+const scannerInput = document.getElementById("scannerInput");
+const deptSelect = document.getElementById("deptSelect");
 const startDataBtn = document.getElementById("startDataBtn");
 const resultInput = document.getElementById("result");
 const status = document.getElementById("status");
@@ -346,9 +370,10 @@ const zoomOutBtn = document.getElementById("zoomOut");
 const zoomLabel = document.getElementById("zoomLabel");
 const torchBtn = document.getElementById("torchBtn");
 
-// 모달 엘리먼트
 const qtyModalOverlay = document.getElementById("qtyModalOverlay");
 const modalLotNo = document.getElementById("modalLotNo");
+const modalItemNo = document.getElementById("modalItemNo");
+const modalItemName = document.getElementById("modalItemName");
 const modalQtyInput = document.getElementById("modalQtyInput");
 const modalSaveBtn = document.getElementById("modalSaveBtn");
 const modalCloseBtn = document.getElementById("modalCloseBtn");
@@ -359,12 +384,22 @@ let videoTrack = null;
 let torchOn = false;
 let currentLookupResult = null;
 
+// 작성자 및 실사부서 자동 복원
+(function restoreSavedInfo() {
+    const savedScanner = localStorage.getItem("lot_scanner_name");
+    const savedDept = localStorage.getItem("lot_scanner_dept");
+    if (savedScanner) scannerInput.value = savedScanner;
+    if (savedDept) deptSelect.value = savedDept;
+})();
+
+scannerInput.addEventListener("input", () => localStorage.setItem("lot_scanner_name", scannerInput.value.trim()));
+deptSelect.addEventListener("change", () => localStorage.setItem("lot_scanner_dept", deptSelect.value));
+
 startDataBtn.onclick = async () => {
     await window.download10DaysStock();
     captureBtn.disabled = false;
 };
 
-// 14자리 제한 (10자리-3자리)
 resultInput.addEventListener("input", function() {
     let raw = resultInput.value.replace(/[^0-9-]/g, '');
     let nums = raw.replace(/-/g, '');
@@ -389,18 +424,11 @@ async function initCamera(){
 }
 initCamera();
 
-// 1. 최대 10x 줌 조절 및 손가락 터치 (Pinch Zoom) 기능
 function setZoom(val) {
-    // 줌 범위를 최대 10x까지 허용
     currentZoom = Math.max(1, Math.min(10, val));
     zoomLabel.innerText = currentZoom.toFixed(1) + "x";
-    
     if (videoTrack) {
-        try { 
-            videoTrack.applyConstraints({ advanced: [{ zoom: currentZoom }] }); 
-        } catch(e) { 
-            video.style.transform = `scale(${currentZoom})`; 
-        }
+        try { videoTrack.applyConstraints({ advanced: [{ zoom: currentZoom }] }); } catch(e) { video.style.transform = `scale(${currentZoom})`; }
     } else {
         video.style.transform = `scale(${currentZoom})`;
     }
@@ -414,22 +442,15 @@ let initialZoomOnPinch = 1;
 
 camWrap.addEventListener("touchstart", (e) => {
     if (e.touches.length === 2) {
-        initialPinchDist = Math.hypot(
-            e.touches[0].clientX - e.touches[1].clientX,
-            e.touches[0].clientY - e.touches[1].clientY
-        );
+        initialPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
         initialZoomOnPinch = currentZoom;
     }
 }, { passive: true });
 
 camWrap.addEventListener("touchmove", (e) => {
     if (e.touches.length === 2 && initialPinchDist) {
-        const dist = Math.hypot(
-            e.touches[0].clientX - e.touches[1].clientX,
-            e.touches[0].clientY - e.touches[1].clientY
-        );
-        const factor = dist / initialPinchDist;
-        setZoom(initialZoomOnPinch * factor);
+        const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        setZoom(initialZoomOnPinch * (dist / initialPinchDist));
     }
 }, { passive: true });
 
@@ -437,20 +458,20 @@ camWrap.addEventListener("touchend", (e) => {
     if (e.touches.length < 2) initialPinchDist = null;
 });
 
-// 후레시 조작
 torchBtn.onclick = async () => {
     if (!videoTrack) return;
     torchOn = !torchOn;
     try {
         await videoTrack.applyConstraints({ advanced: [{ torch: torchOn }] });
         torchBtn.classList.toggle("on", torchOn);
-    } catch(e) {
-        alert("이 기기/브라우저에서는 플래시를 지원하지 않습니다.");
-    }
+    } catch(e) { alert("이 기기에서는 플래시를 지원하지 않습니다."); }
 };
 
 const codeReader = new ZXing.BrowserMultiFormatReader();
 captureBtn.onclick = async () => {
+    if (!scannerInput.value.trim()) { alert("작성자 이름을 입력해주세요."); scannerInput.focus(); return; }
+    if (!deptSelect.value) { alert("실사 부서를 선택해주세요."); deptSelect.focus(); return; }
+
     status.innerHTML = "🔍 인식 진행 중...";
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth; canvas.height = video.videoHeight;
@@ -481,7 +502,6 @@ recheckBtn.onclick = async () => {
     await doLookup(lot);
 };
 
-// 재고 조회 및 처리
 async function doLookup(lot){
     status.innerHTML = "🔎 조회 중...";
     const res = await window.apiLookup(lot);
@@ -506,7 +526,6 @@ async function doLookup(lot){
         status.innerHTML = "✅ 조회 완료. 실수량을 입력하세요.";
 
         document.getElementById("openQtyModalBtn").onclick = () => openQtyModal(res);
-        // 조회 성공 시 중앙 수량 입력 모달 팝업 자동 오픈
         openQtyModal(res);
     } else {
         lotInfoBox.className = "notfound";
@@ -521,18 +540,19 @@ async function doLookup(lot){
     }
 }
 
-// 2. 실수량 입력 전용 모달 팝업 제어
+// 1. 모달 개별 바인딩 (LOT, 품번, 품명 각 한 줄씩 분리 표시)
 function openQtyModal(res) {
-    modalLotNo.innerText = `LOT: ${res.lot_no}\n[${res.item_no}] ${res.item_name}`;
+    modalLotNo.innerText = res.lot_no || '-';
+    modalItemNo.innerText = res.item_no || '-';
+    modalItemName.innerText = res.item_name || '-';
+    
     modalQtyInput.value = "";
     modalMsg.innerText = "";
     qtyModalOverlay.style.display = "flex";
     setTimeout(() => modalQtyInput.focus(), 100);
 }
 
-modalCloseBtn.onclick = () => {
-    qtyModalOverlay.style.display = "none";
-};
+modalCloseBtn.onclick = () => qtyModalOverlay.style.display = "none";
 
 modalSaveBtn.onclick = async () => {
     const val = modalQtyInput.value;
