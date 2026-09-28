@@ -26,20 +26,29 @@ body{
     max-width:600px; margin-left:auto; margin-right:auto;
     display:flex; flex-direction:column;
 }
-h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto; }
+h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto; white-space:nowrap; }
+
 .navbar { 
     position: sticky; top: 0; z-index: 1000; background: #111; 
     padding: 8px 0; margin: 0 -6px 10px -6px; flex: 0 0 auto; 
     display: flex; justify-content: center; gap: 4px; flex-wrap: nowrap; overflow-x: auto; 
 }
 .navbar a{ color:#4fc3ff; font-size:12px; text-decoration:none; padding:5px 6px; border:1px solid #2a4a5c; border-radius:10px; white-space:nowrap; }
+
 #scannerRow, #deptRow { display:flex; gap:4px; margin-bottom:6px; flex:0 0 auto; }
-#scannerSelect, #scannerCustom, #deptSelect {
-    flex:1 1 auto; width:100%; height:32px; font-size:13px; padding:2px 6px;
+#scannerInput, #deptSelect {
+    flex:1 1 auto; width:100%; height:32px; font-size:13px; padding:2px 8px;
     border-radius:6px; background:#1c1c1c; color:#eee;
 }
-#scannerSelect, #scannerCustom { border:1px solid #444; }
+#scannerInput { border:1px solid #444; }
 #deptSelect { border:1px solid #ffb84d; }
+
+#startDataBtn{
+    display:block; width:100%; margin-bottom:8px; padding:12px 0; font-size:15px; font-weight:bold;
+    color:#111; background:#4fc3ff; border:none; border-radius:10px; cursor:pointer; flex:0 0 auto;
+}
+#startDataBtn:active{ opacity:0.8; }
+
 #camWrap{
     position:relative; width:100%; flex:0 0 auto; height:30vh; min-height:220px;
     background:#000; border-radius:12px; overflow:hidden; border:1px solid #333; touch-action:none;
@@ -52,55 +61,76 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 }
 #guideLabel{
     position:absolute; left:50%; top:46px; transform:translateX(-50%);
-    color:#00e676; font-weight:bold; font-size:12px; text-shadow:0 1px 4px #000; z-index:3;
+    color:#00e676; font-weight:bold; font-size:12px; text-shadow:0 1px 4px #000;
+    pointer-events:none; z-index:3; text-align:center; white-space:nowrap;
 }
-#camStatus{ position:absolute; left:50%; bottom:4%; transform:translateX(-50%); color:#fff; font-size:12px; background:rgba(0,0,0,0.5); padding:5px 12px; border-radius:20px; z-index:3; }
+#camStatus{
+    position:absolute; left:50%; bottom:4%; transform:translateX(-50%); color:#fff;
+    font-size:12px; background:rgba(0,0,0,0.6); padding:5px 12px; border-radius:20px;
+    pointer-events:none; z-index:3; text-align:center; white-space:nowrap;
+}
 #zoomControls{
     position:absolute; right:8px; top:8px; display:flex; align-items:center; gap:6px;
-    background:rgba(0,0,0,0.55); padding:4px 8px; border-radius:20px; z-index:4;
+    background:rgba(0,0,0,0.65); padding:4px 8px; border-radius:20px; z-index:10; white-space:nowrap;
 }
-#zoomControls button{ width:28px; height:28px; border-radius:50%; border:none; background:#00e676; font-weight:bold; font-size:15px; }
-#zoomLabel{ color:#fff; font-size:12px; min-width:30px; text-align:center; }
+#zoomControls button{ width:28px; height:28px; border-radius:50%; border:none; background:#00e676; color:#111; font-weight:bold; font-size:15px; cursor:pointer; }
+#zoomLabel{ color:#fff; font-size:12px; min-width:32px; text-align:center; font-weight:bold; }
 #torchBtn{
     position:absolute; left:8px; top:8px; width:36px; height:36px; border-radius:50%;
-    border:none; background:rgba(0,0,0,0.55); color:#fff; font-size:16px; z-index:4;
+    border:none; background:rgba(0,0,0,0.65); color:#fff; font-size:18px; z-index:10; cursor:pointer;
 }
 #torchBtn.on{ background:#ffb84d; color:#111; }
+
 #captureBtn{
     display:block; width:100%; margin:8px 0; padding:12px 0; font-size:16px; font-weight:bold;
-    color:#111; background:#00e676; border:none; border-radius:10px; cursor:pointer; flex:0 0 auto;
+    color:#111; background:#00e676; border:none; border-radius:10px;
+    cursor:pointer; flex:0 0 auto;
 }
-#captureBtn:active{ transform:translateY(3px); }
 #captureBtn:disabled{ background:#555; color:#999; }
-#status{ margin-top:2px; font-weight:bold; color:#4fc3ff; text-align:center; font-size:12px; min-height:14px; flex:0 0 auto; }
+#status{ margin-top:2px; font-weight:bold; color:#4fc3ff; text-align:center; font-size:12px; min-height:16px; flex:0 0 auto; }
+
 #resultRow{ display:flex; gap:6px; margin-top:6px; flex:0 0 auto; }
 #result{
-    flex:1 1 auto; width:100%; height:38px; font-size:16px; font-weight:bold;
+    flex:1 1 auto; width:100%; height:40px; font-size:16px; font-weight:bold;
     padding:6px 10px; border-radius:8px; border:1px solid #444; background:#1c1c1c; color:#eee;
+    letter-spacing:1px;
 }
-#recheckBtn{ flex:0 0 auto; padding:0 12px; font-size:13px; font-weight:bold; color:#111; background:#4fc3ff; border:none; border-radius:8px; }
-#qtyRow{ display:flex; gap:6px; margin-top:6px; flex:0 0 auto; }
-#qtyOverlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:110; align-items:center; justify-content:center; padding:16px; }
-#qtyModalBox{ background:#1c1c1c; border:1px solid #444; border-radius:12px; padding:16px; max-width:420px; width:100%; }
-#qtyModalBox h3{ margin:0 0 8px; font-size:16px; color:#00e676; }
-#qtyRefText{ color:#888; font-size:13px; margin-bottom:10px; }
-#actualQty{ flex:1 1 auto; width:100%; height:38px; font-size:16px; font-weight:bold; text-align:center; padding:6px 10px; border-radius:8px; border:1px solid #444; background:#1c1c1c; color:#eee; }
-#qtySaveBtn{ flex:0 0 auto; padding:0 12px; font-size:13px; font-weight:bold; color:#111; background:#00e676; border:none; border-radius:8px; }
-#qtyResult{ margin-top:6px; font-size:12px; font-weight:bold; text-align:center; min-height:18px; }
-#qtyResult.match{ color:#00e676; }
-#qtyResult.mismatch{ color:#ff8a8a; }
-#lotInfo{ margin-top:6px; padding:10px; background:#1c1c1c; border:1px solid #333; border-radius:10px; display:none; }
+#recheckBtn{ flex:0 0 auto; padding:0 14px; font-size:13px; font-weight:bold; color:#111; background:#4fc3ff; border:none; border-radius:8px; cursor:pointer; }
+
+#lotInfo{ margin-top:8px; padding:12px; background:#1c1c1c; border:1px solid #333; border-radius:10px; display:none; flex:0 0 auto; }
 #lotInfo.found{ border-color:#2a9d2a; }
-#lotInfo.notfound{ border-color:#cc4444; color:#ff8a8a; }
-.info-grid{ display:grid; grid-template-columns:40px 1fr; row-gap:6px; column-gap:6px; align-items:center; }
+#lotInfo.notfound{ border-color:#cc4444; }
+
+.status-tag{ font-size:12px; font-weight:bold; padding:4px 8px; border-radius:6px; display:inline-block; margin-bottom:8px; }
+.status-tag.yes{ background:rgba(0,230,118,0.2); color:#00e676; border:1px solid #00e676; }
+.status-tag.no{ background:rgba(255,138,138,0.2); color:#ff8a8a; border:1px solid #ff8a8a; }
+
+.info-grid{ display:grid; grid-template-columns:55px 1fr; row-gap:6px; column-gap:6px; align-items:center; }
 .info-label{ color:#888; font-size:12px; }
-.info-value{ font-size:15px; font-weight:bold; color:#eee; }
+.info-value{ font-size:15px; font-weight:bold; color:#eee; word-break:break-all; }
 .info-value.big{ font-size:18px; color:#00e676; }
-#remainingBtn{ display:block; width:100%; margin:8px 0 0; padding:10px 0; font-size:14px; font-weight:bold; color:#111; background:#ffb84d; border:none; border-radius:10px; cursor:pointer; flex:0 0 auto; }
-#remainingOverlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100; align-items:center; justify-content:center; padding:16px; }
-#remainingBox{ background:#1c1c1c; border:1px solid #444; border-radius:12px; padding:16px; max-width:480px; width:100%; max-height:80vh; overflow-y:auto; }
+
+.qty-input-box{ margin-top:10px; padding-top:10px; border-top:1px solid #333; display:flex; gap:6px; }
+.qty-input-box input{ flex:1; height:38px; font-size:16px; font-weight:bold; text-align:center; border-radius:6px; border:1px solid #00e676; background:#111; color:#fff; }
+.qty-input-box button{ padding:0 14px; font-weight:bold; background:#00e676; color:#111; border:none; border-radius:6px; cursor:pointer; }
+
+#remainingBtn{
+    display:block; width:100%; margin:8px 0 0; padding:10px 0; font-size:14px; font-weight:bold;
+    color:#111; background:#ffb84d; border:none; border-radius:10px; cursor:pointer; flex:0 0 auto;
+}
+#remainingOverlay{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100;
+    align-items:center; justify-content:center; padding:16px;
+}
+#remainingBox{
+    background:#1c1c1c; border:1px solid #444; border-radius:12px; padding:16px;
+    max-width:480px; width:100%; max-height:80vh; overflow-y:auto;
+}
 #remainingBox h3{ margin:0 0 10px; font-size:16px; color:#ffb84d; }
-#remainingCloseBtn{ display:block; width:100%; margin-top:12px; padding:10px 0; font-size:14px; font-weight:bold; color:#eee; background:#333; border:none; border-radius:8px; cursor:pointer; }
+#remainingCloseBtn{
+    display:block; width:100%; margin-top:12px; padding:10px 0; font-size:14px; font-weight:bold;
+    color:#eee; background:#333; border:none; border-radius:8px; cursor:pointer;
+}
 </style>
 </head>
 <body>
@@ -114,9 +144,10 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 <a href="history.html">📅 이력조회</a>
 </div>
 
+<button id="startDataBtn">🚀 시작 (최근 10일 재고 데이터 다운로드)</button>
+
 <div id="scannerRow">
-<select id="scannerSelect"><option value="">확인자 선택</option></select>
-<input id="scannerCustom" type="text" placeholder="이름 직접입력" style="display:none;">
+<input id="scannerInput" type="text" placeholder="작성자 입력">
 </div>
 
 <div id="deptRow">
@@ -132,13 +163,14 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 <video id="video" playsinline autoplay muted></video>
 <div id="guideBox"></div>
 <div id="guideLabel">박스 안에 LOT 번호 맞추기</div>
-<div id="camStatus">카메라 준비중...</div>
-<div id="zoomControls" style="display:none;"><button id="zoomOut">➖</button><span id="zoomLabel">1.0x</span><button id="zoomIn">➕</button></div>
-<button id="torchBtn" style="display:none;">🔦</button>
+<div id="camStatus">카메라 연결 중...</div>
+<button id="torchBtn">🔦</button>
+<div id="zoomControls"><button id="zoomOut">➖</button><span id="zoomLabel">1.0x</span><button id="zoomIn">➕</button></div>
 </div>
 
 <button id="captureBtn" disabled>📸 인식하기</button>
-<div id="status"></div>
+<div id="status">상단의 [시작] 버튼을 눌러 데이터를 받아주세요.</div>
+
 <button id="remainingBtn">🏁 마감 (남은 LOT 확인)</button>
 
 <div id="remainingOverlay">
@@ -150,210 +182,283 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 </div>
 
 <div id="resultRow">
-<input id="result" type="text" inputmode="text" placeholder="인식된 LOT 번호 (예: 2606260022-001)">
+<input id="result" type="text" maxlength="14" placeholder="LOT 번호 (예: 2606260022-001)">
 <button id="recheckBtn">🔍 조회</button>
 </div>
 
 <div id="lotInfo"></div>
 
-<div id="qtyOverlay">
-<div id="qtyModalBox">
-<h3>📝 수량 입력</h3>
-<div id="qtyRefText"></div>
-<div id="qtyRow">
-<input id="actualQty" type="text" inputmode="numeric" placeholder="실제수량">
-<button id="qtySaveBtn">✅ 저장</button>
-</div>
-<div id="qtyResult"></div>
-</div>
-</div>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, updateDoc, doc, getDocs, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+    initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, updateDoc, doc,
+    getDocs, query, where, orderBy, limit
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-const firebaseConfig = { apiKey: "AIzaSyAGIPNxEoMs9yYuQV8gP2PG09bb_F23DrQ", authDomain: "lot-bar.firebaseapp.com", projectId: "lot-bar", storageBucket: "lot-bar.firebasestorage.app", messagingSenderId: "905334285763", appId: "1:905334285763:web:53569a62031006a611c976" };
+const firebaseConfig = {
+    apiKey: "AIzaSyAGIPNxEoMs9yYuQV8gP2PG09bb_F23DrQ",
+    authDomain: "lot-bar.firebaseapp.com",
+    projectId: "lot-bar",
+    storageBucket: "lot-bar.firebasestorage.app",
+    messagingSenderId: "905334285763",
+    appId: "1:905334285763:web:53569a62031006a611c976"
+};
+
 const app = initializeApp(firebaseConfig);
-const db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+const db = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+});
 
 const STOCK_COL = "lot_stock";
 const LOG_COL = "lot_scan_log";
-const CLOSE_LOG_COL = "lot_close_log";
 
-let _masterDatesCache = null;
-let _masterDatesCacheAt = 0;
+window.cachedStockMap = new Map();
+window.isDataDownloaded = false;
 
-// [수정됨] 10일치 데이터를 가져오도록 limit(10) 적용
-async function getMasterDates(){
-    const nowTs = Date.now();
-    if (_masterDatesCache && (nowTs - _masterDatesCacheAt) < 5 * 60 * 1000){
-        return _masterDatesCache;
+window.download10DaysStock = async function(){
+    const status = document.getElementById("status");
+    status.innerHTML = "⏳ 최근 10일치 재고 데이터 다운로드 중...";
+    try {
+        const snap = await getDocs(query(collection(db, STOCK_COL), orderBy('upload_date','desc'), limit(1000)));
+        window.cachedStockMap.clear();
+        let count = 0;
+        snap.forEach(d => {
+            const data = d.data();
+            if (data.lot_no) {
+                if (!window.cachedStockMap.has(data.lot_no)) {
+                    window.cachedStockMap.set(data.lot_no, data);
+                    count++;
+                }
+            }
+        });
+        window.isDataDownloaded = true;
+        status.innerHTML = `✅ 재고 데이터 ${count}건 다운로드 완료!`;
+        return { success: true, count };
+    } catch(e) {
+        console.error(e);
+        status.innerHTML = "❌ 재고 다운로드 실패. 네트워크를 확인하세요.";
+        return { success: false };
     }
-    const snap = await getDocs(query(collection(db, STOCK_COL), orderBy('upload_date','desc'), limit(10)));
-    let dates = new Set();
-    snap.forEach(doc => { dates.add(doc.data().upload_date); });
-    _masterDatesCache = Array.from(dates);
-    _masterDatesCacheAt = nowTs;
-    return _masterDatesCache;
-}
+};
 
 function nowParts(){
-    const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
-    const map = {}; fmt.formatToParts(new Date()).forEach(p => map[p.type] = p.value);
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit',
+        hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false
+    });
+    const map = {};
+    fmt.formatToParts(new Date()).forEach(p => map[p.type] = p.value);
     const date = `${map.year}-${map.month}-${map.day}`;
-    return { date, datetime: `${date} ${map.hour}:${map.minute}:${map.second}` };
+    const time = `${map.hour}:${map.minute}:${map.second}`;
+    return { date, datetime: `${date} ${time}` };
 }
 
-async function apiLookup(lot, scanner, scanDept){
+window.apiLookup = async function(lot){
     lot = (lot || '').trim();
     if (!lot) return { found:false, error:'LOT 번호가 없습니다.' };
 
-    const stockSnap = await getDocs(query(collection(db, STOCK_COL), where('lot_no','==',lot)));
-    let stockRows = []; stockSnap.forEach(d => stockRows.push(d.data()));
-    stockRows.sort((a,b) => (a.upload_date < b.upload_date ? 1 : -1));
-    let row = stockRows[0];
+    const scanner = document.getElementById("scannerInput").value.trim();
+    const scanDept = document.getElementById("deptSelect").value;
+
+    let stockRow = window.cachedStockMap.get(lot);
     
+    if (!stockRow) {
+        const stockSnap = await getDocs(query(collection(db, STOCK_COL), where('lot_no','==',lot)));
+        let rows = [];
+        stockSnap.forEach(d => rows.push(d.data()));
+        if (rows.length > 0) {
+            rows.sort((a,b) => (a.upload_date < b.upload_date ? 1 : -1));
+            stockRow = rows[0];
+        }
+    }
+
     const { date: today, datetime: now } = nowParts();
-    await addDoc(collection(db, LOG_COL), { lot_no: lot, scan_date: today, scanned_at: now, scanned_by: scanner, scan_dept: scanDept, actual_qty: null, diff: null });
+    await addDoc(collection(db, LOG_COL), {
+        lot_no: lot, scan_date: today, scanned_at: now,
+        scanned_by: scanner, scan_dept: scanDept,
+        actual_qty: null, diff: null
+    });
 
-    if (!row) return { found:false };
-    return { found:true, item_no: row.item_no, item_name: row.item_name, qty: Number(row.qty), unit: row.unit, warehouse: row.warehouse, department: row.department };
-}
+    if (!stockRow) {
+        return { found: false, lot_no: lot };
+    }
 
-async function apiSaveQty(lot, actualQtyRaw){
-    lot = (lot || '').trim();
+    return {
+        found: true,
+        lot_no: lot,
+        item_no: stockRow.item_no || '-',
+        item_name: stockRow.item_name || '-',
+        qty: Number(stockRow.qty || 0),
+        unit: stockRow.unit || '',
+        upload_date: stockRow.upload_date || '-'
+    };
+};
+
+window.apiSaveQty = async function(lot, actualQtyRaw){
     const actualQty = Math.round(Number(actualQtyRaw));
-    const stockSnap = await getDocs(query(collection(db, STOCK_COL), where('lot_no','==',lot)));
-    let stockRows = []; stockSnap.forEach(d => stockRows.push(d.data()));
-    stockRows.sort((a,b) => (a.upload_date < b.upload_date ? 1 : -1));
-    let stockRow = stockRows[0];
-
-    const systemQty = Number(stockRow.qty);
+    const stockRow = window.cachedStockMap.get(lot);
+    const systemQty = stockRow ? Number(stockRow.qty || 0) : 0;
     const diff = actualQty - systemQty;
     const { date: today, datetime: now } = nowParts();
 
     const logSnap = await getDocs(query(collection(db, LOG_COL), where('lot_no','==',lot), where('scan_date','==',today)));
-    let logRows = []; logSnap.forEach(d => logRows.push({ id: d.id, ...d.data() }));
+    let logRows = [];
+    logSnap.forEach(d => logRows.push({ id: d.id, ...d.data() }));
     logRows.sort((a,b) => (a.scanned_at > b.scanned_at ? -1 : 1));
     const target = logRows[0];
 
-    if (target) await updateDoc(doc(db, LOG_COL, target.id), { actual_qty: actualQty, diff: diff });
-    
-    return { success:true, system_qty: systemQty, actual_qty: actualQty, diff: diff };
-}
+    if (target){
+        await updateDoc(doc(db, LOG_COL, target.id), { actual_qty: actualQty, diff: diff });
+    } else {
+        await addDoc(collection(db, LOG_COL), {
+            lot_no: lot, scan_date: today, scanned_at: now, actual_qty: actualQty, diff: diff
+        });
+    }
 
-window.apiLookup = apiLookup;
-window.apiSaveQty = apiSaveQty;
+    return { success: true, actual_qty: actualQty, diff };
+};
 </script>
 
 <script>
-const scannerSelect = document.getElementById("scannerSelect");
-const scannerCustom = document.getElementById("scannerCustom");
-const deptSelect = document.getElementById("deptSelect");
-const captureBtn = document.getElementById("captureBtn");
+const startDataBtn = document.getElementById("startDataBtn");
+const resultInput = document.getElementById("result");
 const status = document.getElementById("status");
-const result = document.getElementById("result");
+const captureBtn = document.getElementById("captureBtn");
 const lotInfoBox = document.getElementById("lotInfo");
-const actualQtyInput = document.getElementById("actualQty");
-const qtySaveBtn = document.getElementById("qtySaveBtn");
-const qtyOverlay = document.getElementById("qtyOverlay");
+const recheckBtn = document.getElementById("recheckBtn");
 const video = document.getElementById("video");
-const camWrap = document.getElementById("camWrap");
+const zoomInBtn = document.getElementById("zoomIn");
+const zoomOutBtn = document.getElementById("zoomOut");
+const zoomLabel = document.getElementById("zoomLabel");
+const torchBtn = document.getElementById("torchBtn");
 
-let cameraStarted = false, videoTrack = null, currentZoom = 1;
+let currentZoom = 1;
+let videoTrack = null;
+let torchOn = false;
 
-function refreshCaptureAvailability(){
-    if (!cameraStarted) captureBtn.disabled = true;
-    else if (!scannerSelect.value || !deptSelect.value) captureBtn.disabled = true;
-    else { captureBtn.disabled = false; status.innerHTML = "✅ 카메라 준비 완료."; }
-}
+startDataBtn.onclick = async () => {
+    await window.download10DaysStock();
+    captureBtn.disabled = false;
+};
 
-scannerSelect.addEventListener("change", refreshCaptureAvailability);
-deptSelect.addEventListener("change", refreshCaptureAvailability);
-
-// [수정됨] LOT 수동 입력 편의성 개선 (백스페이스 허용 및 하이픈 자동완성 부드럽게)
-result.addEventListener("input", function(e) {
-    let val = result.value.replace(/[^0-9-]/g, ''); // 숫자와 하이픈만 허용
-    if(val.length === 10 && e.inputType !== 'deleteContentBackward') {
-        val += '-';
+resultInput.addEventListener("input", function(e) {
+    let raw = resultInput.value.replace(/[^0-9-]/g, '');
+    let nums = raw.replace(/-/g, '');
+    if (nums.length > 13) nums = nums.slice(0, 13);
+    
+    if (nums.length > 10) {
+        resultInput.value = nums.slice(0, 10) + '-' + nums.slice(10);
+    } else {
+        resultInput.value = nums;
     }
-    result.value = val;
 });
 
-// [수정됨] 손가락 줌(Pinch-to-zoom) 기능 복구 및 강화
-let pinchStartDist = null, pinchStartZoom = null;
-function getTouchDistance(touches){ return Math.sqrt(Math.pow(touches[0].clientX - touches[1].clientX, 2) + Math.pow(touches[0].clientY - touches[1].clientY, 2)); }
-camWrap.addEventListener('touchstart', (e) => { if (e.touches.length === 2) { pinchStartDist = getTouchDistance(e.touches); pinchStartZoom = currentZoom; } }, { passive: true });
-camWrap.addEventListener('touchmove', async (e) => {
-    if (e.touches.length === 2) {
-        e.preventDefault();
-        if (!pinchStartDist) return;
-        let ratio = getTouchDistance(e.touches) / pinchStartDist;
-        let newZoom = Math.max(1, Math.min(3, pinchStartZoom * ratio));
-        currentZoom = newZoom;
-        if(videoTrack) {
-            try { await videoTrack.applyConstraints({ advanced: [{ zoom: newZoom }] }); }
-            catch(err) { video.style.transform = `scale(${newZoom})`; }
-        }
-    }
-}, { passive: false });
-
-async function startCamera(){
+async function initCamera(){
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
         video.srcObject = stream;
         videoTrack = stream.getVideoTracks()[0];
-        cameraStarted = true; refreshCaptureAvailability();
-    } catch(e) { status.innerHTML = "⚠️ 카메라 권한 없음"; }
+        document.getElementById("camStatus").style.display = "none";
+    } catch(e) {
+        document.getElementById("camStatus").innerText = "⚠️ 카메라 사용 불가";
+    }
 }
-startCamera();
+initCamera();
 
-// [수정됨] 바코드를 우선 적용하고 실패 시 OCR 적용으로 인식률 및 속도 향상
+function setZoom(val) {
+    currentZoom = Math.max(1, Math.min(3, val));
+    zoomLabel.innerText = currentZoom.toFixed(1) + "x";
+    if (videoTrack) {
+        try { videoTrack.applyConstraints({ advanced: [{ zoom: currentZoom }] }); }
+        catch(e) { video.style.transform = `scale(${currentZoom})`; }
+    }
+}
+zoomInBtn.onclick = () => setZoom(currentZoom + 0.5);
+zoomOutBtn.onclick = () => setZoom(currentZoom - 0.5);
+
+torchBtn.onclick = async () => {
+    if (!videoTrack) return;
+    torchOn = !torchOn;
+    try {
+        await videoTrack.applyConstraints({ advanced: [{ torch: torchOn }] });
+        torchBtn.classList.toggle("on", torchOn);
+    } catch(e) {
+        alert("이 기기/브라우저에서는 플래시를 지원하지 않습니다.");
+    }
+};
+
 const codeReader = new ZXing.BrowserMultiFormatReader();
 captureBtn.onclick = async () => {
-    captureBtn.disabled = true; status.innerHTML = "🔍 인식중...";
+    status.innerHTML = "🔍 인식 진행 중...";
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth; canvas.height = video.videoHeight;
     canvas.getContext("2d").drawImage(video, 0, 0);
-    
-    let raw = null, source = "";
+
+    let lot = null;
     try {
         let img = new Image(); img.src = canvas.toDataURL();
         await new Promise(r => img.onload = r);
-        raw = (await codeReader.decodeFromImageElement(img)).getText();
-        source = "바코드";
+        lot = (await codeReader.decodeFromImageElement(img)).getText();
     } catch(e) {
         let { data: { text } } = await Tesseract.recognize(canvas.toDataURL(), 'eng');
         let match = text.replace(/\s+/g, '').match(/\d{10}-\d{3}/);
-        if (match) { raw = match[0]; source = "OCR"; }
+        if (match) lot = match[0];
     }
-    
-    if (raw) { result.value = raw; await showLotInfo(raw, source); }
-    else { status.innerHTML = "❌ 인식 실패. 다시 시도하거나 직접 입력하세요."; }
-    refreshCaptureAvailability();
+
+    if (lot) {
+        resultInput.value = lot;
+        await doLookup(lot);
+    } else {
+        status.innerHTML = "❌ 인식 실패. 손으로 직접 입력해주세요.";
+    }
 };
 
-document.getElementById("recheckBtn").onclick = async () => { await showLotInfo(result.value.trim(), "수동입력"); };
+recheckBtn.onclick = async () => {
+    const lot = resultInput.value.trim();
+    if (!lot) return alert("LOT 번호를 입력하세요.");
+    await doLookup(lot);
+};
 
-async function showLotInfo(lot, source){
-    status.innerHTML = `🔎 ${source} 조회중...`;
-    const info = await window.apiLookup(lot, scannerSelect.value, deptSelect.value);
-    if(info.found){
+async function doLookup(lot){
+    status.innerHTML = "🔎 조회 중...";
+    const res = await window.apiLookup(lot);
+    lotInfoBox.style.display = "block";
+
+    if (res.found) {
         lotInfoBox.className = "found";
-        lotInfoBox.innerHTML = `<div class="info-grid"><div class="info-label">품번</div><div class="info-value">${info.item_no}</div><div class="info-label">수량</div><div class="info-value big">${info.qty}</div></div>`;
-        lotInfoBox.style.display = "block"; qtyOverlay.style.display = "flex";
-        status.innerHTML = `✅ ${source} 완료`;
+        lotInfoBox.innerHTML = `
+            <div class="status-tag yes">✅ 최근 10일 재고 데이터 존재</div>
+            <div class="info-grid">
+                <div class="info-label">품번</div><div class="info-value">${res.item_no}</div>
+                <div class="info-label">품명</div><div class="info-value">${res.item_name}</div>
+                <div class="info-label">전산수량</div><div class="info-value big">${res.qty} ${res.unit}</div>
+            </div>
+            <div class="qty-input-box">
+                <input id="inputActualQty" type="number" placeholder="실사수량 입력">
+                <button id="saveQtyBtn">저장</button>
+            </div>
+            <div id="saveMsg" style="margin-top:6px;font-size:12px;font-weight:bold;text-align:center;"></div>
+        `;
+        status.innerHTML = "✅ 조회 완료. 실사 수량을 입력하세요.";
+
+        document.getElementById("saveQtyBtn").onclick = async () => {
+            const val = document.getElementById("inputActualQty").value;
+            if (val === "") return alert("수량을 입력해주세요.");
+            const saveRes = await window.apiSaveQty(lot, val);
+            document.getElementById("saveMsg").innerHTML = `<span style="color:#00e676;">✅ 저장 완료 (차이: ${saveRes.diff})</span>`;
+        };
     } else {
         lotInfoBox.className = "notfound";
-        lotInfoBox.innerHTML = `데이터 없음`; lotInfoBox.style.display = "block";
-        status.innerHTML = `⚠️ 데이터 없음`;
+        lotInfoBox.innerHTML = `
+            <div class="status-tag no">⚠️ 최근 10일 재고 데이터 없음</div>
+            <div class="info-grid">
+                <div class="info-label">LOT</div><div class="info-value">${lot}</div>
+            </div>
+            <div style="margin-top:8px;color:#ff8a8a;font-size:12px;">최근 업로드된 재고 리스트에 존재하지 않는 LOT입니다.</div>
+        `;
+        status.innerHTML = "⚠️ 재고 데이터 없음";
     }
 }
-
-qtySaveBtn.onclick = async () => {
-    await window.apiSaveQty(result.value, actualQtyInput.value);
-    qtyOverlay.style.display = "none";
-};
 </script>
 </body>
 </html>
