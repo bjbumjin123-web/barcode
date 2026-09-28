@@ -327,7 +327,7 @@ window.apiLookup = async function(lot){
         lot_no: lot,
         item_no: stockRow.item_no || '-',
         item_name: stockRow.item_name || '-',
-        qty: isRecent1Day ? Number(stockRow.qty || 0) : 0,
+        qty: Number(stockRow.qty || 0),
         unit: stockRow.unit || '',
         upload_date: stockRow.upload_date || '-'
     };
