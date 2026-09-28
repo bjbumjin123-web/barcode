@@ -49,35 +49,38 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 }
 #startDataBtn:active{ opacity:0.8; }
 
+/* 카메라 프레임 및 줌 영역 레이어 설정 */
 #camWrap{
     position:relative; width:100%; flex:0 0 auto; height:30vh; min-height:220px;
     background:#000; border-radius:12px; overflow:hidden; border:1px solid #333; touch-action:none;
 }
-#video{ width:100%; height:100%; object-fit:cover; display:block; position:relative; z-index:1; transform-origin:center center; }
+#video{ width:100%; height:100%; object-fit:cover; display:block; position:relative; z-index:1; transform-origin:center center; transition: transform 0.1s ease; }
+
+/* 녹색 가이드 박스가 항상 카메라 줌 위 레이어에 위치하도록 z-index 상향 조정 */
 #guideBox{
     position:absolute; left:50%; top:50%; width:280px; max-width:92%; height:78px;
     transform:translate(-50%,-50%); border:4px solid #00e676; border-radius:10px;
-    box-shadow:0 0 0 9999px rgba(0,0,0,0.6); pointer-events:none; z-index:2;
+    box-shadow:0 0 0 9999px rgba(0,0,0,0.6); pointer-events:none; z-index:10;
 }
 #guideLabel{
-    position:absolute; left:50%; top:46px; transform:translateX(-50%);
+    position:absolute; left:50%; top:calc(50% + 46px); transform:translateX(-50%);
     color:#00e676; font-weight:bold; font-size:12px; text-shadow:0 1px 4px #000;
-    pointer-events:none; z-index:3; text-align:center; white-space:nowrap;
+    pointer-events:none; z-index:11; text-align:center; white-space:nowrap;
 }
 #camStatus{
     position:absolute; left:50%; bottom:4%; transform:translateX(-50%); color:#fff;
     font-size:12px; background:rgba(0,0,0,0.6); padding:5px 12px; border-radius:20px;
-    pointer-events:none; z-index:3; text-align:center; white-space:nowrap;
+    pointer-events:none; z-index:12; text-align:center; white-space:nowrap;
 }
 #zoomControls{
     position:absolute; right:8px; top:8px; display:flex; align-items:center; gap:6px;
-    background:rgba(0,0,0,0.65); padding:4px 8px; border-radius:20px; z-index:10; white-space:nowrap;
+    background:rgba(0,0,0,0.65); padding:4px 8px; border-radius:20px; z-index:20; white-space:nowrap;
 }
 #zoomControls button{ width:28px; height:28px; border-radius:50%; border:none; background:#00e676; color:#111; font-weight:bold; font-size:15px; cursor:pointer; }
-#zoomLabel{ color:#fff; font-size:12px; min-width:32px; text-align:center; font-weight:bold; }
+#zoomLabel{ color:#fff; font-size:12px; min-width:36px; text-align:center; font-weight:bold; }
 #torchBtn{
     position:absolute; left:8px; top:8px; width:36px; height:36px; border-radius:50%;
-    border:none; background:rgba(0,0,0,0.65); color:#fff; font-size:18px; z-index:10; cursor:pointer;
+    border:none; background:rgba(0,0,0,0.65); color:#fff; font-size:18px; z-index:20; cursor:pointer;
 }
 #torchBtn.on{ background:#ffb84d; color:#111; }
 
@@ -112,27 +115,27 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 .info-value.big{ font-size:18px; color:#00e676; }
 
 #openQtyModalBtn{
-    width:100%; margin-top:10px; padding:10px 0; font-size:14px; font-weight:bold;
+    width:100%; margin-top:10px; padding:12px 0; font-size:15px; font-weight:bold;
     background:#00e676; color:#111; border:none; border-radius:8px; cursor:pointer;
 }
 
-/* 실수량 입력 전용 모달 팝업 */
+/* 화면 중앙 실수량 입력 모달 팝업 */
 #qtyModalOverlay{
-    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:2000;
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:3000;
     align-items:center; justify-content:center; padding:16px;
 }
 #qtyModalBox{
     background:#1c1c1c; border:2px solid #00e676; border-radius:14px; padding:20px;
-    max-width:360px; width:100%; text-align:center; box-shadow:0 4px 20px rgba(0,0,0,0.8);
+    max-width:360px; width:100%; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,0.9);
 }
 #qtyModalBox h3{ margin:0 0 8px; color:#00e676; font-size:18px; }
-#modalLotNo{ font-size:13px; color:#aaa; margin-bottom:14px; word-break:break-all; }
+#modalLotNo{ font-size:13px; color:#aaa; margin-bottom:14px; word-break:break-all; line-height:1.4; }
 #modalQtyInput{
-    width:100%; height:46px; font-size:22px; font-weight:bold; text-align:center;
+    width:100%; height:48px; font-size:22px; font-weight:bold; text-align:center;
     border-radius:8px; border:1px solid #00e676; background:#111; color:#fff; margin-bottom:14px;
 }
 .modal-btn-group{ display:flex; gap:8px; }
-.modal-btn-group button{ flex:1; height:42px; font-size:15px; font-weight:bold; border:none; border-radius:8px; cursor:pointer; }
+.modal-btn-group button{ flex:1; height:44px; font-size:15px; font-weight:bold; border:none; border-radius:8px; cursor:pointer; }
 #modalSaveBtn{ background:#00e676; color:#111; }
 #modalCloseBtn{ background:#444; color:#eee; }
 </style>
@@ -182,7 +185,7 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 
 <div id="lotInfo"></div>
 
-<!-- 실수량 입력 모달 팝업 -->
+<!-- 화면 중앙 실수량 입력 모달 팝업 -->
 <div id="qtyModalOverlay">
 <div id="qtyModalBox">
 <h3>📝 실수량 입력</h3>
@@ -259,7 +262,7 @@ function nowParts(){
     return { date, datetime: `${date} ${time}` };
 }
 
-// 최근 1일 / 10일 재고 판별 로직
+// 최근 1일(당일) vs 최근 10일 재고 조회 판별 로직
 window.apiLookup = async function(lot){
     lot = (lot || '').trim();
     if (!lot) return { found:false, error:'LOT 번호가 없습니다.' };
@@ -289,7 +292,7 @@ window.apiLookup = async function(lot){
         return { found: false, lot_no: lot };
     }
 
-    // 날짜 비교 (최근 1일 데이터 여부 확인)
+    // 최근 1일(당일 업로드) 데이터인지 검사
     const uploadDateStr = (stockRow.upload_date || '').substring(0, 10);
     const isRecent1Day = (uploadDateStr === today);
 
@@ -299,7 +302,7 @@ window.apiLookup = async function(lot){
         lot_no: lot,
         item_no: stockRow.item_no || '-',
         item_name: stockRow.item_name || '-',
-        // 최근 1일에 업로드된 것이 없으면 수량은 0 출력
+        // 최근 1일 재고에 없으면(10일 이내에만 있으면) 수량은 0 표시
         qty: isRecent1Day ? Number(stockRow.qty || 0) : 0,
         unit: stockRow.unit || '',
         upload_date: uploadDateStr
@@ -343,7 +346,7 @@ const zoomOutBtn = document.getElementById("zoomOut");
 const zoomLabel = document.getElementById("zoomLabel");
 const torchBtn = document.getElementById("torchBtn");
 
-// 모달 요소
+// 모달 엘리먼트
 const qtyModalOverlay = document.getElementById("qtyModalOverlay");
 const modalLotNo = document.getElementById("modalLotNo");
 const modalQtyInput = document.getElementById("modalQtyInput");
@@ -386,15 +389,23 @@ async function initCamera(){
 }
 initCamera();
 
-// 1. 줌 설정 및 손가락 터치 줌 (Pinch Zoom) 지원
+// 1. 최대 10x 줌 조절 및 손가락 터치 (Pinch Zoom) 기능
 function setZoom(val) {
-    currentZoom = Math.max(1, Math.min(3, val));
+    // 줌 범위를 최대 10x까지 허용
+    currentZoom = Math.max(1, Math.min(10, val));
     zoomLabel.innerText = currentZoom.toFixed(1) + "x";
+    
     if (videoTrack) {
-        try { videoTrack.applyConstraints({ advanced: [{ zoom: currentZoom }] }); }
-        catch(e) { video.style.transform = `scale(${currentZoom})`; }
+        try { 
+            videoTrack.applyConstraints({ advanced: [{ zoom: currentZoom }] }); 
+        } catch(e) { 
+            video.style.transform = `scale(${currentZoom})`; 
+        }
+    } else {
+        video.style.transform = `scale(${currentZoom})`;
     }
 }
+
 zoomInBtn.onclick = () => setZoom(currentZoom + 0.5);
 zoomOutBtn.onclick = () => setZoom(currentZoom - 0.5);
 
@@ -479,7 +490,7 @@ async function doLookup(lot){
 
     if (res.found) {
         let statusBadge = res.isRecent1Day 
-            ? `<div class="status-tag yes">✅ 최근 1일 재고 데이터 존재</div>` 
+            ? `<div class="status-tag yes">✅ 최근 1일(당일) 재고 데이터 존재</div>` 
             : `<div class="status-tag warn">⚠️ 최근 1일 데이터 없음 (10일 이내 등록품목 → 수량 0)</div>`;
 
         lotInfoBox.className = "found";
@@ -495,7 +506,7 @@ async function doLookup(lot){
         status.innerHTML = "✅ 조회 완료. 실수량을 입력하세요.";
 
         document.getElementById("openQtyModalBtn").onclick = () => openQtyModal(res);
-        // 조회 후 바로 실수량 모달 팝업 띄우기
+        // 조회 성공 시 중앙 수량 입력 모달 팝업 자동 오픈
         openQtyModal(res);
     } else {
         lotInfoBox.className = "notfound";
@@ -510,9 +521,9 @@ async function doLookup(lot){
     }
 }
 
-// 2. 실수량 입력 모달 팝업 조작
+// 2. 실수량 입력 전용 모달 팝업 제어
 function openQtyModal(res) {
-    modalLotNo.innerText = `LOT: ${res.lot_no} (${res.item_name})`;
+    modalLotNo.innerText = `LOT: ${res.lot_no}\n[${res.item_no}] ${res.item_name}`;
     modalQtyInput.value = "";
     modalMsg.innerText = "";
     qtyModalOverlay.style.display = "flex";
