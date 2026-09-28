@@ -218,28 +218,47 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-    initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, updateDoc, doc,
-    getDocs, query, where, orderBy, limit
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-const firebaseConfig = {
-    apiKey: "AIzaSyAGIPNxEoMs9yYuQV8gP2PG09bb_F23DrQ",
-    authDomain: "lot-bar.firebaseapp.com",
-    projectId: "lot-bar",
-    storageBucket: "lot-bar.firebasestorage.app",
-    messagingSenderId: "905334285763",
-    appId: "1:905334285763:web:53569a62031006a611c976"
-};
+const sb = createClient("https://siwaynipvwtwuoobyarp.supabase.co", "sb_publishable_lEKhT8TYzo368Hxfd0E8-Q_D9JEyO9Z");
 
-const app = initializeApp(firebaseConfig);
-const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-});
+// Firestore 스냅샷처럼 d.data() 로 읽을 수 있게 감싸는 도우미 (기존 코드 호환용)
+const wrap = r => ({ id: r.id, data: () => r });
 
-const STOCK_COL = "lot_stock";
-const LOG_COL = "lot_scan_log";
+// Supabase는 한 번에 1000행까지만 주므로 나눠서 전부 가져옴
+async function fetchAll(build){
+    const out = [];
+    for (let from = 0; ; from += 1000){
+        const { data, error } = await build().order('id').range(from, from + 999);
+        if (error) throw error;
+        data.forEach(r => out.push(wrap(r)));
+        if (data.length < 1000) break;
+    }
+    return out;
+}
+
+
+
+const STOCK_COL = "stock";
+const LOG_COL = "scan_log";
+
+// 스캔 기록 저장 실패(전파 불량 등) 시 기기에 임시 보관했다가 나중에 재전송
+const QUEUE_KEY = 'lot_scan_queue';
+function readQueue(){ try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch(e){ return []; } }
+function writeQueue(q){ try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); } catch(e){} }
+async function flushQueue(){
+    const q = readQueue();
+    if (!q.length) return;
+    const { error } = await sb.from(LOG_COL).insert(q);
+    if (!error) writeQueue([]);
+}
+async function insertScanLog(row){
+    const { error } = await sb.from(LOG_COL).insert(row);
+    if (error){ console.error(error); writeQueue([...readQueue(), row]); }
+    else flushQueue();
+}
+window.addEventListener('online', flushQueue);
+flushQueue();
 
 window.cachedStockMap = new Map();
 
@@ -254,7 +273,15 @@ window.download10DaysStock = async function(){
     const status = document.getElementById("status");
     status.innerHTML = "⏳ 최근 10일치 재고 데이터 다운로드 중...";
     try {
-        const snap = await getDocs(query(collection(db, STOCK_COL), orderBy('upload_date','desc'), limit(2000)));
+        const snap = [];
+        for (let from = 0; from < 2000; from += 1000){
+            const { data, error } = await sb.from(STOCK_COL).select('*')
+                .order('upload_date', { ascending:false }).order('run_at', { ascending:false }).order('id', { ascending:false })
+                .range(from, from + 999);
+            if (error) throw error;
+            data.forEach(r => snap.push(wrap(r)));
+            if (data.length < 1000) break;
+        }
         window.cachedStockMap.clear();
         let count = 0;
         snap.forEach(d => {
@@ -296,9 +323,10 @@ window.apiLookup = async function(lot){
 
     let stockRow = window.cachedStockMap.get(lot);
     if (!stockRow) {
-        const stockSnap = await getDocs(query(collection(db, STOCK_COL), where('lot_no','==',lot)));
-        let rows = [];
-        stockSnap.forEach(d => rows.push(d.data()));
+        const { data: foundRows, error: findErr } = await sb.from(STOCK_COL).select('*').eq('lot_no', lot)
+            .order('upload_date', { ascending:false }).order('run_at', { ascending:false }).limit(1);
+        if (findErr) throw findErr;
+        let rows = foundRows;
         if (rows.length > 0) {
             rows.sort((a,b) => (a.upload_date < b.upload_date ? 1 : -1));
             stockRow = rows[0];
@@ -306,7 +334,7 @@ window.apiLookup = async function(lot){
     }
 
     const { date: today, datetime: now } = nowParts();
-    await addDoc(collection(db, LOG_COL), {
+    await insertScanLog({
         lot_no: lot, scan_date: today, scanned_at: now,
         scanned_by: scanner, scan_dept: scanDept,
         actual_qty: null, diff: null
@@ -338,16 +366,17 @@ window.apiSaveQty = async function(lot, actualQtyRaw, systemQty){
     const diff = actualQty - systemQty;
     const { date: today, datetime: now } = nowParts();
 
-    const logSnap = await getDocs(query(collection(db, LOG_COL), where('lot_no','==',lot), where('scan_date','==',today)));
+    const logSnap = await fetchAll(() => sb.from(LOG_COL).select('*').eq('lot_no', lot).eq('scan_date', today));
     let logRows = [];
     logSnap.forEach(d => logRows.push({ id: d.id, ...d.data() }));
     logRows.sort((a,b) => (a.scanned_at > b.scanned_at ? -1 : 1));
     const target = logRows[0];
 
     if (target){
-        await updateDoc(doc(db, LOG_COL, target.id), { actual_qty: actualQty, diff: diff });
+        const { error: updErr } = await sb.from(LOG_COL).update({ actual_qty: actualQty, diff: diff }).eq('id', target.id);
+        if (updErr) throw updErr;
     } else {
-        await addDoc(collection(db, LOG_COL), {
+        await insertScanLog({
             lot_no: lot, scan_date: today, scanned_at: now, actual_qty: actualQty, diff: diff
         });
     }
@@ -506,7 +535,9 @@ recheckBtn.onclick = async () => {
 
 async function doLookup(lot){
     status.innerHTML = "🔎 조회 중...";
-    const res = await window.apiLookup(lot);
+    let res;
+    try { res = await window.apiLookup(lot); }
+    catch(e){ console.error(e); status.innerHTML = "❌ 조회 실패 - 네트워크를 확인하고 다시 시도하세요."; return; }
     currentLookupResult = res;
     lotInfoBox.style.display = "block";
 
@@ -563,7 +594,9 @@ modalSaveBtn.onclick = async () => {
     if (!currentLookupResult) return;
 
     modalMsg.innerHTML = "<span style='color:#4fc3ff;'>저장 중...</span>";
-    const saveRes = await window.apiSaveQty(currentLookupResult.lot_no, val, currentLookupResult.qty);
+    let saveRes;
+    try { saveRes = await window.apiSaveQty(currentLookupResult.lot_no, val, currentLookupResult.qty); }
+    catch(e){ console.error(e); modalMsg.innerHTML = "<span style='color:#ff8a8a;'>❌ 저장 실패 - 네트워크를 확인하고 다시 저장하세요.</span>"; return; }
     
     modalMsg.innerHTML = `<span style="color:#00e676;">✅ 저장 완료 (차이: ${saveRes.diff})</span>`;
     setTimeout(() => {

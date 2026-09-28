@@ -46,27 +46,28 @@ th{background:#222;color:#aaa;font-size:12px;}
 <div id="content"><div class="empty">날짜를 선택해주세요.</div></div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-    initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-    collection, query, where, getDocs
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-const firebaseConfig = {
-    apiKey: "AIzaSyAGIPNxEoMs9yYuQV8gP2PG09bb_F23DrQ",
-    authDomain: "lot-bar.firebaseapp.com",
-    projectId: "lot-bar",
-    storageBucket: "lot-bar.firebasestorage.app",
-    messagingSenderId: "905334285763",
-    appId: "1:905334285763:web:53569a62031006a611c976"
-};
+const sb = createClient("https://siwaynipvwtwuoobyarp.supabase.co", "sb_publishable_lEKhT8TYzo368Hxfd0E8-Q_D9JEyO9Z");
 
-const app = initializeApp(firebaseConfig);
-const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-});
+// Firestore 스냅샷처럼 d.data() 로 읽을 수 있게 감싸는 도우미 (기존 코드 호환용)
+const wrap = r => ({ id: r.id, data: () => r });
 
-const STOCK_COL = "lot_stock";
+// Supabase는 한 번에 1000행까지만 주므로 나눠서 전부 가져옴
+async function fetchAll(build){
+    const out = [];
+    for (let from = 0; ; from += 1000){
+        const { data, error } = await build().order('id').range(from, from + 999);
+        if (error) throw error;
+        data.forEach(r => out.push(wrap(r)));
+        if (data.length < 1000) break;
+    }
+    return out;
+}
+
+
+
+const STOCK_COL = "stock";
 
 const dateSelect = document.getElementById("dateSelect");
 const runSelect = document.getElementById("runSelect");
@@ -105,7 +106,7 @@ function friendlyErrorMessage(e){
 async function loadDateAndDeptOptions(){
     try {
         const cutoff = daysAgoKST(30);
-        const snap = await getDocs(query(collection(db, STOCK_COL), where('upload_date','>=',cutoff)));
+        const snap = await fetchAll(() => sb.from(STOCK_COL).select('lot_no,upload_date').gte('upload_date', cutoff));
         const dateLots = {};   // 날짜 -> 해당 날짜에 한 번이라도 관측된 lot_no Set (회차와 무관한 고유 건수)
         snap.forEach(d => {
             const r = d.data();
@@ -154,7 +155,7 @@ async function loadDate(uploadDate){
     }
     summaryBox.textContent = "불러오는 중...";
     try {
-        const snap = await getDocs(query(collection(db, STOCK_COL), where('upload_date','==',uploadDate)));
+        const snap = await fetchAll(() => sb.from(STOCK_COL).select('*').eq('upload_date', uploadDate));
         allRowsForDate = [];
         snap.forEach(d => allRowsForDate.push(d.data()));
         populateRunOptions();

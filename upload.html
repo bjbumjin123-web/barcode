@@ -53,31 +53,32 @@ button:disabled{background:#555;color:#999;}
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-    initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, setDoc,
-    getDocs, query, where, writeBatch
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-const firebaseConfig = {
-    apiKey: "AIzaSyAGIPNxEoMs9yYuQV8gP2PG09bb_F23DrQ",
-    authDomain: "lot-bar.firebaseapp.com",
-    projectId: "lot-bar",
-    storageBucket: "lot-bar.firebasestorage.app",
-    messagingSenderId: "905334285763",
-    appId: "1:905334285763:web:53569a62031006a611c976"
-};
+const sb = createClient("https://siwaynipvwtwuoobyarp.supabase.co", "sb_publishable_lEKhT8TYzo368Hxfd0E8-Q_D9JEyO9Z");
 
-const app = initializeApp(firebaseConfig);
+// Firestore 스냅샷처럼 d.data() 로 읽을 수 있게 감싸는 도우미 (기존 코드 호환용)
+const wrap = r => ({ id: r.id, data: () => r });
+
+// Supabase는 한 번에 1000행까지만 주므로 나눠서 전부 가져옴
+async function fetchAll(build){
+    const out = [];
+    for (let from = 0; ; from += 1000){
+        const { data, error } = await build().order('id').range(from, from + 999);
+        if (error) throw error;
+        data.forEach(r => out.push(wrap(r)));
+        if (data.length < 1000) break;
+    }
+    return out;
+}
+
+
 function todayKST(){
     const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year:"numeric", month:"2-digit", day:"2-digit" });
     return fmt.format(new Date());
 }
-const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-});
 
-const STOCK_COL = "lot_stock";
+const STOCK_COL = "stock";
 
 function nowDateTimeStr(){
     const fmt = new Intl.DateTimeFormat('en-CA', {
@@ -124,30 +125,23 @@ dateInput.value = todayKST();
 
 async function loadSummary(){
     try{
-        const snap = await getDocs(collection(db, STOCK_COL));
-        const dateSet = {};
-        let lastAt = null;
-        let total = 0;
-        snap.forEach(d => {
-            const r = d.data();
-            total++;
-            dateSet[r.upload_date] = true;
-            if (!lastAt || (r.uploaded_at || '') > lastAt) lastAt = r.uploaded_at;
-        });
-        const maxDate = Object.keys(dateSet).sort().pop() || null;
+        // 전체 재고를 읽지 않고, 날짜별 집계 뷰(stock_dates)만 조회
+        const { data: dates, error } = await sb.from('stock_dates').select('*').order('upload_date', { ascending:false });
+        if (error) throw error;
+        const total = dates.reduce((s, r) => s + Number(r.n), 0);
+        const lastAt = dates.reduce((m, r) => ((r.last_at || '') > m ? r.last_at : m), '');
+        const maxDate = dates.length ? dates[0].upload_date : null;
 
         const deptBreakdown = {};
         if (maxDate){
-            snap.forEach(d => {
-                const r = d.data();
-                if (r.upload_date === maxDate){
-                    const dep = r.department || '미분류';
-                    deptBreakdown[dep] = (deptBreakdown[dep] || 0) + 1;
-                }
+            const rows = await fetchAll(() => sb.from(STOCK_COL).select('department').eq('upload_date', maxDate));
+            rows.forEach(d => {
+                const dep = d.data().department || '미분류';
+                deptBreakdown[dep] = (deptBreakdown[dep] || 0) + 1;
             });
         }
 
-        let html = `누적 저장된 LOT 기록: <b>${total}</b>건<br>실사 날짜 종류: <b>${Object.keys(dateSet).length}</b>개<br>마지막 업로드: <b>${lastAt || '없음'}</b>`;
+        let html = `누적 저장된 LOT 기록: <b>${total}</b>건<br>실사 날짜 종류: <b>${dates.length}</b>개<br>마지막 업로드: <b>${lastAt || '없음'}</b>`;
         if (maxDate){
             html += `<br><br>최신 실사(${maxDate}) 부서별 분포:<br>`;
             html += Object.keys(deptBreakdown).map(d => `${d}: <b>${deptBreakdown[d]}</b>건`).join('&nbsp;&nbsp;');
@@ -163,7 +157,9 @@ async function checkDate(){
     const dt = dateInput.value;
     if (!dt) return;
     try{
-        const snap = await getDocs(query(collection(db, STOCK_COL), where('upload_date','==',dt)));
+        const { count, error: cntErr } = await sb.from(STOCK_COL).select('id', { count:'exact', head:true }).eq('upload_date', dt);
+        if (cntErr) throw cntErr;
+        const snap = { size: count || 0 };
         existingCountForDate = snap.size;
         if (existingCountForDate > 0){
             dateWarning.textContent = `⚠ 이 날짜에 이미 ${existingCountForDate}건의 데이터가 있습니다. 업로드하면 덮어씁니다.`;
@@ -271,32 +267,17 @@ async function uploadMaster(uploadDate, rows){
     if (missingInfoLots.length) validationWarnings.push(`⚠️ 품번/품명 빈 LOT (${missingInfoLots.length}건): ` + missingInfoLots.slice(0,15).join(', '));
     if (badFormatLots.length) validationWarnings.push(`⚠️ LOT 형식 이상 (${badFormatLots.length}건): ` + badFormatLots.slice(0,15).join(', '));
 
-    const existingSnap = await getDocs(query(collection(db, STOCK_COL), where('upload_date','==',uploadDate)));
-    const existingCountBefore = existingSnap.size;
-    const idByLot = {};
-    existingSnap.forEach(d => { idByLot[d.data().lot_no] = d.id; });
+    const { count: existingCount, error: cntErr } = await sb.from(STOCK_COL).select('id', { count:'exact', head:true }).eq('upload_date', uploadDate);
+    if (cntErr) throw cntErr;
+    const existingCountBefore = existingCount || 0;
 
     const uploadedAt = nowDateTimeStr();
-    let inserted = 0;
-    const savedRows = [];
-
-    let batch = writeBatch(db);
-    let opsInBatch = 0;
-
-    async function flushBatch(){
-        if (opsInBatch > 0){
-            await batch.commit();
-            batch = writeBatch(db);
-            opsInBatch = 0;
-        }
-    }
-
+    const byLot = {};   // 같은 LOT이 여러 번 있으면 마지막 행 값으로 저장
     for (const r of rows){
         const lotNo = (r.lot_no || '').trim();
         if (!lotNo) continue;
-
         const cls = classifyDepartment(r.ref || '', r.warehouse || '');
-        const docData = {
+        byLot[lotNo] = {
             lot_no: lotNo,
             item_no: (r.item_no || '').trim(),
             item_name: (r.item_name || '').trim(),
@@ -307,25 +288,15 @@ async function uploadMaster(uploadDate, rows){
             subcontract_type: cls.subcontractType,
             upload_date: uploadDate,
             uploaded_at: uploadedAt,
+            run_at: ''
         };
-
-        if (idByLot[lotNo]){
-            batch.set(doc(db, STOCK_COL, idByLot[lotNo]), docData);
-        } else {
-            const newRef = doc(collection(db, STOCK_COL));
-            batch.set(newRef, docData);
-            idByLot[lotNo] = newRef.id;
-        }
-        savedRows.push(docData);
-
-        opsInBatch++;
-        inserted++;
-
-        if (opsInBatch >= 400){
-            await flushBatch();
-        }
     }
-    await flushBatch();
+    const savedRows = Object.values(byLot);
+    for (let i = 0; i < savedRows.length; i += 500){
+        const { error: upErr } = await sb.from(STOCK_COL).upsert(savedRows.slice(i, i + 500), { onConflict: 'upload_date,lot_no,run_at' });
+        if (upErr) throw upErr;
+    }
+    const inserted = savedRows.length;
 
     let message = `✅ 업로드 완료: ${inserted}건 반영됨 (실사 날짜: ${uploadDate})`;
     if (existingCountBefore > 0) message += ` — 기존 ${existingCountBefore}건을 덮어썼습니다.`;

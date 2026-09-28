@@ -58,32 +58,34 @@ tr.dup{background:rgba(255,184,77,0.10);}
 <div id="content"><div class="empty">불러오는 중...</div></div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-    initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, query, where, getDocs, orderBy, limit
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-const firebaseConfig = {
-    apiKey: "AIzaSyAGIPNxEoMs9yYuQV8gP2PG09bb_F23DrQ",
-    authDomain: "lot-bar.firebaseapp.com",
-    projectId: "lot-bar",
-    storageBucket: "lot-bar.firebasestorage.app",
-    messagingSenderId: "905334285763",
-    appId: "1:905334285763:web:53569a62031006a611c976"
-};
+const sb = createClient("https://siwaynipvwtwuoobyarp.supabase.co", "sb_publishable_lEKhT8TYzo368Hxfd0E8-Q_D9JEyO9Z");
 
-const app = initializeApp(firebaseConfig);
+// Firestore 스냅샷처럼 d.data() 로 읽을 수 있게 감싸는 도우미 (기존 코드 호환용)
+const wrap = r => ({ id: r.id, data: () => r });
+
+// Supabase는 한 번에 1000행까지만 주므로 나눠서 전부 가져옴
+async function fetchAll(build){
+    const out = [];
+    for (let from = 0; ; from += 1000){
+        const { data, error } = await build().order('id').range(from, from + 999);
+        if (error) throw error;
+        data.forEach(r => out.push(wrap(r)));
+        if (data.length < 1000) break;
+    }
+    return out;
+}
+
+
 function todayKST(){
     const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year:"numeric", month:"2-digit", day:"2-digit" });
     return fmt.format(new Date());
 }
-const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-});
 
-const STOCK_COL = "lot_stock";
-const LOG_COL = "lot_scan_log";
-const CLOSE_LOG_COL = "lot_close_log";
+const STOCK_COL = "stock";
+const LOG_COL = "scan_log";
+const CLOSE_LOG_COL = "close_log";
 
 const dateInput = document.getElementById("dateInput");
 const deptSelect = document.getElementById("deptSelect");
@@ -121,12 +123,14 @@ function loadDepartments(){
 
 async function loadStockMap(){
     // 성능 개선: lot_stock 전체 이력을 다 긁지 않고, 최신(master) 날짜분만 조회
-    const masterSnap = await getDocs(query(collection(db, STOCK_COL), orderBy('upload_date','desc'), limit(1)));
+    const { data: top, error: topErr } = await sb.from(STOCK_COL).select('upload_date').order('upload_date', { ascending:false }).limit(1);
+    if (topErr) throw topErr;
+    const masterSnap = top.map(wrap);
     let masterDate = null;
     masterSnap.forEach(d => { masterDate = d.data().upload_date; });
     if (!masterDate) { stockByLot = {}; return; }
 
-    const snap = await getDocs(query(collection(db, STOCK_COL), where('upload_date','==',masterDate)));
+    const snap = await fetchAll(() => sb.from(STOCK_COL).select('*').eq('upload_date', masterDate));
     stockByLot = {};
     snap.forEach(d => {
         const r = d.data();
@@ -249,11 +253,11 @@ async function loadData(){
     try {
         await loadStockMap();
 
-        const logSnap = await getDocs(query(collection(db, LOG_COL), where('scan_date','==',dateInput.value)));
+        const logSnap = await fetchAll(() => sb.from(LOG_COL).select('*').eq('scan_date', dateInput.value));
         dateLogs = [];
         logSnap.forEach(d => dateLogs.push(d.data()));
 
-        const closeSnap = await getDocs(query(collection(db, CLOSE_LOG_COL), where('scan_date','==',dateInput.value)));
+        const closeSnap = await fetchAll(() => sb.from(CLOSE_LOG_COL).select('*').eq('scan_date', dateInput.value));
         dateCloseLogs = [];
         closeSnap.forEach(d => dateCloseLogs.push(d.data()));
 
