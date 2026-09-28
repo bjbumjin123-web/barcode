@@ -125,22 +125,23 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 }
 #qtyModalBox{
     background:#1c1c1c; border:2px solid #00e676; border-radius:14px; padding:18px;
-    max-width:360px; width:100%; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,0.9);
+    max-width:380px; width:100%; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,0.9);
 }
 #qtyModalBox h3{ margin:0 0 10px; color:#00e676; font-size:18px; }
 
-/* 1. 모달 LOT, 품번, 품명 각각 한 줄씩 정렬 스타일 */
+/* 📌 모달 내부: LOT, 품번, 품명, 전산수량 4줄 독립 박스 스타일 */
 .modal-info-group {
-    background:#111; border:1px solid #333; border-radius:8px; padding:10px 12px;
+    background:#111; border:1px solid #333; border-radius:8px; padding:8px 12px;
     margin-bottom:14px; text-align:left; font-size:13px;
 }
 .modal-info-item {
-    display:flex; justify-content:space-between; align-items:center;
-    padding:3px 0; border-bottom:1px solid #222;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding:6px 0; border-bottom:1px solid #222; gap:8px;
 }
 .modal-info-item:last-child { border-bottom:none; }
-.modal-info-label { color:#888; font-weight:bold; width:45px; flex-shrink:0; }
+.modal-info-label { color:#888; font-weight:bold; width:60px; flex-shrink:0; }
 .modal-info-val { color:#fff; font-weight:bold; word-break:break-all; text-align:right; flex-grow:1; }
+.modal-info-val.highlight { color:#00e676; font-size:15px; }
 
 #modalQtyInput{
     width:100%; height:48px; font-size:22px; font-weight:bold; text-align:center;
@@ -197,14 +198,15 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 
 <div id="lotInfo"></div>
 
-<!-- 화면 중앙 실수량 입력 모달 팝업 (1. LOT, 품번, 품명 각 한 줄씩 분리) -->
+<!-- 📌 모달 팝업: LOT, 품번, 품명, 전산수량 4줄 정렬 구조 -->
 <div id="qtyModalOverlay">
 <div id="qtyModalBox">
 <h3>📝 실수량 입력</h3>
 <div class="modal-info-group">
-    <div class="modal-info-item"><span class="modal-info-label">LOT</span><span id="modalLotNo" class="modal-info-val">-</span></div>
-    <div class="modal-info-item"><span class="modal-info-label">품번</span><span id="modalItemNo" class="modal-info-val">-</span></div>
-    <div class="modal-info-item"><span class="modal-info-label">품명</span><span id="modalItemName" class="modal-info-val">-</span></div>
+    <div class="modal-info-item"><span class="modal-info-label">1. LOT</span><span id="modalLotNo" class="modal-info-val">-</span></div>
+    <div class="modal-info-item"><span class="modal-info-label">2. 품번</span><span id="modalItemNo" class="modal-info-val">-</span></div>
+    <div class="modal-info-item"><span class="modal-info-label">3. 품명</span><span id="modalItemName" class="modal-info-val">-</span></div>
+    <div class="modal-info-item"><span class="modal-info-label">4. 전산수량</span><span id="modalSysQty" class="modal-info-val highlight">-</span></div>
 </div>
 <input id="modalQtyInput" type="number" placeholder="실사수량 입력">
 <div class="modal-btn-group">
@@ -241,11 +243,11 @@ const LOG_COL = "lot_scan_log";
 
 window.cachedStockMap = new Map();
 
-// 날짜 포맷 변환 보조 함수 (특수문자 제거 후 8자리 YYYYMMDD 추출)
+// 날짜 유연 비교 보조 함수 (특수문자 제거 후 8자리 숫자만 추출하여 비교)
 function cleanDate8Digits(str) {
     if (!str) return '';
     const digits = String(str).replace(/[^0-9]/g, '');
-    return digits.substring(0, 8); // 예: '20260928'
+    return digits.substring(0, 8);
 }
 
 window.download10DaysStock = async function(){
@@ -314,7 +316,7 @@ window.apiLookup = async function(lot){
         return { found: false, lot_no: lot };
     }
 
-    // 2. 파이썬/DB 업로드 날짜 포맷 차이 완벽 호환 (YYYYMMDD 8자리 숫자 비교)
+    // 날짜 포맷 차이 완벽 호환 (YYYYMMDD 8자리 유연 비교)
     const todayNum = cleanDate8Digits(today);
     const uploadNum = cleanDate8Digits(stockRow.upload_date);
     const isRecent1Day = (uploadNum !== '' && uploadNum === todayNum);
@@ -374,6 +376,7 @@ const qtyModalOverlay = document.getElementById("qtyModalOverlay");
 const modalLotNo = document.getElementById("modalLotNo");
 const modalItemNo = document.getElementById("modalItemNo");
 const modalItemName = document.getElementById("modalItemName");
+const modalSysQty = document.getElementById("modalSysQty");
 const modalQtyInput = document.getElementById("modalQtyInput");
 const modalSaveBtn = document.getElementById("modalSaveBtn");
 const modalCloseBtn = document.getElementById("modalCloseBtn");
@@ -384,7 +387,6 @@ let videoTrack = null;
 let torchOn = false;
 let currentLookupResult = null;
 
-// 작성자 및 실사부서 자동 복원
 (function restoreSavedInfo() {
     const savedScanner = localStorage.getItem("lot_scanner_name");
     const savedDept = localStorage.getItem("lot_scanner_dept");
@@ -540,11 +542,12 @@ async function doLookup(lot){
     }
 }
 
-// 1. 모달 개별 바인딩 (LOT, 품번, 품명 각 한 줄씩 분리 표시)
+// 📌 4줄로 세분화하여 모달에 개별 출력 (LOT / 품번 / 품명 / 전산수량)
 function openQtyModal(res) {
     modalLotNo.innerText = res.lot_no || '-';
     modalItemNo.innerText = res.item_no || '-';
     modalItemName.innerText = res.item_name || '-';
+    modalSysQty.innerText = `${res.qty} ${res.unit || ''}`;
     
     modalQtyInput.value = "";
     modalMsg.innerText = "";
