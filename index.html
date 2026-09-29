@@ -1144,10 +1144,9 @@ function handleRecognitionFail(){
         resultInput.value = "";
         resultInput.classList.add("attention");
         setTimeout(function(){ resultInput.classList.remove("attention"); }, 4000);
-        // 다른 입력칸(작성자 등)의 문자 키보드가 남아있으면 숫자 자판으로 안 바뀌는 경우가 있어서 blur 후 다시 focus
         resultInput.setAttribute("inputmode", "numeric");
-        resultInput.blur();
-        setTimeout(function(){ resultInput.focus(); bringTypingIntoView(); }, 50);
+        resultInput.focus();
+        bringTypingIntoView();
     } else {
         status.innerHTML = "❌ 인식 실패 (" + recogFailCount + "/3) - 초록 박스에 맞춰 다시 촬영해주세요.";
     }
