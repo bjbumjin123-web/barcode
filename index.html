@@ -50,6 +50,13 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 #startDataBtn:active{ opacity:0.8; }
 #startDataBtn.closeMode{ background:#ffb84d; }
 
+/* 마감 모드 진행바 (작게) */
+#closeProgress{ display:none; align-items:center; gap:6px; margin:-2px 0 6px; flex:0 0 auto; }
+#closeProgressBar{ flex:1 1 auto; height:6px; background:#2a2a2a; border-radius:3px; overflow:hidden; }
+#closeProgressFill{ height:100%; width:0%; background:#00e676; transition:width 0.3s; }
+#closeProgressText{ flex:0 0 auto; font-size:11px; color:#4fc3ff; white-space:nowrap; letter-spacing:-0.3px; }
+#closeProgressText b{ color:#00e676; }
+
 /* 마감 모달 */
 #closeModalOverlay{
     display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:2900;
@@ -198,6 +205,7 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 </div>
 
 <button id="startDataBtn">🚀 시작 (최근 10일 재고 데이터 다운로드)</button>
+<div id="closeProgress"><div id="closeProgressBar"><div id="closeProgressFill"></div></div><span id="closeProgressText"></span></div>
 <div id="networkStatus">🟢 네트워크 확인 중...</div>
 
 <div id="scannerRow">
@@ -307,6 +315,18 @@ window.cachedStockMap = new Map();
 
 // 재고 캐시 영속 저장 (새로고침해도 유지, 마감 시 삭제)
 const CACHE_KEY = 'lot_stock_cache_v1';
+// 오늘 스캔된 LOT 집합 (진행바/마감 공용) - 서버 기록 + 미전송 오프라인 큐
+window.scannedTodaySet = new Set();
+window.syncScannedToday = async function(){
+    const { date: today } = nowParts();
+    const logs = await fetchAll(() => sb.from(LOG_COL).select('lot_no').eq('scan_date', today));
+    const set = new Set();
+    logs.forEach(d => set.add(d.data().lot_no));
+    readQueue().forEach(q => { if (q.scan_date === today) set.add(q.lot_no); });
+    window.scannedTodaySet = set;
+    return set;
+};
+
 window.saveStockCache = function(){
     try {
         localStorage.setItem(CACHE_KEY, JSON.stringify({
@@ -403,6 +423,7 @@ window.apiLookup = async function(lot){
         scanned_by: scanner, scan_dept: scanDept,
         actual_qty: null, diff: null
     });
+    window.scannedTodaySet.add(lot);   // 진행바 즉시 반영
 
     if (!stockRow) {
         return { found: false, lot_no: lot };
@@ -432,11 +453,7 @@ window.apiRemaining = async function(dept){
     const masterRows = rows.filter(r => cleanDate8Digits(r.upload_date) === master);
     const deptRows = masterRows.filter(r => (r.department || '') === dept);
 
-    const { date: today } = nowParts();
-    const scanned = new Set();
-    const logs = await fetchAll(() => sb.from(LOG_COL).select('lot_no').eq('scan_date', today));
-    logs.forEach(d => scanned.add(d.data().lot_no));
-    readQueue().forEach(q => { if (q.scan_date === today) scanned.add(q.lot_no); });   // 아직 전송 안 된 오프라인 스캔 포함
+    const scanned = await window.syncScannedToday();   // 미전송 오프라인 스캔 포함
 
     const items = deptRows.filter(r => !scanned.has(r.lot_no))
         .sort((a,b) => String(a.item_no||'').localeCompare(String(b.item_no||'')) || String(a.lot_no).localeCompare(String(b.lot_no)));
@@ -514,10 +531,38 @@ let currentLookupResult = null;
 })();
 
 scannerInput.addEventListener("input", () => localStorage.setItem("lot_scanner_name", scannerInput.value.trim()));
-deptSelect.addEventListener("change", () => localStorage.setItem("lot_scanner_dept", deptSelect.value));
+deptSelect.addEventListener("change", () => { localStorage.setItem("lot_scanner_dept", deptSelect.value); if (window.updateProgressBar) window.updateProgressBar(); });
 
 const START_LABEL = "🚀 시작 (최근 10일 재고 데이터 다운로드)";
 const CLOSE_LABEL = "🏁 마감 (남은 LOT 확인)";
+
+const closeProgress = document.getElementById("closeProgress");
+const closeProgressFill = document.getElementById("closeProgressFill");
+const closeProgressText = document.getElementById("closeProgressText");
+
+// 진행바: 캐시의 최신 업로드분 중 선택 부서(미선택 시 전체)의 확인 건수
+window.updateProgressBar = function(){
+    const has = window.cachedStockMap && window.cachedStockMap.size > 0;
+    closeProgress.style.display = has ? "flex" : "none";
+    if (!has) return;
+    const rows = Array.from(window.cachedStockMap.values());
+    let master = "";
+    rows.forEach(r => { const d = String(r.upload_date || "").replace(/[^0-9]/g, "").substring(0, 8); if (d > master) master = d; });
+    const dept = deptSelect.value;
+    const target = rows.filter(r =>
+        String(r.upload_date || "").replace(/[^0-9]/g, "").substring(0, 8) === master && (!dept || r.department === dept));
+    const set = window.scannedTodaySet || new Set();
+    const checked = target.filter(r => set.has(r.lot_no)).length;
+    const pct = target.length ? Math.round(checked / target.length * 100) : 0;
+    closeProgressFill.style.width = pct + "%";
+    closeProgressText.innerHTML = `${dept || "전체"} <b>${checked}</b>/${target.length}건`;
+};
+
+window.syncProgress = async function(){
+    if (!window.cachedStockMap || window.cachedStockMap.size === 0) return;
+    try { await window.syncScannedToday(); } catch(e) { console.error(e); }
+    window.updateProgressBar();
+};
 
 // 캐시가 있으면 [마감] 버튼, 없으면 [시작] 버튼
 window.refreshStartBtn = function(){
@@ -526,7 +571,12 @@ window.refreshStartBtn = function(){
     startDataBtn.classList.toggle("closeMode", has);
     captureBtn.disabled = !has;
     if (has && !status.textContent.trim()) status.innerHTML = `✅ 재고 캐시 ${window.cachedStockMap.size}건 사용 중`;
+    window.updateProgressBar();
+    if (has) window.syncProgress();
 };
+
+// 다른 사람의 스캔도 반영되도록 2분마다 서버와 동기화
+setInterval(() => { if (!document.hidden) window.syncProgress(); }, 120000);
 
 const closeModalOverlay = document.getElementById("closeModalOverlay");
 const closeSummary = document.getElementById("closeSummary");
@@ -549,6 +599,7 @@ async function openCloseModal(){
 
     try {
         const r = await window.apiRemaining(dept);
+        window.updateProgressBar();
         closeRemainingCount = r.remaining;
         closeSummary.innerHTML =
             `기준: ${esc(r.master_date)} 업로드분 · <b>${esc(dept)}</b><br>` +
@@ -702,6 +753,7 @@ async function doLookup(lot){
     try { res = await window.apiLookup(lot); }
     catch(e){ console.error(e); status.innerHTML = "❌ 조회 실패 - 네트워크를 확인하고 다시 시도하세요."; return; }
     currentLookupResult = res;
+    if (window.updateProgressBar) window.updateProgressBar();
     lotInfoBox.style.display = "block";
 
     if (res.found) {
