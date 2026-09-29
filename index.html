@@ -44,10 +44,16 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 #deptSelect { border:1px solid #ffb84d; }
 
 #startDataBtn{
-    display:block; width:100%; margin-bottom:8px; padding:12px 0; font-size:15px; font-weight:bold;
+    display:block; width:100%; margin-bottom:6px; padding:12px 0; font-size:15px; font-weight:bold;
     color:#111; background:#4fc3ff; border:none; border-radius:10px; cursor:pointer; flex:0 0 auto;
 }
 #startDataBtn:active{ opacity:0.8; }
+
+/* 네트워크 상태 표시바 */
+#networkStatus {
+    text-align:center; font-size:12px; font-weight:bold; margin-bottom:8px;
+    padding:4px 0; border-radius:6px; background:#1c1c1c; flex:0 0 auto;
+}
 
 /* 카메라 프레임 및 줌 영역 레이어 설정 */
 #camWrap{
@@ -129,7 +135,7 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 }
 #qtyModalBox h3{ margin:0 0 10px; color:#00e676; font-size:18px; }
 
-/* 📌 모달 내부: LOT, 품번, 품명, 전산수량 4줄 독립 박스 스타일 */
+/* 모달 내부 정보 표시 그룹 */
 .modal-info-group {
     background:#111; border:1px solid #333; border-radius:8px; padding:8px 12px;
     margin-bottom:14px; text-align:left; font-size:13px;
@@ -165,6 +171,7 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 </div>
 
 <button id="startDataBtn">🚀 시작 (최근 10일 재고 데이터 다운로드)</button>
+<div id="networkStatus">🟢 네트워크 확인 중...</div>
 
 <div id="scannerRow">
 <input id="scannerInput" type="text" placeholder="작성자 입력 (최초 1회 입력 시 자동 저장)">
@@ -198,7 +205,7 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 
 <div id="lotInfo"></div>
 
-<!-- 📌 모달 팝업: LOT, 품번, 품명, 전산수량 4줄 정렬 구조 -->
+<!-- 모달 팝업: LOT, 품번, 품명, 전산수량 정렬 구조 -->
 <div id="qtyModalOverlay">
 <div id="qtyModalBox">
 <h3>📝 실수량 입력</h3>
@@ -222,10 +229,8 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
 const sb = createClient("https://siwaynipvwtwuoobyarp.supabase.co", "sb_publishable_lEKhT8TYzo368Hxfd0E8-Q_D9JEyO9Z");
 
-// Firestore 스냅샷처럼 d.data() 로 읽을 수 있게 감싸는 도우미 (기존 코드 호환용)
 const wrap = r => ({ id: r.id, data: () => r });
 
-// Supabase는 한 번에 1000행까지만 주므로 나눠서 전부 가져옴
 async function fetchAll(build){
     const out = [];
     for (let from = 0; ; from += 1000){
@@ -237,12 +242,10 @@ async function fetchAll(build){
     return out;
 }
 
-
-
 const STOCK_COL = "stock";
 const LOG_COL = "scan_log";
 
-// 스캔 기록 저장 실패(전파 불량 등) 시 기기에 임시 보관했다가 나중에 재전송
+// 오프라인 큐 로직
 const QUEUE_KEY = 'lot_scan_queue';
 function readQueue(){ try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch(e){ return []; } }
 function writeQueue(q){ try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); } catch(e){} }
@@ -262,7 +265,6 @@ flushQueue();
 
 window.cachedStockMap = new Map();
 
-// 날짜 유연 비교 보조 함수 (특수문자 제거 후 8자리 숫자만 추출하여 비교)
 function cleanDate8Digits(str) {
     if (!str) return '';
     const digits = String(str).replace(/[^0-9]/g, '');
@@ -344,7 +346,6 @@ window.apiLookup = async function(lot){
         return { found: false, lot_no: lot };
     }
 
-    // 날짜 포맷 차이 완벽 호환 (YYYYMMDD 8자리 유연 비교)
     const todayNum = cleanDate8Digits(today);
     const uploadNum = cleanDate8Digits(stockRow.upload_date);
     const isRecent1Day = (uploadNum !== '' && uploadNum === todayNum);
@@ -355,7 +356,7 @@ window.apiLookup = async function(lot){
         lot_no: lot,
         item_no: stockRow.item_no || '-',
         item_name: stockRow.item_name || '-',
-        qty: isRecent1Day ? Number(stockRow.qty || 0) : 0, // 📌 당일 최신 데이터가 아니면 수량을 0으로 강제 설정
+        qty: isRecent1Day ? Number(stockRow.qty || 0) : 0,
         unit: stockRow.unit || '',
         upload_date: stockRow.upload_date || '-'
     };
@@ -573,7 +574,6 @@ async function doLookup(lot){
     }
 }
 
-// 📌 4줄로 세분화하여 모달에 개별 출력 (LOT / 품번 / 품명 / 전산수량)
 function openQtyModal(res) {
     modalLotNo.innerText = res.lot_no || '-';
     modalItemNo.innerText = res.item_no || '-';
@@ -588,21 +588,52 @@ function openQtyModal(res) {
 
 modalCloseBtn.onclick = () => qtyModalOverlay.style.display = "none";
 
+// 📌 보완된 수량 저장 버튼 클릭 로직
 modalSaveBtn.onclick = async () => {
     const val = modalQtyInput.value;
     if (val === "") return alert("실수량을 입력해 주세요.");
     if (!currentLookupResult) return;
 
+    // 네트워크 끊김 상태 감지 시 사전 예외 처리
+    if (!navigator.onLine) {
+        modalMsg.innerHTML = "<span style='color:#ffb84d;'>⚠️ 현재 오프라인 상태입니다. 신호가 잡히는 곳에서 '저장'을 다시 눌러주세요.</span>";
+        return;
+    }
+
     modalMsg.innerHTML = "<span style='color:#4fc3ff;'>저장 중...</span>";
     let saveRes;
-    try { saveRes = await window.apiSaveQty(currentLookupResult.lot_no, val, currentLookupResult.qty); }
-    catch(e){ console.error(e); modalMsg.innerHTML = "<span style='color:#ff8a8a;'>❌ 저장 실패 - 네트워크를 확인하고 다시 저장하세요.</span>"; return; }
+    try { 
+        saveRes = await window.apiSaveQty(currentLookupResult.lot_no, val, currentLookupResult.qty); 
+    } catch(e) { 
+        console.error(e); 
+        // 전송 실패 시 모달 창을 닫지 않고 입력값과 상태 유지
+        modalMsg.innerHTML = "<span style='color:#ff8a8a;'>❌ 통신이 불안정합니다. 창을 닫지 말고 잠시 후 '저장'을 다시 눌러주세요.</span>"; 
+        return; 
+    }
     
     modalMsg.innerHTML = `<span style="color:#00e676;">✅ 저장 완료 (차이: ${saveRes.diff})</span>`;
     setTimeout(() => {
         qtyModalOverlay.style.display = "none";
     }, 600);
 };
+
+// 📌 네트워크 상태 실시간 표시 및 UI 업데이트
+function updateNetworkUI() {
+    const statusDiv = document.getElementById('networkStatus');
+    if (!statusDiv) return;
+    
+    if (navigator.onLine) {
+        statusDiv.innerHTML = "🟢 온라인 (데이터 저장 가능)";
+        statusDiv.style.color = "#00e676";
+    } else {
+        statusDiv.innerHTML = "🔴 오프라인 (신호 미약 - 인터넷 이동 필요)";
+        statusDiv.style.color = "#ff8a8a";
+    }
+}
+
+window.addEventListener('online', updateNetworkUI);
+window.addEventListener('offline', updateNetworkUI);
+updateNetworkUI();
 </script>
 </body>
 </html>
