@@ -1165,7 +1165,10 @@ captureBtn.onclick = async () => {
     // iOS는 터치 직후가 아니면 키보드를 못 띄우므로, 3번째 시도일 때 터치 순간에 숨은 입력칸으로 숫자 키보드를 미리 올려둠
     // (실패하면 handleRecognitionFail에서 LOT 입력칸으로 포커스만 옮겨서 키보드가 유지됨)
     var kbProxy = document.getElementById("kbProxy");
-    if (recogFailCount >= 2) { try { kbProxy.focus({ preventScroll: true }); } catch(e){} }
+    if (recogFailCount >= 2) {
+        try { kbProxy.focus({ preventScroll: true }); } catch(e){}
+        bringTypingIntoView();   // 키보드가 올라오는 것과 동시에 화면도 위로 올림 (키보드 애니메이션 중에도 visualViewport resize로 계속 맞춤)
+    }
 
     capturing = true; captureBtn.disabled = true;
     status.innerHTML = "🔍 인식 중...";
@@ -1180,7 +1183,13 @@ captureBtn.onclick = async () => {
             handleRecognitionFail();
         }
     } finally {
-        if (document.activeElement === kbProxy) kbProxy.blur();   // 인식 성공 등으로 입력칸이 안 열렸으면 키보드 닫기
+        if (document.activeElement === kbProxy) {   // 인식 성공 등으로 입력칸이 안 열렸으면 키보드 닫고 화면 원위치
+            kbProxy.blur();
+            typingMode = false;
+            setTimeout(function(){ if (!typingMode) document.body.classList.remove("kb-open"); }, 300);
+            if (scrolledForTyping){ scrolledForTyping = false; window.scrollTo(0, 0); }
+            try { var pr = video.play(); if (pr && pr.catch) pr.catch(function(){}); } catch(e){}
+        }
         capturing = false;
         captureBtn.disabled = !(window.cachedStockMap && window.cachedStockMap.size > 0);
     }
