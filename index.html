@@ -1145,7 +1145,10 @@ function handleRecognitionFail(){
         resultInput.classList.add("attention");
         setTimeout(function(){ resultInput.classList.remove("attention"); }, 4000);
         resultInput.setAttribute("inputmode", "numeric");
+        // 입력칸을 선택 + 커서까지 넣어서 휴대폰 키보드가 뜨도록 함
         resultInput.focus();
+        try { resultInput.click(); } catch(e){}
+        try { resultInput.select(); resultInput.setSelectionRange(0, resultInput.value.length); } catch(e){}
         bringTypingIntoView();
     } else {
         status.innerHTML = "❌ 인식 실패 (" + recogFailCount + "/3) - 초록 박스에 맞춰 다시 촬영해주세요.";
