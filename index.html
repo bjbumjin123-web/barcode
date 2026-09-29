@@ -1,639 +1,167 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>LOT 스캐너</title>
-<meta property="og:title" content="LOT 스캐너">
-<script>
-(function(){
-    var ua = navigator.userAgent || navigator.vendor || window.opera || '';
-    var knownInAppPatterns = [/KAKAOTALK/i, /FBAN|FBAV/i, /Instagram/i, /Line\//i, /NAVER\(inapp/i, /MicroMessenger/i, /; wv\)/i];
-    if (knownInAppPatterns.some(function(p){ return p.test(ua); }) && /Android/i.test(ua)) {
-        location.href = "intent://" + location.href.replace(/^https?:\/\//i, '') + "#Intent;scheme=https;package=com.android.chrome;end";
-    }
-})();
-</script>
-<script src="https://unpkg.com/@zxing/library@latest"></script>
-<script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
-<style>
-html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
-*{ box-sizing:border-box; }
-html, body{ min-height:100%; overflow-x:hidden; }
-body{
-    font-family:-apple-system, "Malgun Gothic", Arial, sans-serif;
-    background:#111; color:#eee; margin:0; padding:10px 8px 30px;
-    max-width:600px; margin-left:auto; margin-right:auto;
-    display:flex; flex-direction:column;
-}
-h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto; white-space:nowrap; }
-
-.navbar { 
-    position: sticky; top: 0; z-index: 1000; background: #111; 
-    padding: 8px 0; margin: 0 -6px 10px -6px; flex: 0 0 auto; 
-    display: flex; justify-content: center; gap: 4px; flex-wrap: nowrap; overflow-x: auto; 
-}
-.navbar a{ color:#4fc3ff; font-size:12px; text-decoration:none; padding:5px 6px; border:1px solid #2a4a5c; border-radius:10px; white-space:nowrap; }
-
-#scannerRow, #deptRow { display:flex; gap:4px; margin-bottom:6px; flex:0 0 auto; }
-#scannerInput, #deptSelect {
-    flex:1 1 auto; width:100%; height:32px; font-size:13px; padding:2px 8px;
-    border-radius:6px; background:#1c1c1c; color:#eee;
-}
-#scannerInput { border:1px solid #444; }
-#deptSelect { border:1px solid #ffb84d; }
-
-#startDataBtn{
-    display:block; width:100%; margin-bottom:6px; padding:12px 0; font-size:15px; font-weight:bold;
-    color:#111; background:#4fc3ff; border:none; border-radius:10px; cursor:pointer; flex:0 0 auto;
-}
-#startDataBtn:active{ opacity:0.8; }
-
-/* 네트워크 상태 표시바 */
-#networkStatus {
-    text-align:center; font-size:12px; font-weight:bold; margin-bottom:8px;
-    padding:4px 0; border-radius:6px; background:#1c1c1c; flex:0 0 auto;
-}
-
-/* 카메라 프레임 및 줌 영역 레이어 설정 */
-#camWrap{
-    position:relative; width:100%; flex:0 0 auto; height:30vh; min-height:220px;
-    background:#000; border-radius:12px; overflow:hidden; border:1px solid #333; touch-action:none;
-}
-#video{ width:100%; height:100%; object-fit:cover; display:block; position:relative; z-index:1; transform-origin:center center; transition: transform 0.1s ease; }
-
-#guideBox{
-    position:absolute; left:50%; top:50%; width:280px; max-width:92%; height:78px;
-    transform:translate(-50%,-50%); border:4px solid #00e676; border-radius:10px;
-    box-shadow:0 0 0 9999px rgba(0,0,0,0.6); pointer-events:none; z-index:10;
-}
-#guideLabel{
-    position:absolute; left:50%; top:calc(50% + 46px); transform:translateX(-50%);
-    color:#00e676; font-weight:bold; font-size:12px; text-shadow:0 1px 4px #000;
-    pointer-events:none; z-index:11; text-align:center; white-space:nowrap;
-}
-#camStatus{
-    position:absolute; left:50%; bottom:4%; transform:translateX(-50%); color:#fff;
-    font-size:12px; background:rgba(0,0,0,0.6); padding:5px 12px; border-radius:20px;
-    pointer-events:none; z-index:12; text-align:center; white-space:nowrap;
-}
-#zoomControls{
-    position:absolute; right:8px; top:8px; display:flex; align-items:center; gap:6px;
-    background:rgba(0,0,0,0.65); padding:4px 8px; border-radius:20px; z-index:20; white-space:nowrap;
-}
-#zoomControls button{ width:28px; height:28px; border-radius:50%; border:none; background:#00e676; color:#111; font-weight:bold; font-size:15px; cursor:pointer; }
-#zoomLabel{ color:#fff; font-size:12px; min-width:36px; text-align:center; font-weight:bold; }
-#torchBtn{
-    position:absolute; left:8px; top:8px; width:36px; height:36px; border-radius:50%;
-    border:none; background:rgba(0,0,0,0.65); color:#fff; font-size:18px; z-index:20; cursor:pointer;
-}
-#torchBtn.on{ background:#ffb84d; color:#111; }
-
-#captureBtn{
-    display:block; width:100%; margin:8px 0; padding:12px 0; font-size:16px; font-weight:bold;
-    color:#111; background:#00e676; border:none; border-radius:10px;
-    cursor:pointer; flex:0 0 auto;
-}
-#captureBtn:disabled{ background:#555; color:#999; }
-#status{ margin-top:2px; font-weight:bold; color:#4fc3ff; text-align:center; font-size:12px; min-height:16px; flex:0 0 auto; }
-
-#resultRow{ display:flex; gap:6px; margin-top:6px; flex:0 0 auto; }
-#result{
-    flex:1 1 auto; width:100%; height:40px; font-size:16px; font-weight:bold;
-    padding:6px 10px; border-radius:8px; border:1px solid #444; background:#1c1c1c; color:#eee;
-    letter-spacing:1px;
-}
-#recheckBtn{ flex:0 0 auto; padding:0 14px; font-size:13px; font-weight:bold; color:#111; background:#4fc3ff; border:none; border-radius:8px; cursor:pointer; }
-
-#lotInfo{ margin-top:8px; padding:12px; background:#1c1c1c; border:1px solid #333; border-radius:10px; display:none; flex:0 0 auto; }
-#lotInfo.found{ border-color:#2a9d2a; }
-#lotInfo.notfound{ border-color:#cc4444; }
-
-.status-tag{ font-size:12px; font-weight:bold; padding:4px 8px; border-radius:6px; display:inline-block; margin-bottom:8px; }
-.status-tag.yes{ background:rgba(0,230,118,0.2); color:#00e676; border:1px solid #00e676; }
-.status-tag.warn{ background:rgba(255,184,77,0.2); color:#ffb84d; border:1px solid #ffb84d; }
-.status-tag.no{ background:rgba(255,138,138,0.2); color:#ff8a8a; border:1px solid #ff8a8a; }
-
-.info-grid{ display:grid; grid-template-columns:55px 1fr; row-gap:6px; column-gap:6px; align-items:center; }
-.info-label{ color:#888; font-size:12px; }
-.info-value{ font-size:15px; font-weight:bold; color:#eee; word-break:break-all; }
-.info-value.big{ font-size:18px; color:#00e676; }
-
-#openQtyModalBtn{
-    width:100%; margin-top:10px; padding:12px 0; font-size:15px; font-weight:bold;
-    background:#00e676; color:#111; border:none; border-radius:8px; cursor:pointer;
-}
-
-/* 화면 중앙 실수량 입력 모달 팝업 */
-#qtyModalOverlay{
-    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:3000;
-    align-items:center; justify-content:center; padding:16px;
-}
-#qtyModalBox{
-    background:#1c1c1c; border:2px solid #00e676; border-radius:14px; padding:18px;
-    max-width:380px; width:100%; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,0.9);
-}
-#qtyModalBox h3{ margin:0 0 10px; color:#00e676; font-size:18px; }
-
-/* 모달 내부 정보 표시 그룹 */
-.modal-info-group {
-    background:#111; border:1px solid #333; border-radius:8px; padding:8px 12px;
-    margin-bottom:14px; text-align:left; font-size:13px;
-}
-.modal-info-item {
-    display:flex; justify-content:space-between; align-items:flex-start;
-    padding:6px 0; border-bottom:1px solid #222; gap:8px;
-}
-.modal-info-item:last-child { border-bottom:none; }
-.modal-info-label { color:#888; font-weight:bold; width:60px; flex-shrink:0; }
-.modal-info-val { color:#fff; font-weight:bold; word-break:break-all; text-align:right; flex-grow:1; }
-.modal-info-val.highlight { color:#00e676; font-size:15px; }
-
-#modalQtyInput{
-    width:100%; height:48px; font-size:22px; font-weight:bold; text-align:center;
-    border-radius:8px; border:1px solid #00e676; background:#111; color:#fff; margin-bottom:14px;
-}
-.modal-btn-group{ display:flex; gap:8px; }
-.modal-btn-group button{ flex:1; height:44px; font-size:15px; font-weight:bold; border:none; border-radius:8px; cursor:pointer; }
-#modalSaveBtn{ background:#00e676; color:#111; }
-#modalCloseBtn{ background:#444; color:#eee; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>재고 실사 마감 및 남은 LOT 확인</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
+<body class="bg-gray-100 text-gray-800 p-4 font-sans">
 
-<h2>📦 LOT 스캐너</h2>
+  <!-- 메인 UI: 스캐너 기본 화면 -->
+  <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+    <h1 class="text-xl font-bold mb-4 text-center">📦 실사 스캐너 마감</h1>
+    
+    <!-- 실사 부서 선택/입력 -->
+    <div class="mb-6">
+      <label for="scannerDept" class="block text-sm font-medium text-gray-700 mb-1">실사 부서 (창고)</label>
+      <select id="scannerDept" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+        <option value="">-- 부서 선택 --</option>
+        <option value="생산1팀">생산1팀</option>
+        <option value="생산2팀">생산2팀</option>
+        <option value="자재창고">자재창고</option>
+      </select>
+      <p class="text-xs text-gray-500 mt-1">* 선택한 부서와 비슷한 데이터만 모달에 표시됩니다.</p>
+    </div>
 
-<div class="navbar">
-<a href="upload.html">📂 업로드</a>
-<a href="scanview.html">🕒 기록조회</a>
-<a href="progress.html">📋 진행률</a>
-<a href="history.html">📅 이력조회</a>
-</div>
+    <!-- 마감 버튼 -->
+    <button id="btnOpenModal" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-md shadow flex justify-center items-center gap-2 transition">
+      <span>🏁 마감 - 남은 LOT 확인</span>
+    </button>
+  </div>
 
-<button id="startDataBtn">🚀 시작 (최근 10일 재고 데이터 다운로드)</button>
-<div id="networkStatus">🟢 네트워크 확인 중...</div>
 
-<div id="scannerRow">
-<input id="scannerInput" type="text" placeholder="작성자 입력 (최초 1회 입력 시 자동 저장)">
-</div>
+  <!-- 🌟 결과 모달 팝업 (초기에는 hidden 처리) -->
+  <div id="remainingOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
+      
+      <!-- 모달 헤더 -->
+      <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-lg">
+        <h2 class="text-lg font-bold text-gray-700">📋 미스캔(남은) LOT 현황</h2>
+        <button id="btnCloseModal" class="text-gray-400 hover:text-gray-600 font-bold text-xl">&times;</button>
+      </div>
 
-<div id="deptRow">
-<select id="deptSelect">
-<option value="">실사 부서 선택</option>
-<option value="주조">주조</option><option value="자재">자재</option>
-<option value="1F(가공생산)">1F(가공생산)</option><option value="2F(검사/포장)">2F(검사/포장)</option>
-<option value="영업">영업</option><option value="외주">외주</option>
-</select>
-</div>
+      <!-- 요약 카운트 -->
+      <div class="p-4 flex justify-between text-center border-b border-gray-100 bg-blue-50 text-sm">
+        <div class="flex-1">
+          <p class="text-gray-500 mb-1">필터링 부서</p>
+          <p id="displayDept" class="font-bold text-blue-700">-</p>
+        </div>
+        <div class="flex-1 border-l border-gray-300">
+          <p class="text-gray-500 mb-1">남은 건수</p>
+          <p class="font-bold text-red-500 text-lg"><span id="remainingCount">0</span>건</p>
+        </div>
+      </div>
 
-<div id="camWrap">
-<video id="video" playsinline autoplay muted></video>
-<div id="guideBox"></div>
-<div id="guideLabel">박스 안에 LOT 번호 맞추기</div>
-<div id="camStatus">카메라 연결 중...</div>
-<button id="torchBtn">🔦</button>
-<div id="zoomControls"><button id="zoomOut">➖</button><span id="zoomLabel">1.0x</span><button id="zoomIn">➕</button></div>
-</div>
+      <!-- 남은 LOT 리스트 테이블 -->
+      <div class="overflow-y-auto flex-1 p-4">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-gray-100 text-gray-600 text-xs uppercase tracking-wider">
+              <th class="p-2 border-b">LOT 번호</th>
+              <th class="p-2 border-b">품번/품명</th>
+              <th class="p-2 border-b">부서(창고)</th>
+              <th class="p-2 border-b text-right">수량</th>
+            </tr>
+          </thead>
+          <tbody id="remainingList">
+            <!-- 자바스크립트로 리스트가 동적 생성되는 영역 -->
+          </tbody>
+        </table>
+      </div>
 
-<button id="captureBtn" disabled>📸 인식하기</button>
-<div id="status">상단의 [시작] 버튼을 눌러 데이터를 받아주세요.</div>
+      <!-- 모달 푸터 (닫기 버튼) -->
+      <div class="p-4 border-t border-gray-200">
+        <button id="btnConfirmClose" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded transition">
+          확인 (닫기)
+        </button>
+      </div>
+    </div>
+  </div>
 
-<div id="resultRow">
-<input id="result" type="text" maxlength="14" placeholder="LOT 번호 (예: 2606260022-001)">
-<button id="recheckBtn">🔍 조회</button>
-</div>
 
-<div id="lotInfo"></div>
+  <!-- ⚙️ JavaScript 로직 -->
+  <script>
+    // 1. 가상의 DB 데이터 (실제로는 Firestore apiRemaining 등에서 가져온 배열)
+    const mockDbData = [
+      { lot: "L-2309-001", partNo: "P001", partName: "볼트", dept: "생산1팀", qty: 500 },
+      { lot: "L-2309-002", partNo: "P002", partName: "너트", dept: "생산1팀(조립)", qty: 300 }, // 비슷한 이름 테스트
+      { lot: "L-2309-003", partNo: "P003", partName: "와셔", dept: "생산2팀", qty: 1000 },
+      { lot: "L-2309-004", partNo: "P004", partName: "베어링", dept: "자재창고", qty: 250 },
+      { lot: "L-2309-005", partNo: "P005", partName: "모터", dept: "자재창고-A구역", qty: 10 }, // 비슷한 이름 테스트
+    ];
 
-<!-- 모달 팝업: LOT, 품번, 품명, 전산수량 정렬 구조 -->
-<div id="qtyModalOverlay">
-<div id="qtyModalBox">
-<h3>📝 실수량 입력</h3>
-<div class="modal-info-group">
-    <div class="modal-info-item"><span class="modal-info-label">1. LOT</span><span id="modalLotNo" class="modal-info-val">-</span></div>
-    <div class="modal-info-item"><span class="modal-info-label">2. 품번</span><span id="modalItemNo" class="modal-info-val">-</span></div>
-    <div class="modal-info-item"><span class="modal-info-label">3. 품명</span><span id="modalItemName" class="modal-info-val">-</span></div>
-    <div class="modal-info-item"><span class="modal-info-label">4. 전산수량</span><span id="modalSysQty" class="modal-info-val highlight">-</span></div>
-</div>
-<input id="modalQtyInput" type="number" placeholder="실사수량 입력">
-<div class="modal-btn-group">
-<button id="modalSaveBtn">저장</button>
-<button id="modalCloseBtn">취소</button>
-</div>
-<div id="modalMsg" style="margin-top:8px;font-size:12px;font-weight:bold;"></div>
-</div>
-</div>
-
-<script type="module">
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-
-const sb = createClient("https://siwaynipvwtwuoobyarp.supabase.co", "sb_publishable_lEKhT8TYzo368Hxfd0E8-Q_D9JEyO9Z");
-
-const wrap = r => ({ id: r.id, data: () => r });
-
-async function fetchAll(build){
-    const out = [];
-    for (let from = 0; ; from += 1000){
-        const { data, error } = await build().order('id').range(from, from + 999);
-        if (error) throw error;
-        data.forEach(r => out.push(wrap(r)));
-        if (data.length < 1000) break;
-    }
-    return out;
-}
-
-const STOCK_COL = "stock";
-const LOG_COL = "scan_log";
-
-// 오프라인 큐 로직
-const QUEUE_KEY = 'lot_scan_queue';
-function readQueue(){ try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch(e){ return []; } }
-function writeQueue(q){ try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); } catch(e){} }
-async function flushQueue(){
-    const q = readQueue();
-    if (!q.length) return;
-    const { error } = await sb.from(LOG_COL).insert(q);
-    if (!error) writeQueue([]);
-}
-async function insertScanLog(row){
-    const { error } = await sb.from(LOG_COL).insert(row);
-    if (error){ console.error(error); writeQueue([...readQueue(), row]); }
-    else flushQueue();
-}
-window.addEventListener('online', flushQueue);
-flushQueue();
-
-window.cachedStockMap = new Map();
-
-function cleanDate8Digits(str) {
-    if (!str) return '';
-    const digits = String(str).replace(/[^0-9]/g, '');
-    return digits.substring(0, 8);
-}
-
-window.download10DaysStock = async function(){
-    const status = document.getElementById("status");
-    status.innerHTML = "⏳ 최근 10일치 재고 데이터 다운로드 중...";
-    try {
-        const snap = [];
-        for (let from = 0; from < 2000; from += 1000){
-            const { data, error } = await sb.from(STOCK_COL).select('*')
-                .order('upload_date', { ascending:false }).order('run_at', { ascending:false }).order('id', { ascending:false })
-                .range(from, from + 999);
-            if (error) throw error;
-            data.forEach(r => snap.push(wrap(r)));
-            if (data.length < 1000) break;
-        }
-        window.cachedStockMap.clear();
-        let count = 0;
-        snap.forEach(d => {
-            const data = d.data();
-            if (data.lot_no) {
-                if (!window.cachedStockMap.has(data.lot_no)) {
-                    window.cachedStockMap.set(data.lot_no, data);
-                    count++;
-                }
-            }
-        });
-        status.innerHTML = `✅ 재고 데이터 ${count}건 다운로드 완료!`;
-        return { success: true, count };
-    } catch(e) {
-        console.error(e);
-        status.innerHTML = "❌ 재고 다운로드 실패. 네트워크를 확인하세요.";
-        return { success: false };
-    }
-};
-
-function nowParts(){
-    const fmt = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit',
-        hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false
-    });
-    const map = {};
-    fmt.formatToParts(new Date()).forEach(p => map[p.type] = p.value);
-    const date = `${map.year}-${map.month}-${map.day}`;
-    const time = `${map.hour}:${map.minute}:${map.second}`;
-    return { date, datetime: `${date} ${time}` };
-}
-
-window.apiLookup = async function(lot){
-    lot = (lot || '').trim();
-    if (!lot) return { found:false, error:'LOT 번호가 없습니다.' };
-
-    const scanner = document.getElementById("scannerInput").value.trim();
-    const scanDept = document.getElementById("deptSelect").value;
-
-    let stockRow = window.cachedStockMap.get(lot);
-    if (!stockRow) {
-        const { data: foundRows, error: findErr } = await sb.from(STOCK_COL).select('*').eq('lot_no', lot)
-            .order('upload_date', { ascending:false }).order('run_at', { ascending:false }).limit(1);
-        if (findErr) throw findErr;
-        let rows = foundRows;
-        if (rows.length > 0) {
-            rows.sort((a,b) => (a.upload_date < b.upload_date ? 1 : -1));
-            stockRow = rows[0];
-        }
-    }
-
-    const { date: today, datetime: now } = nowParts();
-    await insertScanLog({
-        lot_no: lot, scan_date: today, scanned_at: now,
-        scanned_by: scanner, scan_dept: scanDept,
-        actual_qty: null, diff: null
+    // DOM 요소 가져오기
+    const btnOpenModal = document.getElementById('btnOpenModal');
+    const btnCloseModal = document.getElementById('btnCloseModal');
+    const btnConfirmClose = document.getElementById('btnConfirmClose');
+    const remainingOverlay = document.getElementById('remainingOverlay');
+    
+    // 모달 열기 이벤트 (마감 버튼 클릭 시)
+    btnOpenModal.addEventListener('click', () => {
+      // 실제 환경에서는 여기서 API를 호출하여 DB에서 미스캔 LOT을 가져와야 합니다.
+      const remainingLots = mockDbData; // 임시로 가상 데이터 할당
+      
+      renderRemainingModal(remainingLots);
+      remainingOverlay.classList.remove('hidden'); // 모달 표시
+      
+      // 로그 저장 API 호출 부분 (apiLogClose)
+      console.log("마감 로그 DB 저장 실행... (API 연동 필요)");
     });
 
-    if (!stockRow) {
-        return { found: false, lot_no: lot };
-    }
+    // 모달 닫기 이벤트
+    const closeModal = () => remainingOverlay.classList.add('hidden');
+    btnCloseModal.addEventListener('click', closeModal);
+    btnConfirmClose.addEventListener('click', closeModal);
 
-    const todayNum = cleanDate8Digits(today);
-    const uploadNum = cleanDate8Digits(stockRow.upload_date);
-    const isRecent1Day = (uploadNum !== '' && uploadNum === todayNum);
+    // 🌟 핵심 로직: 부서명 필터링 및 렌더링 함수
+    function renderRemainingModal(allRemainingLots) {
+      // 현재 스캐너에 입력/선택된 실사 부서 가져오기
+      const currentDept = (document.getElementById('scannerDept').value || '').trim();
+      document.getElementById('displayDept').innerText = currentDept || '전체';
 
-    return {
-        found: true,
-        isRecent1Day: isRecent1Day,
-        lot_no: lot,
-        item_no: stockRow.item_no || '-',
-        item_name: stockRow.item_name || '-',
-        qty: isRecent1Day ? Number(stockRow.qty || 0) : 0,
-        unit: stockRow.unit || '',
-        upload_date: stockRow.upload_date || '-'
-    };
-};
+      // 선택된 부서와 일치하거나 "비슷한(포함하는)" LOT만 필터링
+      const filteredLots = allRemainingLots.filter(item => {
+        if (!currentDept) return true; // 부서 선택이 안 되어있으면 전체 표시
 
-window.apiSaveQty = async function(lot, actualQtyRaw, systemQty){
-    const actualQty = Math.round(Number(actualQtyRaw));
-    const diff = actualQty - systemQty;
-    const { date: today, datetime: now } = nowParts();
+        const itemDept = (item.dept || '').toString().trim();
 
-    const logSnap = await fetchAll(() => sb.from(LOG_COL).select('*').eq('lot_no', lot).eq('scan_date', today));
-    let logRows = [];
-    logSnap.forEach(d => logRows.push({ id: d.id, ...d.data() }));
-    logRows.sort((a,b) => (a.scanned_at > b.scanned_at ? -1 : 1));
-    const target = logRows[0];
+        // includes를 사용하여 "생산1팀"을 선택했을 때 "생산1팀(조립)"도 함께 나오도록 처리
+        return itemDept.toLowerCase().includes(currentDept.toLowerCase()) ||
+               currentDept.toLowerCase().includes(itemDept.toLowerCase());
+      });
 
-    if (target){
-        const { error: updErr } = await sb.from(LOG_COL).update({ actual_qty: actualQty, diff: diff }).eq('id', target.id);
-        if (updErr) throw updErr;
-    } else {
-        await insertScanLog({
-            lot_no: lot, scan_date: today, scanned_at: now, actual_qty: actualQty, diff: diff
-        });
-    }
+      // 결과 카운트 업데이트
+      document.getElementById('remainingCount').innerText = filteredLots.length;
 
-    return { success: true, actual_qty: actualQty, diff };
-};
-</script>
-
-<script>
-const scannerInput = document.getElementById("scannerInput");
-const deptSelect = document.getElementById("deptSelect");
-const startDataBtn = document.getElementById("startDataBtn");
-const resultInput = document.getElementById("result");
-const status = document.getElementById("status");
-const captureBtn = document.getElementById("captureBtn");
-const lotInfoBox = document.getElementById("lotInfo");
-const recheckBtn = document.getElementById("recheckBtn");
-const video = document.getElementById("video");
-const camWrap = document.getElementById("camWrap");
-const zoomInBtn = document.getElementById("zoomIn");
-const zoomOutBtn = document.getElementById("zoomOut");
-const zoomLabel = document.getElementById("zoomLabel");
-const torchBtn = document.getElementById("torchBtn");
-
-const qtyModalOverlay = document.getElementById("qtyModalOverlay");
-const modalLotNo = document.getElementById("modalLotNo");
-const modalItemNo = document.getElementById("modalItemNo");
-const modalItemName = document.getElementById("modalItemName");
-const modalSysQty = document.getElementById("modalSysQty");
-const modalQtyInput = document.getElementById("modalQtyInput");
-const modalSaveBtn = document.getElementById("modalSaveBtn");
-const modalCloseBtn = document.getElementById("modalCloseBtn");
-const modalMsg = document.getElementById("modalMsg");
-
-let currentZoom = 1;
-let videoTrack = null;
-let torchOn = false;
-let currentLookupResult = null;
-
-(function restoreSavedInfo() {
-    const savedScanner = localStorage.getItem("lot_scanner_name");
-    const savedDept = localStorage.getItem("lot_scanner_dept");
-    if (savedScanner) scannerInput.value = savedScanner;
-    if (savedDept) deptSelect.value = savedDept;
-})();
-
-scannerInput.addEventListener("input", () => localStorage.setItem("lot_scanner_name", scannerInput.value.trim()));
-deptSelect.addEventListener("change", () => localStorage.setItem("lot_scanner_dept", deptSelect.value));
-
-startDataBtn.onclick = async () => {
-    await window.download10DaysStock();
-    captureBtn.disabled = false;
-};
-
-resultInput.addEventListener("input", function() {
-    let raw = resultInput.value.replace(/[^0-9-]/g, '');
-    let nums = raw.replace(/-/g, '');
-    if (nums.length > 13) nums = nums.slice(0, 13);
-    
-    if (nums.length > 10) {
-        resultInput.value = nums.slice(0, 10) + '-' + nums.slice(10);
-    } else {
-        resultInput.value = nums;
-    }
-});
-
-async function initCamera(){
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        video.srcObject = stream;
-        videoTrack = stream.getVideoTracks()[0];
-        document.getElementById("camStatus").style.display = "none";
-    } catch(e) {
-        document.getElementById("camStatus").innerText = "⚠️ 카메라 사용 불가";
-    }
-}
-initCamera();
-
-function setZoom(val) {
-    currentZoom = Math.max(1, Math.min(10, val));
-    zoomLabel.innerText = currentZoom.toFixed(1) + "x";
-    if (videoTrack) {
-        try { videoTrack.applyConstraints({ advanced: [{ zoom: currentZoom }] }); } catch(e) { video.style.transform = `scale(${currentZoom})`; }
-    } else {
-        video.style.transform = `scale(${currentZoom})`;
-    }
-}
-
-zoomInBtn.onclick = () => setZoom(currentZoom + 0.5);
-zoomOutBtn.onclick = () => setZoom(currentZoom - 0.5);
-
-let initialPinchDist = null;
-let initialZoomOnPinch = 1;
-
-camWrap.addEventListener("touchstart", (e) => {
-    if (e.touches.length === 2) {
-        initialPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        initialZoomOnPinch = currentZoom;
-    }
-}, { passive: true });
-
-camWrap.addEventListener("touchmove", (e) => {
-    if (e.touches.length === 2 && initialPinchDist) {
-        const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        setZoom(initialZoomOnPinch * (dist / initialPinchDist));
-    }
-}, { passive: true });
-
-camWrap.addEventListener("touchend", (e) => {
-    if (e.touches.length < 2) initialPinchDist = null;
-});
-
-torchBtn.onclick = async () => {
-    if (!videoTrack) return;
-    torchOn = !torchOn;
-    try {
-        await videoTrack.applyConstraints({ advanced: [{ torch: torchOn }] });
-        torchBtn.classList.toggle("on", torchOn);
-    } catch(e) { alert("이 기기에서는 플래시를 지원하지 않습니다."); }
-};
-
-const codeReader = new ZXing.BrowserMultiFormatReader();
-captureBtn.onclick = async () => {
-    if (!scannerInput.value.trim()) { alert("작성자 이름을 입력해주세요."); scannerInput.focus(); return; }
-    if (!deptSelect.value) { alert("실사 부서를 선택해주세요."); deptSelect.focus(); return; }
-
-    status.innerHTML = "🔍 인식 진행 중...";
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-    canvas.getContext("2d").drawImage(video, 0, 0);
-
-    let lot = null;
-    try {
-        let img = new Image(); img.src = canvas.toDataURL();
-        await new Promise(r => img.onload = r);
-        lot = (await codeReader.decodeFromImageElement(img)).getText();
-    } catch(e) {
-        let { data: { text } } = await Tesseract.recognize(canvas.toDataURL(), 'eng');
-        let match = text.replace(/\s+/g, '').match(/\d{10}-\d{3}/);
-        if (match) lot = match[0];
-    }
-
-    if (lot) {
-        resultInput.value = lot;
-        await doLookup(lot);
-    } else {
-        status.innerHTML = "❌ 인식 실패. 손으로 직접 입력해주세요.";
-    }
-};
-
-recheckBtn.onclick = async () => {
-    const lot = resultInput.value.trim();
-    if (!lot) return alert("LOT 번호를 입력하세요.");
-    await doLookup(lot);
-};
-
-async function doLookup(lot){
-    status.innerHTML = "🔎 조회 중...";
-    let res;
-    try { res = await window.apiLookup(lot); }
-    catch(e){ console.error(e); status.innerHTML = "❌ 조회 실패 - 네트워크를 확인하고 다시 시도하세요."; return; }
-    currentLookupResult = res;
-    lotInfoBox.style.display = "block";
-
-    if (res.found) {
-        let statusBadge = res.isRecent1Day 
-            ? `<div class="status-tag yes">✅ 최근 1일(당일) 재고 데이터 존재</div>` 
-            : `<div class="status-tag warn">⚠️ 최근 1일 데이터 없음 (10일 이내 등록품목 → 수량 0)</div>`;
-
-        lotInfoBox.className = "found";
-        lotInfoBox.innerHTML = `
-            ${statusBadge}
-            <div class="info-grid">
-                <div class="info-label">품번</div><div class="info-value">${res.item_no}</div>
-                <div class="info-label">품명</div><div class="info-value">${res.item_name}</div>
-                <div class="info-label">전산수량</div><div class="info-value big">${res.qty} ${res.unit}</div>
-            </div>
-            <button id="openQtyModalBtn">📝 실수량 입력하기</button>
+      // 리스트 HTML 생성
+      const listContainer = document.getElementById('remainingList');
+      if (filteredLots.length === 0) {
+        // 남은 항목이 없을 때
+        listContainer.innerHTML = `
+          <tr>
+            <td colspan="4" class="text-center p-8 text-gray-500">
+              <span class="text-2xl block mb-2">🎉</span>
+              해당 부서[${currentDept || '전체'}]의<br>남은 LOT이 없습니다!
+            </td>
+          </tr>
         `;
-        status.innerHTML = "✅ 조회 완료. 실수량을 입력하세요.";
-
-        document.getElementById("openQtyModalBtn").onclick = () => openQtyModal(res);
-        openQtyModal(res);
-    } else {
-        lotInfoBox.className = "notfound";
-        lotInfoBox.innerHTML = `
-            <div class="status-tag no">⚠️ 최근 10일 재고 데이터 없음</div>
-            <div class="info-grid">
-                <div class="info-label">LOT</div><div class="info-value">${lot}</div>
-            </div>
-            <div style="margin-top:8px;color:#ff8a8a;font-size:12px;">최근 10일 이내 업로드된 재고 리스트에 존재하지 않습니다.</div>
-        `;
-        status.innerHTML = "⚠️ 재고 데이터 없음";
+      } else {
+        // 남은 항목이 있을 때 테이블 렌더링
+        listContainer.innerHTML = filteredLots.map(item => `
+          <tr class="border-b hover:bg-gray-50 transition">
+            <td class="p-2 font-mono font-bold text-blue-600 align-middle">${item.lot}</td>
+            <td class="p-2 align-middle">
+              <div class="text-xs text-gray-500">${item.partNo}</div>
+              <div class="font-medium">${item.partName}</div>
+            </td>
+            <td class="p-2 text-gray-600 text-sm align-middle">${item.dept}</td>
+            <td class="p-2 text-right font-bold align-middle">${item.qty.toLocaleString()}</td>
+          </tr>
+        `).join('');
+      }
     }
-}
-
-function openQtyModal(res) {
-    modalLotNo.innerText = res.lot_no || '-';
-    modalItemNo.innerText = res.item_no || '-';
-    modalItemName.innerText = res.item_name || '-';
-    modalSysQty.innerText = `${res.qty} ${res.unit || ''}`;
-    
-    modalQtyInput.value = "";
-    modalMsg.innerText = "";
-    qtyModalOverlay.style.display = "flex";
-    setTimeout(() => modalQtyInput.focus(), 100);
-}
-
-modalCloseBtn.onclick = () => qtyModalOverlay.style.display = "none";
-
-// 📌 보완된 수량 저장 버튼 클릭 로직
-modalSaveBtn.onclick = async () => {
-    const val = modalQtyInput.value;
-    if (val === "") return alert("실수량을 입력해 주세요.");
-    if (!currentLookupResult) return;
-
-    // 네트워크 끊김 상태 감지 시 사전 예외 처리
-    if (!navigator.onLine) {
-        modalMsg.innerHTML = "<span style='color:#ffb84d;'>⚠️ 현재 오프라인 상태입니다. 신호가 잡히는 곳에서 '저장'을 다시 눌러주세요.</span>";
-        return;
-    }
-
-    modalMsg.innerHTML = "<span style='color:#4fc3ff;'>저장 중...</span>";
-    let saveRes;
-    try { 
-        saveRes = await window.apiSaveQty(currentLookupResult.lot_no, val, currentLookupResult.qty); 
-    } catch(e) { 
-        console.error(e); 
-        // 전송 실패 시 모달 창을 닫지 않고 입력값과 상태 유지
-        modalMsg.innerHTML = "<span style='color:#ff8a8a;'>❌ 통신이 불안정합니다. 창을 닫지 말고 잠시 후 '저장'을 다시 눌러주세요.</span>"; 
-        return; 
-    }
-    
-    modalMsg.innerHTML = `<span style="color:#00e676;">✅ 저장 완료 (차이: ${saveRes.diff})</span>`;
-    setTimeout(() => {
-        qtyModalOverlay.style.display = "none";
-    }, 600);
-};
-
-// 📌 네트워크 상태 실시간 표시 및 UI 업데이트
-function updateNetworkUI() {
-    const statusDiv = document.getElementById('networkStatus');
-    if (!statusDiv) return;
-    
-    if (navigator.onLine) {
-        statusDiv.innerHTML = "🟢 온라인 (데이터 저장 가능)";
-        statusDiv.style.color = "#00e676";
-    } else {
-        statusDiv.innerHTML = "🔴 오프라인 (신호 미약 - 인터넷 이동 필요)";
-        statusDiv.style.color = "#ff8a8a";
-    }
-}
-
-window.addEventListener('online', updateNetworkUI);
-window.addEventListener('offline', updateNetworkUI);
-updateNetworkUI();
-</script>
+  </script>
 </body>
 </html>
