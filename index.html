@@ -48,6 +48,33 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
     color:#111; background:#4fc3ff; border:none; border-radius:10px; cursor:pointer; flex:0 0 auto;
 }
 #startDataBtn:active{ opacity:0.8; }
+#startDataBtn.closeMode{ background:#ffb84d; }
+
+/* 마감 모달 */
+#closeModalOverlay{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:2900;
+    align-items:center; justify-content:center; padding:16px;
+}
+#closeModalBox{
+    background:#1c1c1c; border:2px solid #ffb84d; border-radius:14px; padding:16px;
+    max-width:480px; width:100%; max-height:85vh; display:flex; flex-direction:column;
+    box-shadow:0 8px 30px rgba(0,0,0,0.9);
+}
+#closeModalBox h3{ margin:0 0 8px; color:#ffb84d; font-size:18px; text-align:center; }
+#closeSummary{ font-size:13px; color:#ccc; line-height:1.6; margin-bottom:8px; text-align:center; }
+#closeSummary b.ok{ color:#00e676; } #closeSummary b.ng{ color:#ff8a8a; }
+#closeList{
+    flex:1 1 auto; overflow-y:auto; min-height:60px; max-height:45vh;
+    background:#111; border:1px solid #333; border-radius:8px; padding:4px 10px; margin-bottom:12px;
+}
+.close-item{ padding:7px 0; border-bottom:1px solid #2a2a2a; }
+.close-item:last-child{ border-bottom:none; }
+.close-item .lot{ font-weight:bold; color:#fff; font-size:14px; }
+.close-item .sub{ color:#888; font-size:12px; word-break:break-all; }
+#closeModalBox .modal-btn-group button{ flex:1; height:44px; font-size:15px; font-weight:bold; border:none; border-radius:8px; cursor:pointer; }
+#closeConfirmBtn{ background:#ffb84d; color:#111; }
+#closeCancelBtn{ background:#444; color:#eee; }
+#closeConfirmBtn:disabled{ background:#555; color:#999; }
 
 /* 네트워크 상태 표시바 */
 #networkStatus {
@@ -224,6 +251,19 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 </div>
 </div>
 
+<!-- 마감 모달: 현재 부서 기준 남은 LOT 표시 -->
+<div id="closeModalOverlay">
+<div id="closeModalBox">
+<h3>🏁 마감 확인</h3>
+<div id="closeSummary">불러오는 중...</div>
+<div id="closeList"></div>
+<div class="modal-btn-group">
+<button id="closeCancelBtn">취소</button>
+<button id="closeConfirmBtn" disabled>마감</button>
+</div>
+</div>
+</div>
+
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
@@ -265,6 +305,27 @@ flushQueue();
 
 window.cachedStockMap = new Map();
 
+// 재고 캐시 영속 저장 (새로고침해도 유지, 마감 시 삭제)
+const CACHE_KEY = 'lot_stock_cache_v1';
+window.saveStockCache = function(){
+    try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+            saved_at: new Date().toISOString(),
+            rows: Array.from(window.cachedStockMap.values())
+        }));
+    } catch(e) { console.error('캐시 저장 실패(메모리 캐시만 사용)', e); }
+};
+window.clearStockCache = function(){
+    window.cachedStockMap.clear();
+    try { localStorage.removeItem(CACHE_KEY); } catch(e){}
+};
+(function restoreStockCache(){
+    try {
+        const o = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+        if (o && Array.isArray(o.rows)) o.rows.forEach(r => { if (r && r.lot_no) window.cachedStockMap.set(r.lot_no, r); });
+    } catch(e) { console.error(e); }
+})();
+
 function cleanDate8Digits(str) {
     if (!str) return '';
     const digits = String(str).replace(/[^0-9]/g, '');
@@ -295,6 +356,7 @@ window.download10DaysStock = async function(){
                 }
             }
         });
+        window.saveStockCache();
         status.innerHTML = `✅ 재고 데이터 ${count}건 다운로드 완료!`;
         return { success: true, count };
     } catch(e) {
@@ -362,6 +424,31 @@ window.apiLookup = async function(lot){
     };
 };
 
+// 마감: 캐시(가장 최근 업로드분) 중 선택 부서의 LOT 가운데 오늘 아직 스캔 안 된 것
+window.apiRemaining = async function(dept){
+    const rows = Array.from(window.cachedStockMap.values());
+    let master = '';
+    rows.forEach(r => { const d = cleanDate8Digits(r.upload_date); if (d > master) master = d; });
+    const masterRows = rows.filter(r => cleanDate8Digits(r.upload_date) === master);
+    const deptRows = masterRows.filter(r => (r.department || '') === dept);
+
+    const { date: today } = nowParts();
+    const scanned = new Set();
+    const logs = await fetchAll(() => sb.from(LOG_COL).select('lot_no').eq('scan_date', today));
+    logs.forEach(d => scanned.add(d.data().lot_no));
+    readQueue().forEach(q => { if (q.scan_date === today) scanned.add(q.lot_no); });   // 아직 전송 안 된 오프라인 스캔 포함
+
+    const items = deptRows.filter(r => !scanned.has(r.lot_no))
+        .sort((a,b) => String(a.item_no||'').localeCompare(String(b.item_no||'')) || String(a.lot_no).localeCompare(String(b.lot_no)));
+
+    const deptValues = Array.from(new Set(masterRows.map(r => r.department || '(없음)'))).sort();
+    return {
+        master_date: master, dept, total: deptRows.length,
+        checked: deptRows.length - items.length, remaining: items.length,
+        items, deptValues
+    };
+};
+
 window.apiSaveQty = async function(lot, actualQtyRaw, systemQty){
     const actualQty = Math.round(Number(actualQtyRaw));
     const diff = actualQty - systemQty;
@@ -384,6 +471,8 @@ window.apiSaveQty = async function(lot, actualQtyRaw, systemQty){
 
     return { success: true, actual_qty: actualQty, diff };
 };
+
+if (window.refreshStartBtn) window.refreshStartBtn();
 </script>
 
 <script>
@@ -427,9 +516,82 @@ let currentLookupResult = null;
 scannerInput.addEventListener("input", () => localStorage.setItem("lot_scanner_name", scannerInput.value.trim()));
 deptSelect.addEventListener("change", () => localStorage.setItem("lot_scanner_dept", deptSelect.value));
 
+const START_LABEL = "🚀 시작 (최근 10일 재고 데이터 다운로드)";
+const CLOSE_LABEL = "🏁 마감 (남은 LOT 확인)";
+
+// 캐시가 있으면 [마감] 버튼, 없으면 [시작] 버튼
+window.refreshStartBtn = function(){
+    const has = window.cachedStockMap && window.cachedStockMap.size > 0;
+    startDataBtn.textContent = has ? CLOSE_LABEL : START_LABEL;
+    startDataBtn.classList.toggle("closeMode", has);
+    captureBtn.disabled = !has;
+    if (has && !status.textContent.trim()) status.innerHTML = `✅ 재고 캐시 ${window.cachedStockMap.size}건 사용 중`;
+};
+
+const closeModalOverlay = document.getElementById("closeModalOverlay");
+const closeSummary = document.getElementById("closeSummary");
+const closeList = document.getElementById("closeList");
+const closeConfirmBtn = document.getElementById("closeConfirmBtn");
+const closeCancelBtn = document.getElementById("closeCancelBtn");
+let closeLoadFailed = false;
+let closeRemainingCount = 0;
+
+function esc(v){ return String(v == null ? "" : v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+async function openCloseModal(){
+    if (!deptSelect.value) { alert("실사 부서를 선택해주세요."); deptSelect.focus(); return; }
+    const dept = deptSelect.value;
+    closeModalOverlay.style.display = "flex";
+    closeSummary.textContent = "불러오는 중...";
+    closeList.innerHTML = "";
+    closeConfirmBtn.disabled = true;
+    closeLoadFailed = false; closeRemainingCount = 0;
+
+    try {
+        const r = await window.apiRemaining(dept);
+        closeRemainingCount = r.remaining;
+        closeSummary.innerHTML =
+            `기준: ${esc(r.master_date)} 업로드분 · <b>${esc(dept)}</b><br>` +
+            `확인 완료 <b class="ok">${r.checked}</b> / ${r.total}건 · 남음 <b class="ng">${r.remaining}</b>건`;
+        if (r.total === 0) {
+            closeList.innerHTML = `<div class="close-item"><div class="sub" style="color:#ffb84d;">이 부서로 분류된 LOT이 없습니다.<br>재고 데이터의 부서값: ${esc(r.deptValues.join(", "))}</div></div>`;
+        } else if (r.remaining === 0) {
+            closeList.innerHTML = `<div class="close-item" style="color:#00e676;font-weight:bold;text-align:center;">🎉 남은 LOT이 없습니다!</div>`;
+        } else {
+            closeList.innerHTML = r.items.map(it =>
+                `<div class="close-item"><div class="lot">${esc(it.lot_no)}</div>` +
+                `<div class="sub">${esc(it.item_no)} · ${esc(it.item_name)} · ${esc(it.warehouse || "-")} · ${esc(it.qty)}${esc(it.unit || "")}</div></div>`
+            ).join("");
+        }
+    } catch(e) {
+        console.error(e);
+        closeLoadFailed = true;
+        closeSummary.innerHTML = `<span style="color:#ff8a8a;">❌ 남은 LOT 조회 실패 - 네트워크를 확인하세요.</span>`;
+    }
+    closeConfirmBtn.disabled = false;
+}
+
+closeCancelBtn.onclick = () => { closeModalOverlay.style.display = "none"; };
+
+closeConfirmBtn.onclick = () => {
+    let msg;
+    if (closeLoadFailed) msg = "남은 LOT을 확인하지 못했습니다.\n그래도 마감하고 저장된 재고 캐시를 삭제할까요?";
+    else if (closeRemainingCount > 0) msg = `남은 LOT이 ${closeRemainingCount}건 있습니다.\n그래도 마감하고 저장된 재고 캐시를 삭제할까요?`;
+    else msg = "마감하고 저장된 재고 캐시를 삭제할까요?";
+    if (!confirm(msg)) return;
+
+    window.clearStockCache();
+    closeModalOverlay.style.display = "none";
+    lotInfoBox.style.display = "none"; lotInfoBox.className = "";
+    resultInput.value = "";
+    status.innerHTML = "🏁 마감 완료. 다음 실사는 [시작] 버튼으로 데이터를 다시 받아주세요.";
+    window.refreshStartBtn();
+};
+
 startDataBtn.onclick = async () => {
-    await window.download10DaysStock();
-    captureBtn.disabled = false;
+    if (window.cachedStockMap.size > 0) { await openCloseModal(); return; }
+    const r = await window.download10DaysStock();
+    if (r && r.success) window.refreshStartBtn();
 };
 
 resultInput.addEventListener("input", function() {
