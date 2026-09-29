@@ -134,10 +134,6 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 
 #resultRow{ display:flex; margin-top:6px; flex:0 0 auto; }
 body.kb-open{ padding-bottom:70vh; }   /* 키보드가 올라올 때 화면을 위로 밀어올릴 여백 */
-/* 3회 연속 인식 실패 → 직접 입력 모드: 카메라를 숨기고 [상태 문구 + LOT 입력칸 + 조회]만 남김 */
-#backToCamBtn{ display:none; width:100%; margin-top:6px; padding:10px; border:1px solid #444; border-radius:10px; background:#222; color:#ddd; font-size:13px; font-weight:bold; }
-body.manual-mode #camWrap, body.manual-mode #captureBtn{ display:none; }
-body.manual-mode #backToCamBtn{ display:block; }
 #result.attention{ border-color:#00e676; box-shadow:0 0 0 3px rgba(0,230,118,0.45); }
 #result{
     flex:1 1 auto; width:100%; height:40px; font-size:16px; font-weight:bold;
@@ -240,7 +236,6 @@ body.manual-mode #backToCamBtn{ display:block; }
 
 <button id="captureBtn" disabled>📸 인식하기</button>
 <div id="status">상단의 [시작] 버튼을 눌러 데이터를 받아주세요.</div>
-<button id="backToCamBtn">📷 카메라로 돌아가기</button>
 
 <div id="resultRow">
 <input id="result" type="text" maxlength="14" inputmode="numeric" pattern="[0-9]*" enterkeyhint="search" autocomplete="off" placeholder="LOT 번호 (예: 2606260022-001)">
@@ -393,6 +388,24 @@ window.download10DaysStock = async function(){
         status.innerHTML = "❌ 재고 다운로드 실패. 네트워크를 확인하세요.";
         return { success: false };
     }
+};
+
+// 서버의 최신 재고 업로드 버전(upload_date, run_at)이 내려받은 캐시와 다른지 확인 (true = 달라짐)
+window.checkStockUpdated = async function(){
+    if (!window.cachedStockMap || window.cachedStockMap.size === 0 || !navigator.onLine) return false;
+    try {
+        const { data, error } = await sb.from(STOCK_COL).select('upload_date, run_at')
+            .order('upload_date', { ascending:false }).order('run_at', { ascending:false }).limit(1);
+        if (error || !data || !data.length) return false;   // 조회 실패/빈 테이블이면 건드리지 않음
+        const srv = data[0];
+        let loc = null;
+        window.cachedStockMap.forEach(r => {
+            const a = String(r.upload_date || ''), b = String(r.run_at || '');
+            if (!loc || a > loc.a || (a === loc.a && b > loc.b)) loc = { a, b };
+        });
+        if (!loc) return false;
+        return String(srv.upload_date || '') !== loc.a || String(srv.run_at || '') !== loc.b;
+    } catch(e) { console.error(e); return false; }
 };
 
 function nowParts(){
@@ -615,6 +628,30 @@ window.refreshStartBtn = function(){
     window.updateProgressBar();
     if (has) window.syncProgress();
 };
+
+// 마감하지 않았는데 서버 최신 데이터가 내려받은 것과 달라지면 자동으로 [시작] 상태로 되돌림
+let staleChecking = false;
+window.autoResetIfStale = async function(){
+    if (staleChecking || !window.checkStockUpdated) return;
+    if (!window.cachedStockMap || window.cachedStockMap.size === 0) return;
+    staleChecking = true;
+    try {
+        const stale = await window.checkStockUpdated();
+        if (!stale) return;
+        // 수량 입력/마감 창이 열려 있거나 인식 중이면 방해하지 않고 다음 확인 때 처리
+        if (qtyModalOverlay.style.display === "flex" || closeModalOverlay.style.display === "flex" || capturing) return;
+        window.clearStockCache();
+        lotInfoBox.style.display = "none"; lotInfoBox.className = "";
+        resultInput.value = "";
+        window.refreshStartBtn();
+        status.innerHTML = "🔄 서버에 새 재고 데이터가 올라왔습니다. [시작] 버튼으로 다시 받아주세요.";
+        if (navigator.vibrate) navigator.vibrate([100, 60, 100]);
+    } finally { staleChecking = false; }
+};
+setInterval(() => { if (!document.hidden) window.autoResetIfStale(); }, 120000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) window.autoResetIfStale(); });
+window.addEventListener("online", () => window.autoResetIfStale());
+window.addEventListener("load", () => setTimeout(() => window.autoResetIfStale(), 1500));
 
 // 다른 사람의 스캔도 반영되도록 2분마다 서버와 동기화
 setInterval(() => { if (!document.hidden) window.syncProgress(); }, 120000);
@@ -1094,28 +1131,9 @@ if (window.visualViewport) window.visualViewport.addEventListener("resize", alig
 // 직접 입력 후 수량 창이 닫히면 카메라 화면으로 복귀
 function closeQtyModal(){
     qtyModalOverlay.style.display = "none";
-    exitManualMode();
     if (scrolledForTyping){ scrolledForTyping = false; window.scrollTo(0, 0); }
 }
 
-// ---- 직접 입력 모드: 카메라 숨김 ↔ 복귀 ----
-function enterManualMode(){
-    document.body.classList.add("manual-mode");
-    lotInfoBox.style.display = "none";   // 이전 LOT의 조회 결과가 남아 있으면 헷갈리므로 숨김
-    lotInfoBox.innerHTML = "";
-}
-function exitManualMode(){
-    if (!document.body.classList.contains("manual-mode")) return;
-    document.body.classList.remove("manual-mode");
-    try { var pr = video.play(); if (pr && pr.catch) pr.catch(function(){}); } catch(e){}
-    window.scrollTo(0, 0);
-}
-document.getElementById("backToCamBtn").onclick = function(){
-    recogFailCount = 0;
-    resultInput.blur();
-    exitManualMode();
-    status.innerHTML = "📸 카메라로 다시 촬영해주세요.";
-};
 
 function handleRecognitionFail(){
     recogFailCount++;
@@ -1124,7 +1142,6 @@ function handleRecognitionFail(){
         recogFailCount = 0;
         status.innerHTML = "⌨️ 3회 연속 인식 실패 - LOT 번호를 직접 입력해주세요.";
         resultInput.value = "";
-        enterManualMode();
         resultInput.classList.add("attention");
         setTimeout(function(){ resultInput.classList.remove("attention"); }, 4000);
         // 다른 입력칸(작성자 등)의 문자 키보드가 남아있으면 숫자 자판으로 안 바뀌는 경우가 있어서 blur 후 다시 focus
