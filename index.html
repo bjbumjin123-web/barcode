@@ -340,9 +340,10 @@ window.saveStockCache = function(){
         }));
     } catch(e) { console.error('캐시 저장 실패(메모리 캐시만 사용)', e); }
 };
+const START_KEY = 'lot_stock_started_at';   // [시작] 누른 시각 (12시간 뒤 자동 마감 기준)
 window.clearStockCache = function(){
     window.cachedStockMap.clear();
-    try { localStorage.removeItem(CACHE_KEY); } catch(e){}
+    try { localStorage.removeItem(CACHE_KEY); localStorage.removeItem(START_KEY); } catch(e){}
 };
 (function restoreStockCache(){
     try {
@@ -382,6 +383,7 @@ window.download10DaysStock = async function(){
             }
         });
         window.saveStockCache();
+        try { localStorage.setItem(START_KEY, String(Date.now())); } catch(e){}
         status.innerHTML = `✅ 재고 데이터 ${count}건 다운로드 완료!`;
         return { success: true, count };
     } catch(e) {
@@ -628,6 +630,7 @@ window.refreshStartBtn = function(){
     if (has && !status.textContent.trim()) status.innerHTML = `✅ 재고 캐시 ${window.cachedStockMap.size}건 사용 중`;
     window.updateProgressBar();
     if (has) window.syncProgress();
+    if (window.autoCloseIfExpired) window.autoCloseIfExpired();
 };
 
 // 마감하지 않았는데 서버 최신 데이터가 내려받은 것과 달라지면 자동으로 [시작] 상태로 되돌림
@@ -649,13 +652,38 @@ window.autoResetIfStale = async function(){
         if (navigator.vibrate) navigator.vibrate([100, 60, 100]);
     } finally { staleChecking = false; }
 };
-setInterval(() => { if (!document.hidden) window.autoResetIfStale(); }, 120000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) window.autoResetIfStale(); });
 window.addEventListener("online", () => window.autoResetIfStale());
 window.addEventListener("load", () => setTimeout(() => window.autoResetIfStale(), 1500));
 
 // 다른 사람의 스캔도 반영되도록 2분마다 서버와 동기화
-setInterval(() => { if (!document.hidden) window.syncProgress(); }, 120000);
+// 2분마다 자동 확인은 제거 - 앱을 열거나 다시 돌아왔을 때만 서버와 동기화 (전송량 절약)
+document.addEventListener("visibilitychange", () => { if (!document.hidden) window.syncProgress(); });
+
+// [시작] 후 12시간이 지나면 자동 마감 (서버 조회 없이 저장된 시각만 비교 → 전송량 소모 없음)
+const AUTO_CLOSE_MS = 12 * 60 * 60 * 1000;
+let autoCloseTimer = null;
+window.autoCloseIfExpired = function(){
+    if (autoCloseTimer){ clearTimeout(autoCloseTimer); autoCloseTimer = null; }
+    if (!window.cachedStockMap || window.cachedStockMap.size === 0) return;
+    let t = 0;
+    try { t = Number(localStorage.getItem('lot_stock_started_at') || 0); } catch(e){}
+    if (!t){ t = Date.now(); try { localStorage.setItem('lot_stock_started_at', String(t)); } catch(e){} }   // 이전 버전 캐시는 지금부터 12시간
+    const left = t + AUTO_CLOSE_MS - Date.now();
+    if (left > 0){ autoCloseTimer = setTimeout(window.autoCloseIfExpired, Math.min(left, 3600000)); return; }
+    // 수량 입력/마감 창이 열려 있거나 인식 중이면 1분 뒤 다시 시도
+    if (qtyModalOverlay.style.display === "flex" || closeModalOverlay.style.display === "flex" || capturing){
+        autoCloseTimer = setTimeout(window.autoCloseIfExpired, 60000); return;
+    }
+    window.apiLogEvent('close', { scanner: (scannerInput.value.trim() || '') + ' (자동마감)', dept: deptSelect.value });
+    window.clearStockCache();
+    lotInfoBox.style.display = "none"; lotInfoBox.className = "";
+    resultInput.value = "";
+    window.refreshStartBtn();
+    status.innerHTML = "⏰ [시작] 후 12시간이 지나 자동 마감되었습니다. 다시 실사하려면 [시작] 버튼을 눌러주세요.";
+};
+document.addEventListener("visibilitychange", () => { if (!document.hidden) window.autoCloseIfExpired(); });
+window.addEventListener("load", () => setTimeout(() => window.autoCloseIfExpired(), 1500));
 
 const closeModalOverlay = document.getElementById("closeModalOverlay");
 const closeSummary = document.getElementById("closeSummary");
