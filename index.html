@@ -489,6 +489,38 @@ window.apiSaveQty = async function(lot, actualQtyRaw, systemQty){
     return { success: true, actual_qty: actualQty, diff };
 };
 
+// 시작/마감 이벤트 기록 (close_log 테이블). 전송 실패 시 큐에 보관했다가 재전송
+const EVENT_LOG_COL = "close_log";
+const EVENT_QUEUE_KEY = 'lot_event_queue';
+function readEvtQ(){ try { return JSON.parse(localStorage.getItem(EVENT_QUEUE_KEY) || '[]'); } catch(e){ return []; } }
+function writeEvtQ(q){ try { localStorage.setItem(EVENT_QUEUE_KEY, JSON.stringify(q)); } catch(e){} }
+async function flushEventQueue(){
+    const q = readEvtQ();
+    if (!q.length) return;
+    const { error } = await sb.from(EVENT_LOG_COL).insert(q);
+    if (!error) writeEvtQ([]);
+}
+window.apiLogEvent = async function(event, data){
+    const { date, datetime } = nowParts();
+    const row = {
+        event: event, scanner: data.scanner || '', dept: data.dept || '',
+        scan_date: date, closed_at: datetime,
+        total: data.total ?? null, checked: data.checked ?? null, remaining: data.remaining ?? null
+    };
+    try {
+        const { error } = await sb.from(EVENT_LOG_COL).insert(row);
+        if (error) throw error;
+        flushEventQueue();
+        return true;
+    } catch(e) {
+        console.error('시작/마감 기록 저장 실패 - 큐에 보관', e);
+        writeEvtQ([...readEvtQ(), row]);
+        return false;
+    }
+};
+window.addEventListener('online', flushEventQueue);
+flushEventQueue();
+
 if (window.refreshStartBtn) window.refreshStartBtn();
 </script>
 
@@ -585,12 +617,16 @@ const closeConfirmBtn = document.getElementById("closeConfirmBtn");
 const closeCancelBtn = document.getElementById("closeCancelBtn");
 let closeLoadFailed = false;
 let closeRemainingCount = 0;
+let closeInfo = null;      // 마감 모달을 연 시점의 집계 (기록용)
+let closeWho = { scanner: "", dept: "" };
 
 function esc(v){ return String(v == null ? "" : v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
 async function openCloseModal(){
     if (!deptSelect.value) { alert("실사 부서를 선택해주세요."); deptSelect.focus(); return; }
     const dept = deptSelect.value;
+    closeWho = { scanner: scannerInput.value.trim(), dept: dept };
+    closeInfo = null;
     closeModalOverlay.style.display = "flex";
     closeSummary.textContent = "불러오는 중...";
     closeList.innerHTML = "";
@@ -600,6 +636,7 @@ async function openCloseModal(){
     try {
         const r = await window.apiRemaining(dept);
         window.updateProgressBar();
+        closeInfo = { total: r.total, checked: r.checked, remaining: r.remaining };
         closeRemainingCount = r.remaining;
         closeSummary.innerHTML =
             `기준: ${esc(r.master_date)} 업로드분 · <b>${esc(dept)}</b><br>` +
@@ -631,6 +668,14 @@ closeConfirmBtn.onclick = () => {
     else msg = "마감하고 저장된 재고 캐시를 삭제할까요?";
     if (!confirm(msg)) return;
 
+    // 마감 기록 (누가/언제/부서/확인 현황) - 캐시 삭제 전에 남김
+    window.apiLogEvent('close', {
+        scanner: closeWho.scanner, dept: closeWho.dept,
+        total: closeInfo ? closeInfo.total : null,
+        checked: closeInfo ? closeInfo.checked : null,
+        remaining: closeInfo ? closeInfo.remaining : null
+    });
+
     window.clearStockCache();
     closeModalOverlay.style.display = "none";
     lotInfoBox.style.display = "none"; lotInfoBox.className = "";
@@ -640,9 +685,16 @@ closeConfirmBtn.onclick = () => {
 };
 
 startDataBtn.onclick = async () => {
+    if (!scannerInput.value.trim()) { alert("작성자 이름을 입력해주세요."); scannerInput.focus(); return; }
+    if (!deptSelect.value) { alert("실사 부서를 선택해주세요."); deptSelect.focus(); return; }
+
     if (window.cachedStockMap.size > 0) { await openCloseModal(); return; }
+
     const r = await window.download10DaysStock();
-    if (r && r.success) window.refreshStartBtn();
+    if (r && r.success) {
+        window.refreshStartBtn();
+        window.apiLogEvent('start', { scanner: scannerInput.value.trim(), dept: deptSelect.value, total: r.count });
+    }
 };
 
 resultInput.addEventListener("input", function() {

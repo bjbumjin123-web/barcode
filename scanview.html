@@ -30,6 +30,7 @@ tr.dup{background:rgba(255,184,77,0.10);}
 .empty{padding:30px;text-align:center;color:#888;}
 .scroll-wrap{overflow-x:auto;}
 .close-row td{background:rgba(255,184,77,0.15);color:#ffb84d;font-weight:bold;}
+.start-row td{background:rgba(79,195,255,0.13);color:#4fc3ff;font-weight:bold;}
 </style>
 </head>
 <body>
@@ -174,7 +175,7 @@ function buildTimeline(){
     if (fDept) scanRows = scanRows.filter(r => (r.department||'') === fDept);
 
     let closeRows = dateCloseLogs.map(r => ({
-        type: 'close', time: r.closed_at,
+        type: 'close', time: r.closed_at, event: r.event || 'close',
         scanner: r.scanner, dept: r.dept, checked: r.checked, total: r.total, remaining: r.remaining
     }));
     if (fLot || fItem || fWh) closeRows = [];
@@ -204,11 +205,21 @@ function render(){
 
     rows.forEach((r,i) => {
         if (r.type === 'close'){
-            html += `<tr class="close-row">
-                <td>${i+1}</td>
-                <td>${esc((r.time||'').toString().slice(11,19))}</td>
-                <td colspan="12">🏁 마감 · <b>${esc(r.scanner || '-')}</b>${r.dept ? ' ('+esc(r.dept)+')' : ' (전체 부서)'} · 확인 ${esc(r.checked)}/${esc(r.total)}건 · 남음 ${esc(r.remaining)}건</td>
-            </tr>`;
+            const who = `<b>${esc(r.scanner || '-')}</b>${r.dept ? ' ('+esc(r.dept)+')' : ' (전체 부서)'}`;
+            const hasCounts = r.checked !== null && r.checked !== undefined;
+            if (r.event === 'start'){
+                html += `<tr class="start-row">
+                    <td>${i+1}</td>
+                    <td>${esc((r.time||'').toString().slice(11,19))}</td>
+                    <td colspan="12">▶️ 시작 · ${who}${r.total !== null && r.total !== undefined ? ' · 재고 '+esc(r.total)+'건 다운로드' : ''}</td>
+                </tr>`;
+            } else {
+                html += `<tr class="close-row">
+                    <td>${i+1}</td>
+                    <td>${esc((r.time||'').toString().slice(11,19))}</td>
+                    <td colspan="12">🏁 마감 · ${who}${hasCounts ? ' · 확인 '+esc(r.checked)+'/'+esc(r.total)+'건 · 남음 '+esc(r.remaining)+'건' : ' · 남은 LOT 확인 못함'}</td>
+                </tr>`;
+            }
             return;
         }
 
@@ -282,9 +293,12 @@ exportBtn.onclick = () => {
     const rows = [['#','확인시각','확인자','확인부서','LOT NO','부서','외주구분','품번','품명','시스템수량','실제수량','차이','단위','창고','확인횟수','비고']];
     timeline.forEach((r,i) => {
         if (r.type === 'close'){
+            const note = r.event === 'start'
+                ? `시작${r.total !== null && r.total !== undefined ? ' · 재고 '+r.total+'건 다운로드' : ''}`
+                : (r.checked !== null && r.checked !== undefined ? `마감 · 확인 ${r.checked}/${r.total}건 · 남음 ${r.remaining}건` : '마감');
             rows.push([
                 i+1, r.time, r.scanner, r.dept, '', '', '', '', '', '', '', '', '', '',
-                '', `마감 · 확인 ${r.checked}/${r.total}건 · 남음 ${r.remaining}건`
+                '', note
             ]);
             return;
         }
