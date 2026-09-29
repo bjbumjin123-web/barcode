@@ -237,6 +237,7 @@ body.kb-open{ padding-bottom:70vh; }   /* 키보드가 올라올 때 화면을 �
 <button id="captureBtn" disabled>📸 인식하기</button>
 <div id="status">상단의 [시작] 버튼을 눌러 데이터를 받아주세요.</div>
 
+<input id="kbProxy" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" tabindex="-1" aria-hidden="true" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;border:0;padding:0;margin:0;font-size:16px;pointer-events:none;">
 <div id="resultRow">
 <input id="result" type="text" maxlength="14" inputmode="numeric" pattern="[0-9]*" enterkeyhint="search" autocomplete="off" placeholder="LOT 번호 (예: 2606260022-001)">
 <button id="recheckBtn">🔍 조회</button>
@@ -1161,6 +1162,11 @@ captureBtn.onclick = async () => {
     if (!deptSelect.value) { alert("실사 부서를 선택해주세요."); deptSelect.focus(); return; }
     if (!video.videoWidth) { status.innerHTML = "⚠️ 카메라 준비 중입니다."; return; }
 
+    // iOS는 터치 직후가 아니면 키보드를 못 띄우므로, 3번째 시도일 때 터치 순간에 숨은 입력칸으로 숫자 키보드를 미리 올려둠
+    // (실패하면 handleRecognitionFail에서 LOT 입력칸으로 포커스만 옮겨서 키보드가 유지됨)
+    var kbProxy = document.getElementById("kbProxy");
+    if (recogFailCount >= 2) { try { kbProxy.focus({ preventScroll: true }); } catch(e){} }
+
     capturing = true; captureBtn.disabled = true;
     status.innerHTML = "🔍 인식 중...";
     try {
@@ -1174,6 +1180,7 @@ captureBtn.onclick = async () => {
             handleRecognitionFail();
         }
     } finally {
+        if (document.activeElement === kbProxy) kbProxy.blur();   // 인식 성공 등으로 입력칸이 안 열렸으면 키보드 닫기
         capturing = false;
         captureBtn.disabled = !(window.cachedStockMap && window.cachedStockMap.size > 0);
     }
