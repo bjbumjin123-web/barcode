@@ -243,7 +243,7 @@ body.manual-mode #backToCamBtn{ display:block; }
 <button id="backToCamBtn">📷 카메라로 돌아가기</button>
 
 <div id="resultRow">
-<input id="result" type="text" maxlength="14" inputmode="numeric" autocomplete="off" placeholder="LOT 번호 (예: 2606260022-001)">
+<input id="result" type="text" maxlength="14" inputmode="numeric" pattern="[0-9]*" enterkeyhint="search" autocomplete="off" placeholder="LOT 번호 (예: 2606260022-001)">
 <button id="recheckBtn">🔍 조회</button>
 </div>
 
@@ -1127,8 +1127,10 @@ function handleRecognitionFail(){
         enterManualMode();
         resultInput.classList.add("attention");
         setTimeout(function(){ resultInput.classList.remove("attention"); }, 4000);
-        resultInput.focus();
-        bringTypingIntoView();
+        // 다른 입력칸(작성자 등)의 문자 키보드가 남아있으면 숫자 자판으로 안 바뀌는 경우가 있어서 blur 후 다시 focus
+        resultInput.setAttribute("inputmode", "numeric");
+        resultInput.blur();
+        setTimeout(function(){ resultInput.focus(); bringTypingIntoView(); }, 50);
     } else {
         status.innerHTML = "❌ 인식 실패 (" + recogFailCount + "/3) - 초록 박스에 맞춰 다시 촬영해주세요.";
     }
