@@ -29,11 +29,11 @@ body{
 h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto; white-space:nowrap; }
 
 .navbar { 
-    position: sticky; top: 0; z-index: 1000; background: #111; 
+    position: -webkit-sticky; position: sticky; top: 0; z-index: 1000; background: #111; 
     padding: 8px 0; margin: 0 -6px 10px -6px; flex: 0 0 auto; 
-    display: flex; justify-content: center; gap: 4px; flex-wrap: nowrap; overflow-x: auto; 
+    display: flex; justify-content: center; flex-wrap: nowrap; overflow-x: auto; 
 }
-.navbar a{ color:#4fc3ff; font-size:12px; text-decoration:none; padding:5px 6px; border:1px solid #2a4a5c; border-radius:10px; white-space:nowrap; }
+.navbar a{ margin:0 2px; color:#4fc3ff; font-size:12px; text-decoration:none; padding:5px 6px; border:1px solid #2a4a5c; border-radius:10px; white-space:nowrap; }
 
 #scannerRow, #deptRow { display:flex; gap:4px; margin-bottom:6px; flex:0 0 auto; }
 #scannerInput, #deptSelect {
@@ -51,15 +51,15 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 #startDataBtn.closeMode{ background:#ffb84d; }
 
 /* 마감 모드 진행바 (작게) */
-#closeProgress{ display:none; align-items:center; gap:6px; margin:-2px 0 6px; flex:0 0 auto; }
+#closeProgress{ display:none; align-items:center; margin:-2px 0 6px; flex:0 0 auto; }
 #closeProgressBar{ flex:1 1 auto; height:6px; background:#2a2a2a; border-radius:3px; overflow:hidden; }
 #closeProgressFill{ height:100%; width:0%; background:#00e676; transition:width 0.3s; }
-#closeProgressText{ flex:0 0 auto; font-size:11px; color:#4fc3ff; white-space:nowrap; letter-spacing:-0.3px; }
+#closeProgressText{ margin-left:6px; flex:0 0 auto; font-size:11px; color:#4fc3ff; white-space:nowrap; letter-spacing:-0.3px; }
 #closeProgressText b{ color:#00e676; }
 
 /* 마감 모달 */
 #closeModalOverlay{
-    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:2900;
+    display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:2900;
     align-items:center; justify-content:center; padding:16px;
 }
 #closeModalBox{
@@ -112,10 +112,11 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
     pointer-events:none; z-index:12; text-align:center; white-space:nowrap;
 }
 #zoomControls{
-    position:absolute; right:8px; top:8px; display:flex; align-items:center; gap:6px;
+    position:absolute; right:8px; top:8px; display:flex; align-items:center;
     background:rgba(0,0,0,0.65); padding:4px 8px; border-radius:20px; z-index:20; white-space:nowrap;
 }
 #zoomControls button{ width:28px; height:28px; border-radius:50%; border:none; background:#00e676; color:#111; font-weight:bold; font-size:15px; cursor:pointer; }
+#zoomControls > *{ margin:0 3px; }
 #zoomLabel{ color:#fff; font-size:12px; min-width:36px; text-align:center; font-weight:bold; }
 #torchBtn{
     position:absolute; left:8px; top:8px; width:36px; height:36px; border-radius:50%;
@@ -131,13 +132,14 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 #captureBtn:disabled{ background:#555; color:#999; }
 #status{ margin-top:2px; font-weight:bold; color:#4fc3ff; text-align:center; font-size:12px; min-height:16px; flex:0 0 auto; }
 
-#resultRow{ display:flex; gap:6px; margin-top:6px; flex:0 0 auto; }
+#resultRow{ display:flex; margin-top:6px; flex:0 0 auto; }
+#result.attention{ border-color:#00e676; box-shadow:0 0 0 3px rgba(0,230,118,0.45); }
 #result{
     flex:1 1 auto; width:100%; height:40px; font-size:16px; font-weight:bold;
     padding:6px 10px; border-radius:8px; border:1px solid #444; background:#1c1c1c; color:#eee;
     letter-spacing:1px;
 }
-#recheckBtn{ flex:0 0 auto; padding:0 14px; font-size:13px; font-weight:bold; color:#111; background:#4fc3ff; border:none; border-radius:8px; cursor:pointer; }
+#recheckBtn{ margin-left:6px; flex:0 0 auto; padding:0 14px; font-size:13px; font-weight:bold; color:#111; background:#4fc3ff; border:none; border-radius:8px; cursor:pointer; }
 
 #lotInfo{ margin-top:8px; padding:12px; background:#1c1c1c; border:1px solid #333; border-radius:10px; display:none; flex:0 0 auto; }
 #lotInfo.found{ border-color:#2a9d2a; }
@@ -160,7 +162,7 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 
 /* 화면 중앙 실수량 입력 모달 팝업 */
 #qtyModalOverlay{
-    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:3000;
+    display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:3000;
     align-items:center; justify-content:center; padding:16px;
 }
 #qtyModalBox{
@@ -176,10 +178,10 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 }
 .modal-info-item {
     display:flex; justify-content:space-between; align-items:flex-start;
-    padding:6px 0; border-bottom:1px solid #222; gap:8px;
+    padding:6px 0; border-bottom:1px solid #222;
 }
 .modal-info-item:last-child { border-bottom:none; }
-.modal-info-label { color:#888; font-weight:bold; width:60px; flex-shrink:0; }
+.modal-info-label { margin-right:8px; color:#888; font-weight:bold; width:60px; flex-shrink:0; }
 .modal-info-val { color:#fff; font-weight:bold; word-break:break-all; text-align:right; flex-grow:1; }
 .modal-info-val.highlight { color:#00e676; font-size:15px; }
 
@@ -187,7 +189,8 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
     width:100%; height:48px; font-size:22px; font-weight:bold; text-align:center;
     border-radius:8px; border:1px solid #00e676; background:#111; color:#fff; margin-bottom:14px;
 }
-.modal-btn-group{ display:flex; gap:8px; }
+.modal-btn-group{ display:flex; }
+.modal-btn-group button + button{ margin-left:8px; }
 .modal-btn-group button{ flex:1; height:44px; font-size:15px; font-weight:bold; border:none; border-radius:8px; cursor:pointer; }
 #modalSaveBtn{ background:#00e676; color:#111; }
 #modalCloseBtn{ background:#444; color:#eee; }
@@ -222,7 +225,7 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 </div>
 
 <div id="camWrap">
-<video id="video" playsinline autoplay muted></video>
+<video id="video" playsinline webkit-playsinline autoplay muted></video>
 <div id="guideBox"></div>
 <div id="guideLabel">박스 안에 LOT 번호 맞추기</div>
 <div id="camStatus">카메라 연결 중...</div>
@@ -234,7 +237,7 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 <div id="status">상단의 [시작] 버튼을 눌러 데이터를 받아주세요.</div>
 
 <div id="resultRow">
-<input id="result" type="text" maxlength="14" placeholder="LOT 번호 (예: 2606260022-001)">
+<input id="result" type="text" maxlength="14" inputmode="numeric" autocomplete="off" placeholder="LOT 번호 (예: 2606260022-001)">
 <button id="recheckBtn">🔍 조회</button>
 </div>
 
@@ -505,7 +508,7 @@ window.apiLogEvent = async function(event, data){
     const row = {
         event: event, scanner: data.scanner || '', dept: data.dept || '',
         scan_date: date, closed_at: datetime,
-        total: data.total ?? null, checked: data.checked ?? null, remaining: data.remaining ?? null
+        total: (data.total === undefined ? null : data.total), checked: (data.checked === undefined ? null : data.checked), remaining: (data.remaining === undefined ? null : data.remaining)
     };
     try {
         const { error } = await sb.from(EVENT_LOG_COL).insert(row);
@@ -709,26 +712,78 @@ resultInput.addEventListener("input", function() {
     }
 });
 
-async function initCamera(){
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        video.srcObject = stream;
-        videoTrack = stream.getVideoTracks()[0];
-        document.getElementById("camStatus").style.display = "none";
-    } catch(e) {
-        document.getElementById("camStatus").innerText = "⚠️ 카메라 사용 불가";
+let zoomCaps = null;
+
+function updateZoomLabel(){ zoomLabel.innerText = currentZoom.toFixed(1) + "x"; }
+
+function setupZoom(track){
+    var caps = (track.getCapabilities && track.getCapabilities()) || {};
+    if (caps.zoom){
+        zoomCaps = caps.zoom;
+        currentZoom = (track.getSettings && track.getSettings().zoom) || zoomCaps.min || 1;
+    } else {
+        zoomCaps = null;
+        currentZoom = 1;
     }
+    updateZoomLabel();
+}
+
+function setupTorch(track){
+    var caps = (track.getCapabilities && track.getCapabilities()) || {};
+    torchBtn.style.display = caps.torch ? "block" : "none";
+}
+
+function setupFocus(track){
+    try {
+        var caps = (track.getCapabilities && track.getCapabilities()) || {};
+        if (caps.focusMode && caps.focusMode.indexOf("continuous") >= 0){
+            var p = track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
+            if (p && p.catch) p.catch(function(){});
+        }
+    } catch(e) {}
+}
+
+async function initCamera(){
+    var camStatus = document.getElementById("camStatus");
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+        camStatus.innerText = "⚠️ 카메라 미지원 (Chrome 최신 버전 사용)";
+        return;
+    }
+    // 폰이 지원하지 않는 해상도 요청이면 단계적으로 낮춰서 재시도 (구형 폰 대응)
+    var attempts = [
+        { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+        { video: { facingMode: "environment" }, audio: false },
+        { video: true, audio: false }
+    ];
+    var stream = null;
+    for (var i = 0; i < attempts.length && !stream; i++){
+        try { stream = await navigator.mediaDevices.getUserMedia(attempts[i]); } catch(e) { console.error(e); }
+    }
+    if (!stream){ camStatus.innerText = "⚠️ 카메라 사용 불가 (권한 확인)"; return; }
+    video.srcObject = stream;
+    try { await video.play(); } catch(e) {}
+    videoTrack = stream.getVideoTracks()[0];
+    camStatus.style.display = "none";
+    setupZoom(videoTrack); setupTorch(videoTrack); setupFocus(videoTrack);
+    // 숫자 인식 엔진은 미리 준비해 두면 첫 촬영이 빨라짐
+    setTimeout(function(){ getOcrWorker().catch(function(){}); }, 2500);
 }
 initCamera();
 
-function setZoom(val) {
-    currentZoom = Math.max(1, Math.min(10, val));
-    zoomLabel.innerText = currentZoom.toFixed(1) + "x";
-    if (videoTrack) {
-        try { videoTrack.applyConstraints({ advanced: [{ zoom: currentZoom }] }); } catch(e) { video.style.transform = `scale(${currentZoom})`; }
+function setZoom(val){
+    if (zoomCaps){
+        var maxZ = Math.min(zoomCaps.max || 1, 10);
+        currentZoom = Math.max(zoomCaps.min || 1, Math.min(maxZ, val));
+        try {
+            var p = videoTrack.applyConstraints({ advanced: [{ zoom: currentZoom }] });
+            if (p && p.catch) p.catch(function(){});
+        } catch(e) {}
     } else {
-        video.style.transform = `scale(${currentZoom})`;
+        // 하드웨어 줌 미지원 폰: 화면 확대(디지털 줌) - 인식할 때도 같은 비율로 잘라냄
+        currentZoom = Math.max(1, Math.min(3, val));
+        video.style.transform = currentZoom > 1 ? "scale(" + currentZoom + ")" : "none";
     }
+    updateZoomLabel();
 }
 
 zoomInBtn.onclick = () => setZoom(currentZoom + 0.5);
@@ -764,36 +819,294 @@ torchBtn.onclick = async () => {
     } catch(e) { alert("이 기기에서는 플래시를 지원하지 않습니다."); }
 };
 
-const codeReader = new ZXing.BrowserMultiFormatReader();
-captureBtn.onclick = async () => {
-    if (!scannerInput.value.trim()) { alert("작성자 이름을 입력해주세요."); scannerInput.focus(); return; }
-    if (!deptSelect.value) { alert("실사 부서를 선택해주세요."); deptSelect.focus(); return; }
+const guideBox = document.getElementById("guideBox");
 
-    status.innerHTML = "🔍 인식 진행 중...";
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-    canvas.getContext("2d").drawImage(video, 0, 0);
+// ==PURE-START== (화면과 무관한 순수 함수: 테스트 대상)
+function lotPlausible(lot){
+    var mm = parseInt(lot.substr(2, 2), 10), dd = parseInt(lot.substr(4, 2), 10);
+    return mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31;   // LOT 앞 6자리는 yymmdd
+}
 
-    let lot = null;
-    try {
-        let img = new Image(); img.src = canvas.toDataURL();
-        await new Promise(r => img.onload = r);
-        lot = (await codeReader.decodeFromImageElement(img)).getText();
-    } catch(e) {
-        let { data: { text } } = await Tesseract.recognize(canvas.toDataURL(), 'eng');
-        let match = text.replace(/\s+/g, '').match(/\d{10}-\d{3}/);
-        if (match) lot = match[0];
+// 텍스트에서 LOT 후보(10자리-3자리) 전부 추출 (줄 단위 + 전체 이어붙인 것)
+function extractLots(text){
+    var out = [];
+    if (!text) return out;
+    var raw = String(text);
+    var chunks = raw.split(/\r?\n/).concat([raw]);
+    for (var i = 0; i < chunks.length; i++){
+        var t = chunks[i].replace(/\s+/g, "");
+        var re = /(\d{10})-?(\d{3})/g, m;
+        while ((m = re.exec(t)) !== null){
+            var lot = m[1] + "-" + m[2];
+            if (out.indexOf(lot) < 0) out.push(lot);
+            re.lastIndex = m.index + 1;
+        }
+    }
+    return out;
+}
+
+function getGray(canvas){
+    var w = canvas.width, h = canvas.height;
+    var d = canvas.getContext("2d").getImageData(0, 0, w, h).data;
+    var g = new Uint8ClampedArray(w * h);
+    for (var i = 0, j = 0; i < d.length; i += 4, j++){
+        g[j] = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
+    }
+    return { g: g, w: w, h: h };
+}
+
+// 명암 늘리기: 색 바랜 종이/어두운 조명에서 글자와 배경 차이를 키움
+function stretchGray(g){
+    var hist = new Array(256).fill(0), n = g.length, i;
+    for (i = 0; i < n; i++) hist[g[i]]++;
+    var lo = 0, hi = 255, acc = 0;
+    for (i = 0; i < 256; i++){ acc += hist[i]; if (acc >= n * 0.02){ lo = i; break; } }
+    acc = 0;
+    for (i = 255; i >= 0; i--){ acc += hist[i]; if (acc >= n * 0.02){ hi = i; break; } }
+    if (hi - lo < 30) hi = Math.min(255, lo + 30);
+    var out = new Uint8ClampedArray(n), scale = 255 / (hi - lo);
+    for (i = 0; i < n; i++) out[i] = (g[i] - lo) * scale;
+    return out;
+}
+
+// 주변 밝기 기준 이진화: 그늘/구겨진 자국/얼룩이 있어도 글자만 남김
+function adaptiveBinarize(g, w, h){
+    var W = w + 1, integral = new Float64Array(W * (h + 1)), x, y;
+    for (y = 0; y < h; y++){
+        var rowSum = 0;
+        for (x = 0; x < w; x++){
+            rowSum += g[y * w + x];
+            integral[(y + 1) * W + (x + 1)] = integral[y * W + (x + 1)] + rowSum;
+        }
+    }
+    var r = Math.max(8, Math.round(h / 8)), out = new Uint8ClampedArray(w * h);
+    for (y = 0; y < h; y++){
+        var y0 = Math.max(0, y - r), y1 = Math.min(h - 1, y + r);
+        for (x = 0; x < w; x++){
+            var x0 = Math.max(0, x - r), x1 = Math.min(w - 1, x + r);
+            var sum = integral[(y1 + 1) * W + (x1 + 1)] - integral[y0 * W + (x1 + 1)]
+                    - integral[(y1 + 1) * W + x0] + integral[y0 * W + x0];
+            var mean = sum / ((x1 - x0 + 1) * (y1 - y0 + 1));
+            out[y * w + x] = g[y * w + x] < mean * 0.88 ? 0 : 255;
+        }
+    }
+    return out;
+}
+// ==PURE-END==
+
+function grayToCanvas(g, w, h){
+    var c = document.createElement("canvas"); c.width = w; c.height = h;
+    var ctx = c.getContext("2d"), id = ctx.createImageData(w, h);
+    for (var i = 0, j = 0; j < g.length; i += 4, j++){
+        id.data[i] = id.data[i + 1] = id.data[i + 2] = g[j]; id.data[i + 3] = 255;
+    }
+    ctx.putImageData(id, 0, 0);
+    return c;
+}
+
+function lotInCache(lot){ return !!(window.cachedStockMap && window.cachedStockMap.has(lot)); }
+function nextTick(){ return new Promise(function(r){ setTimeout(r, 0); }); }
+function withTimeout(p, ms){
+    return new Promise(function(resolve, reject){
+        var t = setTimeout(function(){ reject(new Error("timeout")); }, ms);
+        p.then(function(v){ clearTimeout(t); resolve(v); }, function(e){ clearTimeout(t); reject(e); });
+    });
+}
+
+// 초록 박스 위치를 카메라 원본 픽셀 좌표로 변환 (object-fit: cover + 디지털 줌 보정)
+function guideBoxToVideoCoords(){
+    var wrapRect = camWrap.getBoundingClientRect(), boxRect = guideBox.getBoundingClientRect();
+    var vw = video.videoWidth, vh = video.videoHeight;
+    var scale = Math.max(wrapRect.width / vw, wrapRect.height / vh);
+    var relLeft = boxRect.left - wrapRect.left, relTop = boxRect.top - wrapRect.top;
+    var relW = boxRect.width, relH = boxRect.height;
+    if (!zoomCaps && currentZoom > 1){
+        var cx = wrapRect.width / 2, cy = wrapRect.height / 2;
+        relLeft = cx + (relLeft - cx) / currentZoom; relTop = cy + (relTop - cy) / currentZoom;
+        relW = relW / currentZoom; relH = relH / currentZoom;
+    }
+    return {
+        srcX: (relLeft + (vw * scale - wrapRect.width) / 2) / scale,
+        srcY: (relTop + (vh * scale - wrapRect.height) / 2) / scale,
+        srcW: relW / scale, srcH: relH / scale
+    };
+}
+
+// 초록 박스 영역만 잘라냄 (손 떨림 대비 여유 조금). 구형 폰 메모리를 위해 크기 제한
+function makeCrop(){
+    if (!video.videoWidth) return null;
+    var c = guideBoxToVideoCoords();
+    var padX = c.srcW * 0.06, padY = c.srcH * 0.10;
+    var sx = Math.max(0, c.srcX - padX), sy = Math.max(0, c.srcY - padY);
+    var sw = Math.min(video.videoWidth - sx, c.srcW + padX * 2), sh = Math.min(video.videoHeight - sy, c.srcH + padY * 2);
+    if (sw < 20 || sh < 10) return null;
+    var scale = Math.min(2, 1100 / sw);
+    if (sw * sh * scale * scale > 1500000) scale = Math.sqrt(1500000 / (sw * sh));
+    var canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(sw * scale)); canvas.height = Math.max(1, Math.round(sh * scale));
+    canvas.getContext("2d").drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    return canvas;
+}
+
+function makeFullFrame(){
+    if (!video.videoWidth) return null;
+    var s = Math.min(1, 1280 / video.videoWidth);
+    var canvas = document.createElement("canvas");
+    canvas.width = Math.round(video.videoWidth * s); canvas.height = Math.round(video.videoHeight * s);
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas;
+}
+
+// ---- 바코드 ----
+var zxReader = null, zxImgReader = null;
+function zxHints(){
+    var hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39]);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    return hints;
+}
+async function decodeBarcode(canvas){
+    if (typeof ZXing === "undefined") return null;
+    if (ZXing.HTMLCanvasElementLuminanceSource && ZXing.MultiFormatReader && ZXing.BinaryBitmap && ZXing.HybridBinarizer){
+        try {
+            if (!zxReader){ zxReader = new ZXing.MultiFormatReader(); zxReader.setHints(zxHints()); }
+            var bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(canvas)));
+            return zxReader.decode(bmp).getText();
+        } catch(e) { return null; }
+    }
+    try {   // 라이브러리 구성이 다른 경우의 대체 경로
+        var img = new Image(); img.src = canvas.toDataURL();
+        await new Promise(function(r){ img.onload = r; img.onerror = r; });
+        if (!zxImgReader) zxImgReader = new ZXing.BrowserMultiFormatReader(zxHints());
+        return (await zxImgReader.decodeFromImageElement(img)).getText();
+    } catch(e) { return null; }
+}
+
+// ---- 숫자(OCR): 엔진 1개를 만들어 계속 재사용 ----
+var ocrWorkerPromise = null;
+function getOcrWorker(){
+    if (typeof Tesseract === "undefined") return Promise.reject(new Error("Tesseract 없음"));
+    if (!ocrWorkerPromise){
+        ocrWorkerPromise = Tesseract.createWorker("eng").then(async function(w){
+            await w.setParameters({ tessedit_char_whitelist: "0123456789-", user_defined_dpi: "300" });
+            return w;
+        }).catch(function(e){ ocrWorkerPromise = null; throw e; });
+    }
+    return ocrWorkerPromise;
+}
+
+// 바코드 → 숫자 OCR(보정 방식 여러 가지) 순서로 시도. 재고 목록(캐시)에 있는 LOT이 나오면 바로 확정
+async function recognizeLot(){
+    var frame = makeCrop();
+    if (!frame) return null;
+    var votes = {};
+
+    function consider(text, trusted){
+        var lots = extractLots(text);
+        for (var i = 0; i < lots.length; i++){
+            var l = lots[i];
+            if (lotInCache(l)) return l;
+            if (lotPlausible(l)){
+                if (trusted) return l;
+                votes[l] = (votes[l] || 0) + 1;
+            }
+        }
+        return null;
+    }
+    function bestVote(){
+        var best = null, n = 0;
+        for (var k in votes){ if (votes[k] > n){ n = votes[k]; best = k; } }
+        return best;
     }
 
-    if (lot) {
-        resultInput.value = lot;
-        await doLookup(lot);
+    status.innerHTML = "🔍 바코드 확인 중...";
+    await nextTick();
+    var lot = consider(await decodeBarcode(frame), true);
+    if (lot) return lot;
+
+    var gi = getGray(frame);
+    var stretched = stretchGray(gi.g);
+    var stretchedCanvas = grayToCanvas(stretched, gi.w, gi.h);
+    lot = consider(await decodeBarcode(stretchedCanvas), true);
+    if (lot) return lot;
+
+    var full = makeFullFrame();
+    if (full){
+        lot = consider(await decodeBarcode(full), true);
+        if (lot) return lot;
+    }
+
+    if (typeof Tesseract !== "undefined"){
+        var bin = grayToCanvas(adaptiveBinarize(stretched, gi.w, gi.h), gi.w, gi.h);
+        var passes = [ { c: stretchedCanvas, psm: "6" }, { c: bin, psm: "6" }, { c: bin, psm: "11" } ];
+        for (var i = 0; i < passes.length; i++){
+            status.innerHTML = "🔍 숫자 인식 중 (" + (i + 1) + "/" + passes.length + ")...";
+            await nextTick();
+            try {
+                var w = await withTimeout(getOcrWorker(), 60000);
+                await w.setParameters({ tessedit_pageseg_mode: passes[i].psm });
+                var res = await withTimeout(w.recognize(passes[i].c), 15000);
+                lot = consider(res && res.data ? res.data.text : "", false);
+                if (lot) return lot;
+            } catch(e) {
+                console.error("숫자 인식 오류:", e);
+                if (e && e.message === "timeout") ocrWorkerPromise = null;
+            }
+        }
+    }
+    return bestVote();
+}
+
+// ---- 연속 실패 처리: 3번 실패하면 직접 입력칸으로 커서 이동 ----
+var recogFailCount = 0;
+var capturing = false;
+
+function handleRecognitionFail(){
+    recogFailCount++;
+    if (navigator.vibrate) navigator.vibrate(recogFailCount >= 3 ? [120, 80, 120] : 120);
+    if (recogFailCount >= 3){
+        recogFailCount = 0;
+        status.innerHTML = "⌨️ 3회 연속 인식 실패 - LOT 번호를 직접 입력해주세요.";
+        resultInput.value = "";
+        resultInput.classList.add("attention");
+        setTimeout(function(){ resultInput.classList.remove("attention"); }, 4000);
+        try { resultInput.scrollIntoView({ block: "center" }); } catch(e) {}
+        resultInput.focus();
     } else {
-        status.innerHTML = "❌ 인식 실패. 손으로 직접 입력해주세요.";
+        status.innerHTML = "❌ 인식 실패 (" + recogFailCount + "/3) - 초록 박스에 맞춰 다시 촬영해주세요.";
+    }
+}
+
+captureBtn.onclick = async () => {
+    if (capturing) return;
+    if (!scannerInput.value.trim()) { alert("작성자 이름을 입력해주세요."); scannerInput.focus(); return; }
+    if (!deptSelect.value) { alert("실사 부서를 선택해주세요."); deptSelect.focus(); return; }
+    if (!video.videoWidth) { status.innerHTML = "⚠️ 카메라 준비 중입니다."; return; }
+
+    capturing = true; captureBtn.disabled = true;
+    status.innerHTML = "🔍 인식 중...";
+    try {
+        var lot = null;
+        try { lot = await recognizeLot(); } catch(e) { console.error(e); }
+        if (lot) {
+            recogFailCount = 0;
+            resultInput.value = lot;
+            await doLookup(lot);
+        } else {
+            handleRecognitionFail();
+        }
+    } finally {
+        capturing = false;
+        captureBtn.disabled = !(window.cachedStockMap && window.cachedStockMap.size > 0);
     }
 };
 
+resultInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.keyCode === 13) { e.preventDefault(); recheckBtn.click(); }
+});
+
 recheckBtn.onclick = async () => {
+    recogFailCount = 0;
     const lot = resultInput.value.trim();
     if (!lot) return alert("LOT 번호를 입력하세요.");
     await doLookup(lot);
@@ -900,6 +1213,13 @@ function updateNetworkUI() {
 window.addEventListener('online', updateNetworkUI);
 window.addEventListener('offline', updateNetworkUI);
 updateNetworkUI();
+
+// 앱 핵심 스크립트(모듈)가 못 뜨는 구형 브라우저/네트워크 문제를 화면에 알림
+setTimeout(function(){
+    if (!window.cachedStockMap){
+        status.innerHTML = "⚠️ 앱 로딩 실패 - 네트워크 확인 또는 브라우저(Chrome) 업데이트가 필요합니다.";
+    }
+}, 10000);
 </script>
 </body>
 </html>
