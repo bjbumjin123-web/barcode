@@ -156,7 +156,7 @@ body.manual-mode #backToCamBtn{ display:block; }
 .status-tag.no{ background:rgba(255,138,138,0.2); color:#ff8a8a; border:1px solid #ff8a8a; }
 
 .info-grid{ display:grid; grid-template-columns:55px 1fr; row-gap:6px; column-gap:6px; align-items:center; }
-.info-label{ color:#888; font-size:12px; }
+.info-label{ color:#888; font-size:12px; white-space:nowrap; }
 .info-value{ font-size:15px; font-weight:bold; color:#eee; word-break:break-all; }
 .info-value.big{ font-size:18px; color:#00e676; }
 
@@ -172,7 +172,7 @@ body.manual-mode #backToCamBtn{ display:block; }
 }
 #qtyModalBox{
     background:#1c1c1c; border:2px solid #00e676; border-radius:14px; padding:18px;
-    max-width:380px; width:100%; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,0.9);
+    max-width:380px; width:100%; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,0.9); padding:16px 14px;
 }
 #qtyModalBox h3{ margin:0 0 10px; color:#00e676; font-size:18px; }
 
@@ -186,12 +186,13 @@ body.manual-mode #backToCamBtn{ display:block; }
     padding:6px 0; border-bottom:1px solid #222;
 }
 .modal-info-item:last-child { border-bottom:none; }
-.modal-info-label { margin-right:8px; color:#888; font-weight:bold; width:60px; flex-shrink:0; }
-.modal-info-val { color:#fff; font-weight:bold; word-break:break-all; text-align:right; flex-grow:1; }
+.modal-info-label { margin-right:8px; color:#888; font-weight:bold; flex-shrink:0; white-space:nowrap; }
+.modal-info-val { color:#fff; font-weight:bold; word-break:keep-all; overflow-wrap:anywhere; text-align:right; flex-grow:1; min-width:0; }
+#modalLotNo, #modalSysQty { white-space:nowrap; overflow-wrap:normal; }
 .modal-info-val.highlight { color:#00e676; font-size:15px; }
 
 #modalWarn{display:none;margin:0 0 8px;padding:8px;border-radius:8px;font-size:13px;font-weight:bold;line-height:1.4;}
-#modalLotNo.big{font-size:24px;color:#ff8a8a;letter-spacing:1px;}
+#modalLotNo.big{font-size:clamp(15px,5.2vw,22px);color:#ff8a8a;letter-spacing:0;}
 #modalQtyInput{
     width:100%; height:48px; font-size:22px; font-weight:bold; text-align:center;
     border-radius:8px; border:1px solid #00e676; background:#111; color:#fff; margin-bottom:14px;
