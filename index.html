@@ -463,11 +463,25 @@ window.apiLookup = async function(lot){
         }
     }
 
+    // 재고(오늘/과거 이력) 어디에도 없으면 자재입고·생산실적 LOT 자료(lot_master)에서 품번/품명만 참조
+    let lotRef = null;
+    if (!stockRow) {
+        try {
+            const { data: refRows, error: refErr } = await sb.from('lot_master').select('*').eq('lot_no', lot).limit(1);
+            if (refErr) throw refErr;
+            if (refRows && refRows.length) lotRef = refRows[0];
+        } catch(refE) { console.error('lot_master 조회 실패(무시하고 계속)', refE); }
+    }
+
     const { date: today, datetime: now } = nowParts();
 
-    // 종류: normal(최근 실행분) / recent_past(10일 내 과거자료) / old_past(11일~ 과거자료) / none(재고 없음)
+    // 종류: normal(최근 실행분) / recent_past(10일 내 과거자료) / old_past(11일~ 과거자료) / lot_ref(재고엔 없고 MES 실적에서 품번/품명 확인) / none(어디에도 없음)
     let kind = 'none', refDate = null, days = null;
-    if (stockRow){
+    if (!stockRow && lotRef){
+        kind = 'lot_ref';
+        refDate = lotRef.work_date || null;
+        days = daysBetween(refDate, today);
+    } else if (stockRow){
         refDate = stockRow.upload_date || null;
         days = daysBetween(refDate, today);
         let fresh;
@@ -486,8 +500,8 @@ window.apiLookup = async function(lot){
         scanned_by: scanner, scan_dept: scanDept,
         actual_qty: null, diff: null,
         stock_kind: kind, stock_ref_date: refDate,
-        stock_item_no: isPast ? (stockRow.item_no || null) : null,
-        stock_item_name: isPast ? (stockRow.item_name || null) : null,
+        stock_item_no: isPast ? (stockRow.item_no || null) : (kind === 'lot_ref' ? (lotRef.item_no || null) : null),
+        stock_item_name: isPast ? (stockRow.item_name || null) : (kind === 'lot_ref' ? (lotRef.item_name || null) : null),
         stock_unit: isPast ? (stockRow.unit || null) : null,
         stock_dept: isPast ? (stockRow.department || null) : null,
         stock_wh: isPast ? (stockRow.warehouse || null) : null
@@ -496,6 +510,15 @@ window.apiLookup = async function(lot){
 
     if (kind === 'none'){
         return { found: false, kind, lot_no: lot, qty: null, unit: '' };
+    }
+
+    if (kind === 'lot_ref'){
+        return {
+            found: true, kind, isRecent1Day: false, lot_no: lot,
+            item_no: lotRef.item_no || '-', item_name: lotRef.item_name || '-',
+            qty: null, unit: '', ref_source: lotRef.source || '',
+            upload_date: refDate || '-', days_ago: days
+        };
     }
 
     return {
@@ -1254,6 +1277,7 @@ async function doLookup(lot){
 
     let statusBadge;
     if (res.kind === 'normal') statusBadge = `<div class="status-tag yes">✅ 최근 실행분 재고 데이터 존재</div>`;
+    else if (res.kind === 'lot_ref') statusBadge = `<div class="status-tag warn" style="color:#4fc3ff;border-color:#4fc3ff;">ℹ️ 재고 데이터 없음 · MES ${esc(res.ref_source || '실적')} 기록(${pastInfo}) 기준 품번/품명 → 전산수량 없음</div>`;
     else if (res.kind === 'recent_past') statusBadge = `<div class="status-tag warn">⚠️ 당일 재고 미반영 · 10일 내 과거자료 ${pastInfo} → 수량 0</div>`;
     else statusBadge = `<div class="status-tag warn" style="color:#c792ea;border-color:#c792ea;">⚠️ 장기 과거자료 ${pastInfo} → 수량 0</div>`;
 
@@ -1263,7 +1287,7 @@ async function doLookup(lot){
         <div class="info-grid">
             <div class="info-label">품번</div><div class="info-value">${esc(res.item_no)}</div>
             <div class="info-label">품명</div><div class="info-value">${esc(res.item_name)}</div>
-            <div class="info-label">전산수량</div><div class="info-value big">${res.qty} ${esc(res.unit)}</div>
+            <div class="info-label">전산수량</div><div class="info-value big">${res.qty === null ? '- (없음)' : res.qty + ' ' + esc(res.unit)}</div>
         </div>
         <button id="openQtyModalBtn">📝 실수량 입력하기</button>
     `;
@@ -1278,11 +1302,15 @@ function openQtyModal(res) {
     modalItemNo.innerText = res.item_no || '-';
     modalItemName.innerText = res.item_name || '-';
     const isNone = res.kind === 'none';
-    modalSysQty.innerText = isNone ? '- (재고 없음)' : `${res.qty} ${res.unit || ''}`;
+    const isRef = res.kind === 'lot_ref';
+    modalSysQty.innerText = isNone ? '- (재고 없음)' : (isRef ? '- (전산수량 없음)' : `${res.qty} ${res.unit || ''}`);
     modalLotNo.classList.toggle('big', isNone);
     if (isNone){
         modalWarn.style.display = 'block'; modalWarn.style.background = 'rgba(255,138,138,0.15)'; modalWarn.style.color = '#ff8a8a';
         modalWarn.innerText = '⚠️ 재고 이력에 없는 LOT입니다. 위 LOT 번호가 맞는지 확인하세요.';
+    } else if (isRef){
+        modalWarn.style.display = 'block'; modalWarn.style.background = 'rgba(79,195,255,0.15)'; modalWarn.style.color = '#4fc3ff';
+        modalWarn.innerText = `ℹ️ 재고엔 없고 MES ${res.ref_source || '실적'} 기록(${res.upload_date})에서 찾은 품번/품명입니다. 전산수량은 없습니다.`;
     } else if (res.kind === 'recent_past' || res.kind === 'old_past'){
         modalWarn.style.display = 'block'; modalWarn.style.background = 'rgba(255,184,77,0.15)'; modalWarn.style.color = res.kind === 'old_past' ? '#c792ea' : '#ffb84d';
         modalWarn.innerText = `⚠️ ${res.upload_date} 과거자료 기준 · 전산수량 0 처리`;

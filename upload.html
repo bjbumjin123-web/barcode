@@ -13,9 +13,11 @@ h2{font-size:16px; text-align:center; margin:0 0 10px; white-space:nowrap;}
 .navbar a{color:#4fc3ff;font-size:12px;letter-spacing:-0.3px;text-decoration:none;padding:5px 6px;border:1px solid #2a4a5c;border-radius:10px;white-space:nowrap;}
 .box{background:#1c1c1c;border:1px solid #333;border-radius:12px;padding:18px;margin-top:14px;}
 label{display:block;margin-top:10px;font-size:13px;color:#ccc;white-space:nowrap;}
-input[type=file], input[type=date]{width:100%;padding:10px;background:#222;color:#eee;border:1px solid #444;border-radius:8px;margin:6px 0 12px;font-size:14px;white-space:nowrap;}
+input[type=file], input[type=date], select{width:100%;padding:10px;background:#222;color:#eee;border:1px solid #444;border-radius:8px;margin:6px 0 12px;font-size:14px;white-space:nowrap;}
 button{width:100%;padding:12px;font-size:14px;letter-spacing:-0.3px;font-weight:bold;background:#00e676;color:#111;border:none;border-radius:8px;white-space:nowrap;cursor:pointer;}
 button:disabled{background:#555;color:#999;}
+.btn2{background:#4fc3ff;margin-top:10px;display:none;}
+.hint{margin-top:6px;font-size:12px;color:#999;line-height:1.5;}
 .msg{margin-top:14px;font-weight:bold;font-size:14px;}
 .dup-msg{margin-top:10px;font-weight:bold;color:#ffb84d;font-size:13px;}
 .validation-msg{margin-top:8px;font-weight:bold;color:#ff8a8a;font-size:12px;line-height:1.5;}
@@ -35,9 +37,18 @@ button:disabled{background:#555;color:#999;}
 </div>
 
 <div class="info" id="summaryBox">불러오는 중...</div>
+<div class="info" id="lotSummaryBox">LOT 조회용 자료(자재/생산) 불러오는 중...</div>
 
 <div class="box">
-<label>실사 기준 날짜</label>
+<label>업로드 종류</label>
+<select id="typeSelect">
+<option value="stock">📦 재고 (MES 재고 엑셀)</option>
+<option value="mat">🚚 자재실적 (LOT 조회용)</option>
+<option value="prod">🏭 생산실적 (LOT 조회용)</option>
+</select>
+<div class="hint" id="typeHint" style="display:none;">엑셀 컬럼: LOT NO / 품번 / 품명 / 날짜 — 날짜가 비어 있는 행은 아래 기본 날짜로 저장됩니다. 60일 지나면 자동 삭제됩니다.</div>
+
+<label id="dateLabel">실사 기준 날짜</label>
 <input type="date" id="uploadDateInput" required>
 <div class="date-warning" id="dateWarning"></div>
 
@@ -45,6 +56,7 @@ button:disabled{background:#555;color:#999;}
 <input type="file" id="excelFile" accept=".xlsx">
 
 <button id="uploadBtn">업로드 시작</button>
+<button id="templateBtn" class="btn2">📄 양식 다운로드</button>
 
 <div class="msg" id="msgBox"></div>
 <div class="dup-msg" id="dupBox"></div>
@@ -115,9 +127,17 @@ const dupBox = document.getElementById("dupBox");
 const validationBox = document.getElementById("validationBox");
 const summaryBox = document.getElementById("summaryBox");
 const downloadBtn = document.getElementById("downloadBtn");
+const typeSelect = document.getElementById("typeSelect");
+const typeHint = document.getElementById("typeHint");
+const dateLabel = document.getElementById("dateLabel");
+const templateBtn = document.getElementById("templateBtn");
+const lotSummaryBox = document.getElementById("lotSummaryBox");
+const LOT_TABLE = "lot_master";
+const TYPE_INFO = { mat:{ label:'자재실적', source:'수동(자재)' }, prod:{ label:'생산실적', source:'수동(생산)' } };
 
 let lastUploadedRows = [];
 let lastUploadedDate = '';
+let lastUploadedType = 'stock';
 
 let existingCountForDate = 0;
 
@@ -154,6 +174,7 @@ async function loadSummary(){
 }
 
 async function checkDate(){
+    if (typeSelect.value !== 'stock'){ existingCountForDate = 0; dateWarning.style.display = "none"; return; }
     const dt = dateInput.value;
     if (!dt) return;
     try{
@@ -173,6 +194,163 @@ async function checkDate(){
 }
 
 dateInput.addEventListener("change", checkDate);
+
+
+// ---------- 자재실적 / 생산실적 (LOT 조회용) ----------
+async function loadLotSummary(){
+    try{
+        const head = { count:'exact', head:true };
+        const [all, mat, prod, latest] = await Promise.all([
+            sb.from(LOT_TABLE).select('lot_no', head),
+            sb.from(LOT_TABLE).select('lot_no', head).ilike('source', '%자재%'),
+            sb.from(LOT_TABLE).select('lot_no', head).ilike('source', '%생산%'),
+            sb.from(LOT_TABLE).select('work_date').order('work_date', { ascending:false }).limit(1)
+        ]);
+        [all, mat, prod, latest].forEach(r => { if (r.error) throw r.error; });
+        const latestDate = latest.data.length ? latest.data[0].work_date : '없음';
+        lotSummaryBox.innerHTML = `LOT 조회용 자료(최근 60일): <b>${all.count || 0}</b>건 (자재 <b>${mat.count || 0}</b> / 생산 <b>${prod.count || 0}</b>)<br>가장 최근 날짜: <b>${latestDate}</b>`;
+    }catch(e){
+        console.error(e);
+        lotSummaryBox.textContent = 'LOT 조회용 자료를 불러오지 못했습니다. (lot_master 테이블 생성 여부 확인)';
+    }
+}
+
+function onTypeChange(){
+    const t = typeSelect.value;
+    msgBox.textContent = ''; dupBox.textContent = ''; validationBox.innerHTML = '';
+    downloadBtn.style.display = 'none'; lastUploadedRows = [];
+    if (t === 'stock'){
+        dateLabel.textContent = '실사 기준 날짜';
+        typeHint.style.display = 'none';
+        templateBtn.style.display = 'none';
+    } else {
+        dateLabel.textContent = '기본 날짜 (엑셀 날짜가 빈 행에 사용)';
+        typeHint.style.display = 'block';
+        templateBtn.style.display = 'block';
+    }
+    checkDate();
+}
+typeSelect.addEventListener('change', onTypeChange);
+
+// 엑셀 날짜(숫자/문자/Date) -> 'YYYY-MM-DD', 못 읽으면 fallback
+function normalizeDate(v, fallback){
+    if (v === null || v === undefined || v === '') return fallback;
+    if (v instanceof Date && !isNaN(v)) return v.toISOString().slice(0, 10);
+    if (typeof v === 'number'){
+        if (v > 20000 && v < 80000){                       // 엑셀 날짜 일련번호
+            return new Date(Math.round((v - 25569) * 86400 * 1000)).toISOString().slice(0, 10);
+        }
+        v = String(Math.trunc(v));
+    }
+    const digits = String(v).replace(/[^0-9]/g, '');
+    if (digits.length >= 8){
+        const y = digits.slice(0,4), m = digits.slice(4,6), d = digits.slice(6,8);
+        if (+m >= 1 && +m <= 12 && +d >= 1 && +d <= 31) return `${y}-${m}-${d}`;
+    }
+    const m2 = String(v).trim().match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})/);
+    if (m2) return `${m2[1]}-${m2[2].padStart(2,'0')}-${m2[3].padStart(2,'0')}`;
+    return fallback;
+}
+
+function parseLotExcel(file, defaultDate){
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try{
+                const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                const sheet = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' });
+                if (rows.length < 2){ reject('❌ 엑셀에 데이터가 없습니다. (양식의 2행부터 입력하세요)'); return; }
+
+                const header = rows[0].map(h => (h || '').toString().trim());
+                let lotIdx = header.indexOf('LOT NO'); if (lotIdx === -1) lotIdx = header.indexOf('LOT');
+                const idx = { lot_no: lotIdx, item_no: header.indexOf('품번'), item_name: header.indexOf('품명') };
+                const dateIdx = header.indexOf('날짜');
+                const missing = Object.keys(idx).filter(k => idx[k] === -1);
+                if (missing.length){
+                    const names = { lot_no:'LOT NO', item_no:'품번', item_name:'품명' };
+                    reject('❌ 엑셀에서 다음 컬럼을 찾을 수 없습니다: ' + missing.map(k => names[k]).join(', ') + ' (양식 다운로드를 이용하세요)');
+                    return;
+                }
+                const parsed = [];
+                for (let i = 1; i < rows.length; i++){
+                    const row = rows[i];
+                    const lotNo = (row[idx.lot_no] || '').toString().trim();
+                    if (!lotNo || lotNo === 'LOT NO') continue;
+                    const rawDate = dateIdx !== -1 ? row[dateIdx] : '';
+                    parsed.push({
+                        lot_no: lotNo,
+                        item_no: (row[idx.item_no] || '').toString().trim(),
+                        item_name: (row[idx.item_name] || '').toString().trim(),
+                        work_date: normalizeDate(rawDate, defaultDate),
+                        date_ok: rawDate === '' || rawDate === null || rawDate === undefined || normalizeDate(rawDate, '') !== ''
+                    });
+                }
+                resolve(parsed);
+            }catch(err){
+                reject('❌ 엑셀 파일을 읽을 수 없습니다: ' + err.message);
+            }
+        };
+        reader.onerror = () => reject('❌ 파일을 읽는 중 오류가 발생했습니다.');
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+async function uploadLotMaster(type, rows){
+    const info = TYPE_INFO[type];
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateInput.value)) return { success:false, message:'❌ 기본 날짜 형식이 올바르지 않습니다.' };
+    if (!rows || !rows.length) return { success:false, message:'❌ 엑셀에 데이터가 없습니다.' };
+
+    const byLot = {}, dupCount = {};
+    const noItem = [], badFormat = [], badDate = [];
+    const lotFormatRe = /^\d{10}-\d{3}$/;
+    rows.forEach(r => {
+        dupCount[r.lot_no] = (dupCount[r.lot_no] || 0) + 1;
+        if (!r.item_no && !r.item_name){ noItem.push(r.lot_no); return; }      // 품번/품명 둘 다 없으면 조회에 쓸모없어 제외
+        if (!lotFormatRe.test(r.lot_no)) badFormat.push(r.lot_no);
+        if (!r.date_ok) badDate.push(r.lot_no);
+        const old = byLot[r.lot_no];
+        if (!old || r.work_date >= old.work_date){                               // 같은 LOT은 최근 날짜 한 줄
+            byLot[r.lot_no] = { lot_no: r.lot_no, item_no: r.item_no, item_name: r.item_name, work_date: r.work_date, source: info.source };
+        }
+    });
+    const savedRows = Object.values(byLot);
+    if (!savedRows.length) return { success:false, message:'❌ 저장할 행이 없습니다. (품번/품명이 모두 비어 있음)' };
+
+    const dupLots = Object.keys(dupCount).filter(k => dupCount[k] > 1);
+    const dupWarning = dupLots.length ? '⚠️ 엑셀 안에 중복된 LOT: ' + dupLots.slice(0,15).map(l => `${l} (${dupCount[l]}회)`).join(', ') + ' — 가장 최근 날짜 행으로 저장됩니다.' : '';
+    const warnings = [];
+    if (noItem.length) warnings.push(`⚠️ 품번/품명이 모두 빈 LOT ${noItem.length}건은 제외됨: ` + noItem.slice(0,15).join(', '));
+    if (badFormat.length) warnings.push(`⚠️ LOT 형식 이상 (${badFormat.length}건, 저장은 됨): ` + badFormat.slice(0,15).join(', '));
+    if (badDate.length) warnings.push(`⚠️ 날짜를 읽지 못해 기본 날짜로 저장 (${badDate.length}건): ` + badDate.slice(0,15).join(', '));
+
+    for (let i = 0; i < savedRows.length; i += 500){
+        const { error } = await sb.from(LOT_TABLE).upsert(savedRows.slice(i, i + 500), { onConflict: 'lot_no' });
+        if (error) throw error;
+    }
+    return { success:true, message:`✅ ${info.label} 업로드 완료: ${savedRows.length}건 반영됨 (같은 LOT은 덮어쓰기, 더 오래된 날짜는 무시)`,
+             dup_warning: dupWarning, validation_warnings: warnings, saved_rows: savedRows };
+}
+
+templateBtn.onclick = () => {
+    const t = typeSelect.value;
+    if (t === 'stock') return;
+    const label = TYPE_INFO[t].label;
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([['LOT NO', '품번', '품명', '날짜']]);
+    ws['!cols'] = [{ wch: 18 }, { wch: 20 }, { wch: 30 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, ws, label);
+    const guide = XLSX.utils.aoa_to_sheet([
+        ['입력 안내'],
+        ['1) "' + label + '" 시트의 2행부터 입력하세요. (1행 제목은 바꾸지 마세요)'],
+        ['2) LOT NO 형식 예: 1234567890-001 (품번/품명 둘 다 비어 있는 행은 저장되지 않습니다)'],
+        ['3) 날짜 형식 예: 2026-09-30 또는 20260930 (비워 두면 업로드 화면의 기본 날짜로 저장)'],
+        ['4) 같은 LOT을 다시 올리면 덮어쓰며, 저장된 지 60일이 지나면 자동 삭제됩니다.']
+    ]);
+    guide['!cols'] = [{ wch: 80 }];
+    XLSX.utils.book_append_sheet(wb, guide, '안내');
+    XLSX.writeFile(wb, `LOT양식_${label}.xlsx`);
+};
 
 function parseExcelFile(file){
     return new Promise((resolve, reject) => {
@@ -311,7 +489,7 @@ uploadBtn.onclick = async () => {
     const file = excelFile.files[0];
     if (!file){ msgBox.textContent = '❌ 파일을 선택해주세요.'; return; }
 
-    if (existingCountForDate > 0){
+    if (typeSelect.value === 'stock' && existingCountForDate > 0){
         const ok = confirm(`이 날짜(${dateInput.value})에 이미 ${existingCountForDate}건의 데이터가 있습니다.\n덮어쓰시겠습니까?`);
         if (!ok) return;
     }
@@ -320,8 +498,9 @@ uploadBtn.onclick = async () => {
     uploadBtn.textContent = '업로드 중...';
 
     try{
-        const parsedRows = await parseExcelFile(file);
-        const result = await uploadMaster(dateInput.value, parsedRows);
+        const type = typeSelect.value;
+        const parsedRows = type === 'stock' ? await parseExcelFile(file) : await parseLotExcel(file, dateInput.value);
+        const result = type === 'stock' ? await uploadMaster(dateInput.value, parsedRows) : await uploadLotMaster(type, parsedRows);
 
         if (result.success){
             msgBox.textContent = result.message;
@@ -332,9 +511,10 @@ uploadBtn.onclick = async () => {
             }
             lastUploadedRows = result.saved_rows || [];
             lastUploadedDate = dateInput.value;
+            lastUploadedType = type;
             downloadBtn.style.display = lastUploadedRows.length ? 'block' : 'none';
-            await loadSummary();
-            await checkDate();
+            if (type === 'stock'){ await loadSummary(); await checkDate(); }
+            else { await loadLotSummary(); }
         } else {
             msgBox.textContent = result.message;
             msgBox.style.color = '#ff8a8a';
@@ -349,10 +529,21 @@ uploadBtn.onclick = async () => {
 };
 
 loadSummary();
+loadLotSummary();
 checkDate();
 
 downloadBtn.onclick = () => {
     if (!lastUploadedRows.length) return;
+    if (lastUploadedType !== 'stock'){
+        const label = TYPE_INFO[lastUploadedType].label;
+        const aoaLot = [['#','LOT NO','품번','품명','날짜','구분']];
+        lastUploadedRows.forEach((r,i) => aoaLot.push([i+1, r.lot_no, r.item_no, r.item_name, r.work_date, r.source]));
+        const wsLot = XLSX.utils.aoa_to_sheet(aoaLot);
+        const wbLot = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wbLot, wsLot, label);
+        XLSX.writeFile(wbLot, `${label}업로드_${lastUploadedDate || 'unknown'}.xlsx`);
+        return;
+    }
     const header = ['#','LOT NO','부서','외주구분','품번','품명','수량','단위','창고','업로드시각'];
     const aoa = [header];
     lastUploadedRows.forEach((r,i) => {

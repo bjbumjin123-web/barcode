@@ -34,6 +34,7 @@ tr.dup{background:rgba(255,184,77,0.10);}
 .note-recent{color:#ffb84d;border-color:#ffb84d;}
 .note-old{color:#c792ea;border-color:#c792ea;}
 .note-none{color:#ff8a8a;border-color:#ff8a8a;}
+.note-ref{color:#4fc3ff;border-color:#4fc3ff;}
 .start-row td{background:rgba(79,195,255,0.13);color:#4fc3ff;font-weight:bold;}
 </style>
 </head>
@@ -54,7 +55,7 @@ tr.dup{background:rgba(255,184,77,0.10);}
 <input type="text" id="qLot" placeholder="LOT 검색" style="width:100px;">
 <input type="text" id="qItem" placeholder="품번/품명" style="width:90px;">
 <input type="text" id="qWh" placeholder="창고" style="width:70px;">
-<select id="noteSelect"><option value="">전체 비고</option><option value="normal">정상</option><option value="recent">10일 내 과거자료</option><option value="old">장기 과거자료</option><option value="none">재고 없음</option></select>
+<select id="noteSelect"><option value="">전체 비고</option><option value="normal">정상</option><option value="recent">10일 내 과거자료</option><option value="old">장기 과거자료</option><option value="ref">MES 실적 참조</option><option value="none">재고 없음</option></select>
 <button class="btn-export" id="refreshBtn">🔄 새로고침</button>
 <button class="btn-export" id="exportBtn">📥 다운로드</button>
 </div>
@@ -162,6 +163,8 @@ function resolveItem(r){
     const k = r.stock_kind;
     if (k === 'recent_past' || k === 'old_past')
         return { item_no:r.stock_item_no||'', item_name:r.stock_item_name||'', qty:0, unit:r.stock_unit||'', warehouse:r.stock_wh||'', department:r.stock_dept||null, subcontract_type:null };
+    if (k === 'lot_ref')
+        return { item_no:r.stock_item_no||'', item_name:r.stock_item_name||'', qty:null, unit:'', warehouse:'', department:null, subcontract_type:null };
     if (k === 'none') return NONE_ITEM;
     const st = stockByLot[r.lot_no];
     if (st) return st;
@@ -173,6 +176,7 @@ function noteOf(r){
     const ago = days !== null ? ` (${days}일 전)` : '';
     if (k === 'recent_past') return { kind:'recent', cls:'note-recent', text:`10일 내 과거자료 ${r.stock_ref_date||''}${ago} · 수량 0 처리` };
     if (k === 'old_past')    return { kind:'old',    cls:'note-old',    text:`장기 과거자료 ${r.stock_ref_date||''}${ago} · 수량 0 처리` };
+    if (k === 'lot_ref') return { kind:'ref', cls:'note-ref', text:`재고 없음 · MES 실적 참조 ${r.stock_ref_date||''}${ago} · 전산수량 없음` };
     if (k === 'none' || (!k && !r.is_historical && !stockByLot[r.lot_no]))
         return { kind:'none', cls:'note-none', text:'재고 없음(보관 이력에 없음)' };
     if (!k && r.is_historical) return { kind:'recent', cls:'note-recent', text:`과거자료(${r.historical_date}) 참고` };
