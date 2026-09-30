@@ -105,22 +105,25 @@ function friendlyErrorMessage(e){
 // 성능 개선: 전체 기간 대신 최근 30일치만 조회 (컬렉션이 계속 커지고 있어 전체 스캔은 읽기 한도를 통째로 소모할 위험이 큼)
 async function loadDateAndDeptOptions(){
     try {
-        const cutoff = daysAgoKST(30);
-        const snap = await fetchAll(() => sb.from(STOCK_COL).select('lot_no,upload_date').gte('upload_date', cutoff));
-        const dateLots = {};   // 날짜 -> 해당 날짜에 한 번이라도 관측된 lot_no Set (회차와 무관한 고유 건수)
-        snap.forEach(d => {
-            const r = d.data();
-            if (r.upload_date){
-                if (!dateLots[r.upload_date]) dateLots[r.upload_date] = new Set();
-                dateLots[r.upload_date].add(r.lot_no);
-            }
-        });
+        const cutoff = daysAgoKST(60);
+        const dateCount = {};   // 날짜 -> 그날 관측된 고유 LOT 건수
+        try {
+            const { data, error } = await sb.from('stock_date_counts').select('upload_date,n').gte('upload_date', cutoff);
+            if (error) throw error;
+            data.forEach(r => { if (r.upload_date) dateCount[r.upload_date] = Number(r.n); });
+        } catch(viewErr){
+            console.error('stock_date_counts 조회 실패 → 기존 방식으로 대체', viewErr);
+            const snap = await fetchAll(() => sb.from(STOCK_COL).select('lot_no,upload_date').gte('upload_date', cutoff));
+            const dateLots = {};
+            snap.forEach(d => { const r = d.data(); if (r.upload_date){ (dateLots[r.upload_date] = dateLots[r.upload_date] || new Set()).add(r.lot_no); } });
+            Object.keys(dateLots).forEach(k => { dateCount[k] = dateLots[k].size; });
+        }
 
-        const sortedDates = Object.keys(dateLots).sort().reverse();
+        const sortedDates = Object.keys(dateCount).sort().reverse();
         sortedDates.forEach(dt => {
             const opt = document.createElement("option");
             opt.value = dt;
-            opt.textContent = `${dt} (${dateLots[dt].size}건)`;
+            opt.textContent = `${dt} (${dateCount[dt]}건)`;
             dateSelect.appendChild(opt);
         });
 
@@ -134,7 +137,7 @@ async function loadDateAndDeptOptions(){
             dateSelect.value = sortedDates[0];
             await loadDate(sortedDates[0]);
         } else {
-            summaryBox.textContent = "최근 30일 내 저장된 재고실사 이력이 없습니다.";
+            summaryBox.textContent = "최근 60일 내 저장된 재고실사 이력이 없습니다.";
             content.innerHTML = '<div class="empty">아직 데이터가 없습니다.</div>';
         }
     } catch(e){

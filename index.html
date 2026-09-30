@@ -134,6 +134,10 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 
 #resultRow{ display:flex; margin-top:6px; flex:0 0 auto; }
 body.kb-open{ padding-bottom:70vh; }   /* 키보드가 올라올 때 화면을 위로 밀어올릴 여백 */
+/* 3회 연속 인식 실패 → 직접 입력 모드: 카메라를 숨기고 [상태 문구 + LOT 입력칸 + 조회]만 남김 */
+#backToCamBtn{ display:none; width:100%; margin-top:6px; padding:10px; border:1px solid #444; border-radius:10px; background:#222; color:#ddd; font-size:13px; font-weight:bold; }
+body.manual-mode #camWrap, body.manual-mode #captureBtn{ display:none; }
+body.manual-mode #backToCamBtn{ display:block; }
 #result.attention{ border-color:#00e676; box-shadow:0 0 0 3px rgba(0,230,118,0.45); }
 #result{
     flex:1 1 auto; width:100%; height:40px; font-size:16px; font-weight:bold;
@@ -186,6 +190,8 @@ body.kb-open{ padding-bottom:70vh; }   /* 키보드가 올라올 때 화면을 �
 .modal-info-val { color:#fff; font-weight:bold; word-break:break-all; text-align:right; flex-grow:1; }
 .modal-info-val.highlight { color:#00e676; font-size:15px; }
 
+#modalWarn{display:none;margin:0 0 8px;padding:8px;border-radius:8px;font-size:13px;font-weight:bold;line-height:1.4;}
+#modalLotNo.big{font-size:24px;color:#ff8a8a;letter-spacing:1px;}
 #modalQtyInput{
     width:100%; height:48px; font-size:22px; font-weight:bold; text-align:center;
     border-radius:8px; border:1px solid #00e676; background:#111; color:#fff; margin-bottom:14px;
@@ -236,10 +242,10 @@ body.kb-open{ padding-bottom:70vh; }   /* 키보드가 올라올 때 화면을 �
 
 <button id="captureBtn" disabled>📸 인식하기</button>
 <div id="status">상단의 [시작] 버튼을 눌러 데이터를 받아주세요.</div>
+<button id="backToCamBtn">📷 카메라로 돌아가기</button>
 
-<input id="kbProxy" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" tabindex="-1" aria-hidden="true" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;border:0;padding:0;margin:0;font-size:16px;pointer-events:none;">
 <div id="resultRow">
-<input id="result" type="text" maxlength="14" inputmode="numeric" pattern="[0-9]*" enterkeyhint="search" autocomplete="off" placeholder="LOT 번호 (예: 2606260022-001)">
+<input id="result" type="text" maxlength="14" inputmode="numeric" autocomplete="off" placeholder="LOT 번호 (예: 2606260022-001)">
 <button id="recheckBtn">🔍 조회</button>
 </div>
 
@@ -255,7 +261,8 @@ body.kb-open{ padding-bottom:70vh; }   /* 키보드가 올라올 때 화면을 �
     <div class="modal-info-item"><span class="modal-info-label">3. 품명</span><span id="modalItemName" class="modal-info-val">-</span></div>
     <div class="modal-info-item"><span class="modal-info-label">4. 전산수량</span><span id="modalSysQty" class="modal-info-val highlight">-</span></div>
 </div>
-<input id="modalQtyInput" type="number" placeholder="실사수량 입력">
+<div id="modalWarn"></div>
+<input id="modalQtyInput" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="실사수량 입력">
 <div class="modal-btn-group">
 <button id="modalSaveBtn">저장</button>
 <button id="modalCloseBtn">취소</button>
@@ -340,15 +347,39 @@ window.saveStockCache = function(){
         }));
     } catch(e) { console.error('캐시 저장 실패(메모리 캐시만 사용)', e); }
 };
-const START_KEY = 'lot_stock_started_at';   // [시작] 누른 시각 (12시간 뒤 자동 마감 기준)
 window.clearStockCache = function(){
     window.cachedStockMap.clear();
-    try { localStorage.removeItem(CACHE_KEY); localStorage.removeItem(START_KEY); } catch(e){}
+    window.masterRunAt = '';
+    try { localStorage.removeItem(CACHE_KEY); } catch(e){}
 };
+// ===== 최근 실행분(master run) 판단 도우미 =====
+const FRESH_HOURS = 13;   // 최근 실행분이 이 시간 이내면 '당일 정상' (07:50↔20:00 간격 + 재시도 여유, 새벽에도 전날 20:00분 인정)
+window.masterRunAt = '';
+function runKeyOf(r){ return (r && (r.run_at || r.uploaded_at)) || ''; }
+function computeMasterRun(){
+    let m = '';
+    window.cachedStockMap.forEach(r => { const k = runKeyOf(r); if (k > m) m = k; });
+    window.masterRunAt = m;
+}
+function masterRowsOf(rows){
+    if (window.masterRunAt) return rows.filter(r => runKeyOf(r) === window.masterRunAt);
+    let master = '';
+    rows.forEach(r => { const d = cleanDate8Digits(r.upload_date); if (d > master) master = d; });
+    return rows.filter(r => cleanDate8Digits(r.upload_date) === master);
+}
+function parseKst(str){ return new Date(String(str).replace(' ', 'T') + 'Z'); }
+function daysBetween(dateA, dateB){
+    const a = cleanDate8Digits(dateA), b = cleanDate8Digits(dateB);
+    if (a.length !== 8 || b.length !== 8) return null;
+    const t = x => Date.UTC(+x.slice(0,4), +x.slice(4,6) - 1, +x.slice(6,8));
+    return Math.round((t(b) - t(a)) / 86400000);
+}
+
 (function restoreStockCache(){
     try {
         const o = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
         if (o && Array.isArray(o.rows)) o.rows.forEach(r => { if (r && r.lot_no) window.cachedStockMap.set(r.lot_no, r); });
+        computeMasterRun();
     } catch(e) { console.error(e); }
 })();
 
@@ -362,14 +393,21 @@ window.download10DaysStock = async function(){
     const status = document.getElementById("status");
     status.innerHTML = "⏳ 최근 10일치 재고 데이터 다운로드 중...";
     try {
-        const snap = [];
-        for (let from = 0; from < 2000; from += 1000){
-            const { data, error } = await sb.from(STOCK_COL).select('*')
-                .order('upload_date', { ascending:false }).order('run_at', { ascending:false }).order('id', { ascending:false })
-                .range(from, from + 999);
-            if (error) throw error;
-            data.forEach(r => snap.push(wrap(r)));
-            if (data.length < 1000) break;
+        let snap = [];
+        try {
+            snap = await fetchAll(() => sb.from('stock_latest').select('*'));   // 최근 10일, LOT별 최신 1건
+            if (!snap.length) throw new Error('stock_latest 결과 없음');
+        } catch(viewErr){
+            console.error('stock_latest 조회 실패 → 기존 방식(최신 2,000행)으로 대체', viewErr);
+            snap = [];
+            for (let from = 0; from < 2000; from += 1000){
+                const { data, error } = await sb.from(STOCK_COL).select('*')
+                    .order('upload_date', { ascending:false }).order('run_at', { ascending:false }).order('id', { ascending:false })
+                    .range(from, from + 999);
+                if (error) throw error;
+                data.forEach(r => snap.push(wrap(r)));
+                if (data.length < 1000) break;
+            }
         }
         window.cachedStockMap.clear();
         let count = 0;
@@ -382,8 +420,8 @@ window.download10DaysStock = async function(){
                 }
             }
         });
+        computeMasterRun();
         window.saveStockCache();
-        try { localStorage.setItem(START_KEY, String(Date.now())); } catch(e){}
         status.innerHTML = `✅ 재고 데이터 ${count}건 다운로드 완료!`;
         return { success: true, count };
     } catch(e) {
@@ -391,24 +429,6 @@ window.download10DaysStock = async function(){
         status.innerHTML = "❌ 재고 다운로드 실패. 네트워크를 확인하세요.";
         return { success: false };
     }
-};
-
-// 서버의 최신 재고 업로드 버전(upload_date, run_at)이 내려받은 캐시와 다른지 확인 (true = 달라짐)
-window.checkStockUpdated = async function(){
-    if (!window.cachedStockMap || window.cachedStockMap.size === 0 || !navigator.onLine) return false;
-    try {
-        const { data, error } = await sb.from(STOCK_COL).select('upload_date, run_at')
-            .order('upload_date', { ascending:false }).order('run_at', { ascending:false }).limit(1);
-        if (error || !data || !data.length) return false;   // 조회 실패/빈 테이블이면 건드리지 않음
-        const srv = data[0];
-        let loc = null;
-        window.cachedStockMap.forEach(r => {
-            const a = String(r.upload_date || ''), b = String(r.run_at || '');
-            if (!loc || a > loc.a || (a === loc.a && b > loc.b)) loc = { a, b };
-        });
-        if (!loc) return false;
-        return String(srv.upload_date || '') !== loc.a || String(srv.run_at || '') !== loc.b;
-    } catch(e) { console.error(e); return false; }
 };
 
 function nowParts(){
@@ -443,39 +463,59 @@ window.apiLookup = async function(lot){
     }
 
     const { date: today, datetime: now } = nowParts();
+
+    // 종류: normal(최근 실행분) / recent_past(10일 내 과거자료) / old_past(11일~ 과거자료) / none(재고 없음)
+    let kind = 'none', refDate = null, days = null;
+    if (stockRow){
+        refDate = stockRow.upload_date || null;
+        days = daysBetween(refDate, today);
+        let fresh;
+        if (window.masterRunAt){
+            fresh = runKeyOf(stockRow) === window.masterRunAt && (parseKst(now) - parseKst(window.masterRunAt)) <= FRESH_HOURS * 3600000;
+        } else {
+            fresh = cleanDate8Digits(refDate) === cleanDate8Digits(today);
+        }
+        kind = fresh ? 'normal' : ((days !== null && days <= 10) ? 'recent_past' : 'old_past');
+    }
+    const isPast = (kind === 'recent_past' || kind === 'old_past');
+
     await insertScanLog({
         lot_no: lot, scan_date: today, scanned_at: now,
         scanned_by: scanner, scan_dept: scanDept,
-        actual_qty: null, diff: null
+        actual_qty: null, diff: null,
+        stock_kind: kind, stock_ref_date: refDate,
+        stock_item_no: isPast ? (stockRow.item_no || null) : null,
+        stock_item_name: isPast ? (stockRow.item_name || null) : null,
+        stock_unit: isPast ? (stockRow.unit || null) : null,
+        stock_dept: isPast ? (stockRow.department || null) : null,
+        stock_wh: isPast ? (stockRow.warehouse || null) : null
     });
     window.scannedTodaySet.add(lot);   // 진행바 즉시 반영
 
-    if (!stockRow) {
-        return { found: false, lot_no: lot };
+    if (kind === 'none'){
+        return { found: false, kind, lot_no: lot, qty: null, unit: '' };
     }
-
-    const todayNum = cleanDate8Digits(today);
-    const uploadNum = cleanDate8Digits(stockRow.upload_date);
-    const isRecent1Day = (uploadNum !== '' && uploadNum === todayNum);
 
     return {
         found: true,
-        isRecent1Day: isRecent1Day,
+        kind,
+        isRecent1Day: kind === 'normal',
         lot_no: lot,
         item_no: stockRow.item_no || '-',
         item_name: stockRow.item_name || '-',
-        qty: isRecent1Day ? Number(stockRow.qty || 0) : 0,
+        qty: kind === 'normal' ? Number(stockRow.qty || 0) : 0,
         unit: stockRow.unit || '',
-        upload_date: stockRow.upload_date || '-'
+        upload_date: refDate || '-',
+        days_ago: days
     };
 };
 
 // 마감: 캐시(가장 최근 업로드분) 중 선택 부서의 LOT 가운데 오늘 아직 스캔 안 된 것
 window.apiRemaining = async function(dept){
     const rows = Array.from(window.cachedStockMap.values());
+    const masterRows = masterRowsOf(rows);
     let master = '';
-    rows.forEach(r => { const d = cleanDate8Digits(r.upload_date); if (d > master) master = d; });
-    const masterRows = rows.filter(r => cleanDate8Digits(r.upload_date) === master);
+    masterRows.forEach(r => { const d = cleanDate8Digits(r.upload_date); if (d > master) master = d; });
     const deptRows = masterRows.filter(r => (r.department || '') === dept);
 
     const scanned = await window.syncScannedToday();   // 미전송 오프라인 스캔 포함
@@ -493,7 +533,7 @@ window.apiRemaining = async function(dept){
 
 window.apiSaveQty = async function(lot, actualQtyRaw, systemQty){
     const actualQty = Math.round(Number(actualQtyRaw));
-    const diff = actualQty - systemQty;
+    const diff = (systemQty === null || systemQty === undefined) ? null : actualQty - systemQty;
     const { date: today, datetime: now } = nowParts();
 
     const logSnap = await fetchAll(() => sb.from(LOG_COL).select('*').eq('lot_no', lot).eq('scan_date', today));
@@ -571,6 +611,7 @@ const modalItemNo = document.getElementById("modalItemNo");
 const modalItemName = document.getElementById("modalItemName");
 const modalSysQty = document.getElementById("modalSysQty");
 const modalQtyInput = document.getElementById("modalQtyInput");
+const modalWarn = document.getElementById("modalWarn");
 const modalSaveBtn = document.getElementById("modalSaveBtn");
 const modalCloseBtn = document.getElementById("modalCloseBtn");
 const modalMsg = document.getElementById("modalMsg");
@@ -603,11 +644,8 @@ window.updateProgressBar = function(){
     closeProgress.style.display = has ? "flex" : "none";
     if (!has) return;
     const rows = Array.from(window.cachedStockMap.values());
-    let master = "";
-    rows.forEach(r => { const d = String(r.upload_date || "").replace(/[^0-9]/g, "").substring(0, 8); if (d > master) master = d; });
     const dept = deptSelect.value;
-    const target = rows.filter(r =>
-        String(r.upload_date || "").replace(/[^0-9]/g, "").substring(0, 8) === master && (!dept || r.department === dept));
+    const target = masterRowsOf(rows).filter(r => (!dept || r.department === dept));
     const set = window.scannedTodaySet || new Set();
     const checked = target.filter(r => set.has(r.lot_no)).length;
     const pct = target.length ? Math.round(checked / target.length * 100) : 0;
@@ -630,60 +668,10 @@ window.refreshStartBtn = function(){
     if (has && !status.textContent.trim()) status.innerHTML = `✅ 재고 캐시 ${window.cachedStockMap.size}건 사용 중`;
     window.updateProgressBar();
     if (has) window.syncProgress();
-    if (window.autoCloseIfExpired) window.autoCloseIfExpired();
 };
-
-// 마감하지 않았는데 서버 최신 데이터가 내려받은 것과 달라지면 자동으로 [시작] 상태로 되돌림
-let staleChecking = false;
-window.autoResetIfStale = async function(){
-    if (staleChecking || !window.checkStockUpdated) return;
-    if (!window.cachedStockMap || window.cachedStockMap.size === 0) return;
-    staleChecking = true;
-    try {
-        const stale = await window.checkStockUpdated();
-        if (!stale) return;
-        // 수량 입력/마감 창이 열려 있거나 인식 중이면 방해하지 않고 다음 확인 때 처리
-        if (qtyModalOverlay.style.display === "flex" || closeModalOverlay.style.display === "flex" || capturing) return;
-        window.clearStockCache();
-        lotInfoBox.style.display = "none"; lotInfoBox.className = "";
-        resultInput.value = "";
-        window.refreshStartBtn();
-        status.innerHTML = "🔄 서버에 새 재고 데이터가 올라왔습니다. [시작] 버튼으로 다시 받아주세요.";
-        if (navigator.vibrate) navigator.vibrate([100, 60, 100]);
-    } finally { staleChecking = false; }
-};
-document.addEventListener("visibilitychange", () => { if (!document.hidden) window.autoResetIfStale(); });
-window.addEventListener("online", () => window.autoResetIfStale());
-window.addEventListener("load", () => setTimeout(() => window.autoResetIfStale(), 1500));
 
 // 다른 사람의 스캔도 반영되도록 2분마다 서버와 동기화
-// 2분마다 자동 확인은 제거 - 앱을 열거나 다시 돌아왔을 때만 서버와 동기화 (전송량 절약)
-document.addEventListener("visibilitychange", () => { if (!document.hidden) window.syncProgress(); });
-
-// [시작] 후 12시간이 지나면 자동 마감 (서버 조회 없이 저장된 시각만 비교 → 전송량 소모 없음)
-const AUTO_CLOSE_MS = 12 * 60 * 60 * 1000;
-let autoCloseTimer = null;
-window.autoCloseIfExpired = function(){
-    if (autoCloseTimer){ clearTimeout(autoCloseTimer); autoCloseTimer = null; }
-    if (!window.cachedStockMap || window.cachedStockMap.size === 0) return;
-    let t = 0;
-    try { t = Number(localStorage.getItem('lot_stock_started_at') || 0); } catch(e){}
-    if (!t){ t = Date.now(); try { localStorage.setItem('lot_stock_started_at', String(t)); } catch(e){} }   // 이전 버전 캐시는 지금부터 12시간
-    const left = t + AUTO_CLOSE_MS - Date.now();
-    if (left > 0){ autoCloseTimer = setTimeout(window.autoCloseIfExpired, Math.min(left, 3600000)); return; }
-    // 수량 입력/마감 창이 열려 있거나 인식 중이면 1분 뒤 다시 시도
-    if (qtyModalOverlay.style.display === "flex" || closeModalOverlay.style.display === "flex" || capturing){
-        autoCloseTimer = setTimeout(window.autoCloseIfExpired, 60000); return;
-    }
-    window.apiLogEvent('close', { scanner: (scannerInput.value.trim() || '') + ' (자동마감)', dept: deptSelect.value });
-    window.clearStockCache();
-    lotInfoBox.style.display = "none"; lotInfoBox.className = "";
-    resultInput.value = "";
-    window.refreshStartBtn();
-    status.innerHTML = "⏰ [시작] 후 12시간이 지나 자동 마감되었습니다. 다시 실사하려면 [시작] 버튼을 눌러주세요.";
-};
-document.addEventListener("visibilitychange", () => { if (!document.hidden) window.autoCloseIfExpired(); });
-window.addEventListener("load", () => setTimeout(() => window.autoCloseIfExpired(), 1500));
+setInterval(() => { if (!document.hidden) window.syncProgress(); }, 120000);
 
 const closeModalOverlay = document.getElementById("closeModalOverlay");
 const closeSummary = document.getElementById("closeSummary");
@@ -1160,9 +1148,28 @@ if (window.visualViewport) window.visualViewport.addEventListener("resize", alig
 // 직접 입력 후 수량 창이 닫히면 카메라 화면으로 복귀
 function closeQtyModal(){
     qtyModalOverlay.style.display = "none";
+    exitManualMode();
     if (scrolledForTyping){ scrolledForTyping = false; window.scrollTo(0, 0); }
 }
 
+// ---- 직접 입력 모드: 카메라 숨김 ↔ 복귀 ----
+function enterManualMode(){
+    document.body.classList.add("manual-mode");
+    lotInfoBox.style.display = "none";   // 이전 LOT의 조회 결과가 남아 있으면 헷갈리므로 숨김
+    lotInfoBox.innerHTML = "";
+}
+function exitManualMode(){
+    if (!document.body.classList.contains("manual-mode")) return;
+    document.body.classList.remove("manual-mode");
+    try { var pr = video.play(); if (pr && pr.catch) pr.catch(function(){}); } catch(e){}
+    window.scrollTo(0, 0);
+}
+document.getElementById("backToCamBtn").onclick = function(){
+    recogFailCount = 0;
+    resultInput.blur();
+    exitManualMode();
+    status.innerHTML = "📸 카메라로 다시 촬영해주세요.";
+};
 
 function handleRecognitionFail(){
     recogFailCount++;
@@ -1171,13 +1178,10 @@ function handleRecognitionFail(){
         recogFailCount = 0;
         status.innerHTML = "⌨️ 3회 연속 인식 실패 - LOT 번호를 직접 입력해주세요.";
         resultInput.value = "";
+        enterManualMode();
         resultInput.classList.add("attention");
         setTimeout(function(){ resultInput.classList.remove("attention"); }, 4000);
-        resultInput.setAttribute("inputmode", "numeric");
-        // 입력칸을 선택 + 커서까지 넣어서 휴대폰 키보드가 뜨도록 함
         resultInput.focus();
-        try { resultInput.click(); } catch(e){}
-        try { resultInput.select(); resultInput.setSelectionRange(0, resultInput.value.length); } catch(e){}
         bringTypingIntoView();
     } else {
         status.innerHTML = "❌ 인식 실패 (" + recogFailCount + "/3) - 초록 박스에 맞춰 다시 촬영해주세요.";
@@ -1189,14 +1193,6 @@ captureBtn.onclick = async () => {
     if (!scannerInput.value.trim()) { alert("작성자 이름을 입력해주세요."); scannerInput.focus(); return; }
     if (!deptSelect.value) { alert("실사 부서를 선택해주세요."); deptSelect.focus(); return; }
     if (!video.videoWidth) { status.innerHTML = "⚠️ 카메라 준비 중입니다."; return; }
-
-    // iOS는 터치 직후가 아니면 키보드를 못 띄우므로, 3번째 시도일 때 터치 순간에 숨은 입력칸으로 숫자 키보드를 미리 올려둠
-    // (실패하면 handleRecognitionFail에서 LOT 입력칸으로 포커스만 옮겨서 키보드가 유지됨)
-    var kbProxy = document.getElementById("kbProxy");
-    if (recogFailCount >= 2) {
-        try { kbProxy.focus({ preventScroll: true }); } catch(e){}
-        bringTypingIntoView();   // 키보드가 올라오는 것과 동시에 화면도 위로 올림 (키보드 애니메이션 중에도 visualViewport resize로 계속 맞춤)
-    }
 
     capturing = true; captureBtn.disabled = true;
     status.innerHTML = "🔍 인식 중...";
@@ -1211,13 +1207,6 @@ captureBtn.onclick = async () => {
             handleRecognitionFail();
         }
     } finally {
-        if (document.activeElement === kbProxy) {   // 인식 성공 등으로 입력칸이 안 열렸으면 키보드 닫고 화면 원위치
-            kbProxy.blur();
-            typingMode = false;
-            setTimeout(function(){ if (!typingMode) document.body.classList.remove("kb-open"); }, 300);
-            if (scrolledForTyping){ scrolledForTyping = false; window.scrollTo(0, 0); }
-            try { var pr = video.play(); if (pr && pr.catch) pr.catch(function(){}); } catch(e){}
-        }
         capturing = false;
         captureBtn.disabled = !(window.cachedStockMap && window.cachedStockMap.size > 0);
     }
@@ -1243,43 +1232,58 @@ async function doLookup(lot){
     if (window.updateProgressBar) window.updateProgressBar();
     lotInfoBox.style.display = "block";
 
-    if (res.found) {
-        let statusBadge = res.isRecent1Day 
-            ? `<div class="status-tag yes">✅ 최근 1일(당일) 재고 데이터 존재</div>` 
-            : `<div class="status-tag warn">⚠️ 최근 1일 데이터 없음 (10일 이내 등록품목 → 수량 0)</div>`;
-
-        lotInfoBox.className = "found";
-        lotInfoBox.innerHTML = `
-            ${statusBadge}
-            <div class="info-grid">
-                <div class="info-label">품번</div><div class="info-value">${res.item_no}</div>
-                <div class="info-label">품명</div><div class="info-value">${res.item_name}</div>
-                <div class="info-label">전산수량</div><div class="info-value big">${res.qty} ${res.unit}</div>
-            </div>
-            <button id="openQtyModalBtn">📝 실수량 입력하기</button>
-        `;
-        status.innerHTML = "✅ 조회 완료. 실수량을 입력하세요.";
-
-        document.getElementById("openQtyModalBtn").onclick = () => openQtyModal(res);
-        openQtyModal(res);
-    } else {
+    const pastInfo = (res.days_ago !== null && res.days_ago !== undefined) ? `${res.upload_date} (${res.days_ago}일 전)` : res.upload_date;
+    if (res.kind === 'none') {
         lotInfoBox.className = "notfound";
         lotInfoBox.innerHTML = `
-            <div class="status-tag no">⚠️ 최근 10일 재고 데이터 없음</div>
+            <div class="status-tag no">⚠️ 재고 없음 (보관 이력에 없음)</div>
             <div class="info-grid">
-                <div class="info-label">LOT</div><div class="info-value">${lot}</div>
+                <div class="info-label">LOT</div><div class="info-value big" style="color:#ff8a8a;">${esc(lot)}</div>
             </div>
-            <div style="margin-top:8px;color:#ff8a8a;font-size:12px;">최근 10일 이내 업로드된 재고 리스트에 존재하지 않습니다.</div>
+            <div style="margin-top:8px;color:#ff8a8a;font-size:12px;">LOT 번호가 맞는지 확인하고, 실물이 있으면 실수량을 입력하세요.</div>
+            <button id="openQtyModalBtn">📝 실수량 입력하기</button>
         `;
-        status.innerHTML = "⚠️ 재고 데이터 없음";
+        status.innerHTML = "⚠️ 재고 데이터 없음 - LOT 번호 확인 후 실수량 입력";
+        document.getElementById("openQtyModalBtn").onclick = () => openQtyModal(res);
+        openQtyModal(res);
+        return;
     }
+
+    let statusBadge;
+    if (res.kind === 'normal') statusBadge = `<div class="status-tag yes">✅ 최근 실행분 재고 데이터 존재</div>`;
+    else if (res.kind === 'recent_past') statusBadge = `<div class="status-tag warn">⚠️ 당일 재고 미반영 · 10일 내 과거자료 ${pastInfo} → 수량 0</div>`;
+    else statusBadge = `<div class="status-tag warn" style="color:#c792ea;border-color:#c792ea;">⚠️ 장기 과거자료 ${pastInfo} → 수량 0</div>`;
+
+    lotInfoBox.className = "found";
+    lotInfoBox.innerHTML = `
+        ${statusBadge}
+        <div class="info-grid">
+            <div class="info-label">품번</div><div class="info-value">${esc(res.item_no)}</div>
+            <div class="info-label">품명</div><div class="info-value">${esc(res.item_name)}</div>
+            <div class="info-label">전산수량</div><div class="info-value big">${res.qty} ${esc(res.unit)}</div>
+        </div>
+        <button id="openQtyModalBtn">📝 실수량 입력하기</button>
+    `;
+    status.innerHTML = "✅ 조회 완료. 실수량을 입력하세요.";
+
+    document.getElementById("openQtyModalBtn").onclick = () => openQtyModal(res);
+    openQtyModal(res);
 }
 
 function openQtyModal(res) {
     modalLotNo.innerText = res.lot_no || '-';
     modalItemNo.innerText = res.item_no || '-';
     modalItemName.innerText = res.item_name || '-';
-    modalSysQty.innerText = `${res.qty} ${res.unit || ''}`;
+    const isNone = res.kind === 'none';
+    modalSysQty.innerText = isNone ? '- (재고 없음)' : `${res.qty} ${res.unit || ''}`;
+    modalLotNo.classList.toggle('big', isNone);
+    if (isNone){
+        modalWarn.style.display = 'block'; modalWarn.style.background = 'rgba(255,138,138,0.15)'; modalWarn.style.color = '#ff8a8a';
+        modalWarn.innerText = '⚠️ 재고 이력에 없는 LOT입니다. 위 LOT 번호가 맞는지 확인하세요.';
+    } else if (res.kind === 'recent_past' || res.kind === 'old_past'){
+        modalWarn.style.display = 'block'; modalWarn.style.background = 'rgba(255,184,77,0.15)'; modalWarn.style.color = res.kind === 'old_past' ? '#c792ea' : '#ffb84d';
+        modalWarn.innerText = `⚠️ ${res.upload_date} 과거자료 기준 · 전산수량 0 처리`;
+    } else { modalWarn.style.display = 'none'; }
     
     modalQtyInput.value = "";
     modalMsg.innerText = "";
@@ -1312,7 +1316,7 @@ modalSaveBtn.onclick = async () => {
         return; 
     }
     
-    modalMsg.innerHTML = `<span style="color:#00e676;">✅ 저장 완료 (차이: ${saveRes.diff})</span>`;
+    modalMsg.innerHTML = `<span style="color:#00e676;">✅ 저장 완료 ${saveRes.diff === null ? '(전산수량 없음)' : '(차이: ' + saveRes.diff + ')'}</span>`;
     setTimeout(() => { closeQtyModal(); }, 600);
 };
 

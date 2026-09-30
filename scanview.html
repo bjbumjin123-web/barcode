@@ -30,6 +30,10 @@ tr.dup{background:rgba(255,184,77,0.10);}
 .empty{padding:30px;text-align:center;color:#888;}
 .scroll-wrap{overflow-x:auto;}
 .close-row td{background:rgba(255,184,77,0.15);color:#ffb84d;font-weight:bold;}
+.note-tag{display:inline-block;padding:2px 6px;border:1px solid;border-radius:6px;font-weight:bold;white-space:nowrap;}
+.note-recent{color:#ffb84d;border-color:#ffb84d;}
+.note-old{color:#c792ea;border-color:#c792ea;}
+.note-none{color:#ff8a8a;border-color:#ff8a8a;}
 .start-row td{background:rgba(79,195,255,0.13);color:#4fc3ff;font-weight:bold;}
 </style>
 </head>
@@ -50,6 +54,7 @@ tr.dup{background:rgba(255,184,77,0.10);}
 <input type="text" id="qLot" placeholder="LOT 검색" style="width:100px;">
 <input type="text" id="qItem" placeholder="품번/품명" style="width:90px;">
 <input type="text" id="qWh" placeholder="창고" style="width:70px;">
+<select id="noteSelect"><option value="">전체 비고</option><option value="normal">정상</option><option value="recent">10일 내 과거자료</option><option value="old">장기 과거자료</option><option value="none">재고 없음</option></select>
 <button class="btn-export" id="refreshBtn">🔄 새로고침</button>
 <button class="btn-export" id="exportBtn">📥 다운로드</button>
 </div>
@@ -98,6 +103,7 @@ qLot.addEventListener("input", () => {
 const qItem = document.getElementById("qItem");
 const qWh = document.getElementById("qWh");
 const exportBtn = document.getElementById("exportBtn");
+const noteSelect = document.getElementById("noteSelect");
 const summaryBox = document.getElementById("summaryBox");
 const content = document.getElementById("content");
 
@@ -143,6 +149,36 @@ async function loadStockMap(){
     });
 }
 
+function daysBetween(a, b){
+    const x = String(a||'').replace(/[^0-9]/g,'').slice(0,8), y = String(b||'').replace(/[^0-9]/g,'').slice(0,8);
+    if (x.length !== 8 || y.length !== 8) return null;
+    const t = v => Date.UTC(+v.slice(0,4), +v.slice(4,6)-1, +v.slice(6,8));
+    return Math.round((t(y) - t(x)) / 86400000);
+}
+const NONE_ITEM = { item_no:'', item_name:'(재고 데이터 없음)', qty:null, unit:'', warehouse:'', department:null, subcontract_type:null };
+
+// 스캔 당시 기록(stock_kind)을 기준으로 품목 정보와 비고를 결정 (옛 기록은 기존 방식으로 처리)
+function resolveItem(r){
+    const k = r.stock_kind;
+    if (k === 'recent_past' || k === 'old_past')
+        return { item_no:r.stock_item_no||'', item_name:r.stock_item_name||'', qty:0, unit:r.stock_unit||'', warehouse:r.stock_wh||'', department:r.stock_dept||null, subcontract_type:null };
+    if (k === 'none') return NONE_ITEM;
+    const st = stockByLot[r.lot_no];
+    if (st) return st;
+    return k === 'normal' ? { ...NONE_ITEM, item_name:'-' } : NONE_ITEM;
+}
+function noteOf(r){
+    const k = r.stock_kind;
+    const days = daysBetween(r.stock_ref_date, r.scan_date);
+    const ago = days !== null ? ` (${days}일 전)` : '';
+    if (k === 'recent_past') return { kind:'recent', cls:'note-recent', text:`10일 내 과거자료 ${r.stock_ref_date||''}${ago} · 수량 0 처리` };
+    if (k === 'old_past')    return { kind:'old',    cls:'note-old',    text:`장기 과거자료 ${r.stock_ref_date||''}${ago} · 수량 0 처리` };
+    if (k === 'none' || (!k && !r.is_historical && !stockByLot[r.lot_no]))
+        return { kind:'none', cls:'note-none', text:'재고 없음(보관 이력에 없음)' };
+    if (!k && r.is_historical) return { kind:'recent', cls:'note-recent', text:`과거자료(${r.historical_date}) 참고` };
+    return { kind:'normal', cls:'', text:'' };
+}
+
 let dateCloseLogs = [];
 
 function buildTimeline(){
@@ -155,7 +191,8 @@ function buildTimeline(){
     });
 
     let scanRows = sorted.map(r => {
-        const item = stockByLot[r.lot_no] || { item_no:'', item_name:'(재고 데이터 없음)', qty:null, unit:'', warehouse:'', department:null, subcontract_type:null };
+        const item = resolveItem(r);
+        const note = noteOf(r);
         return {
             type: 'scan', time: r.scanned_at,
             lot_no:r.lot_no, item_no:item.item_no, item_name:item.item_name, qty:item.qty, unit:item.unit,
@@ -164,21 +201,22 @@ function buildTimeline(){
             actual_qty: (r.actual_qty === null || r.actual_qty === undefined) ? null : Number(r.actual_qty),
             diff: (r.diff === null || r.diff === undefined) ? null : Number(r.diff),
             scanned_by:r.scanned_by,
-            is_historical: !!r.is_historical, historical_date: r.historical_date || null
+            note
         };
     });
 
-    const fLot = qLot.value.trim(), fItem = qItem.value.trim(), fWh = qWh.value.trim(), fDept = deptSelect.value;
+    const fLot = qLot.value.trim(), fItem = qItem.value.trim(), fWh = qWh.value.trim(), fDept = deptSelect.value, fNote = noteSelect.value;
     if (fLot) scanRows = scanRows.filter(r => r.lot_no.indexOf(fLot) !== -1);
-    if (fItem) scanRows = scanRows.filter(r => (r.item_no+' '+r.item_name+' '+(r.is_historical ? '과거자료 '+r.historical_date+' 참고' : '')).indexOf(fItem) !== -1);
+    if (fItem) scanRows = scanRows.filter(r => (r.item_no+' '+r.item_name+' '+r.note.text).indexOf(fItem) !== -1);
     if (fWh) scanRows = scanRows.filter(r => (r.warehouse||'').indexOf(fWh) !== -1);
     if (fDept) scanRows = scanRows.filter(r => (r.department||'') === fDept);
+    if (fNote) scanRows = scanRows.filter(r => r.note.kind === fNote);
 
     let closeRows = dateCloseLogs.map(r => ({
         type: 'close', time: r.closed_at, event: r.event || 'close',
         scanner: r.scanner, dept: r.dept, checked: r.checked, total: r.total, remaining: r.remaining
     }));
-    if (fLot || fItem || fWh) closeRows = [];
+    if (fLot || fItem || fWh || fNote) closeRows = [];
     if (fDept) closeRows = closeRows.filter(r => r.dept === fDept);
 
     const combined = [...scanRows, ...closeRows];
@@ -243,7 +281,7 @@ function render(){
             <td class="${diffClass}">${diffText}</td>
             <td>${esc(r.warehouse||'-')}</td>
             <td>${seqText}</td>
-            <td>${r.is_historical ? `<span style="display:inline-block;padding:2px 6px;border:1px solid #ffb84d;border-radius:6px;color:#ffb84d;font-weight:bold;">과거자료(${esc(r.historical_date)}) 참고</span>` : '-'}</td>
+            <td>${r.note.text ? `<span class="note-tag ${r.note.cls}">${esc(r.note.text)}</span>` : '-'}</td>
         </tr>`;
     });
 
@@ -306,7 +344,7 @@ exportBtn.onclick = () => {
             i+1, r.scanned_at, r.scanned_by, r.scan_dept, r.lot_no, r.department, r.subcontract_type,
             r.item_no, r.item_name, r.qty, r.actual_qty, r.diff, r.unit, r.warehouse,
             r.seq_no > 1 ? r.seq_no + '번째 (중복)' : '1번째',
-            r.is_historical ? `과거자료(${r.historical_date}) 참고` : ''
+            r.note.text
         ]);
     });
 
@@ -318,7 +356,8 @@ exportBtn.onclick = () => {
 
 document.getElementById("refreshBtn").onclick = loadData;
 dateInput.addEventListener("change", loadData);
-[qLot, qItem, qWh, deptSelect].forEach(el => el.addEventListener("input", render));
+[qLot, qItem, qWh, deptSelect, noteSelect].forEach(el => el.addEventListener("input", render));
+noteSelect.addEventListener("change", render);
 deptSelect.addEventListener("change", render);
 
 let userPickedDate = false;

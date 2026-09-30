@@ -162,6 +162,10 @@ async function loadData(){
             }
         });
         masterRows = Object.values(latestByLot);
+        // 최근 실행분에 있는 LOT만 기준으로 삼음 (그 사이 출고된 LOT이 미확인에 끼지 않도록)
+        let maxRun = '';
+        masterRows.forEach(r => { const k = r.run_at || r.uploaded_at || ''; if (k > maxRun) maxRun = k; });
+        if (maxRun) masterRows = masterRows.filter(r => (r.run_at || r.uploaded_at || '') === maxRun);
 
         const logSnap = await fetchAll(() => sb.from(LOG_COL).select('*').eq('scan_date', dateInput.value));
         dateLogs = [];
