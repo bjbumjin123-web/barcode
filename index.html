@@ -354,7 +354,7 @@ window.clearStockCache = function(){
     try { localStorage.removeItem(CACHE_KEY); } catch(e){}
 };
 // ===== 최근 실행분(master run) 판단 도우미 =====
-const FRESH_HOURS = 26;   // 최근 실행분이 이 시간 이내면 '당일 정상' (하루 1회 07:58 갱신 + 재시도/지연 여유, 다음 날 아침 갱신 전까지 인정)
+const FRESH_HOURS = 13;   // 최근 실행분이 이 시간 이내면 '당일 정상' (하루 1회 07:58 갱신 + 재시도/지연 여유, 다음 날 아침 갱신 전까지 인정)
 window.masterRunAt = '';
 function runKeyOf(r){ return (r && (r.run_at || r.uploaded_at)) || ''; }
 function computeMasterRun(){
