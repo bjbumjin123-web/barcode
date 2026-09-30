@@ -479,7 +479,8 @@ window.apiLookup = async function(lot){
     }
     const isPast = (kind === 'recent_past' || kind === 'old_past');
 
-    await insertScanLog({
+    // 서버 저장을 기다리지 않고 바로 화면을 띄움 (실패 시 오프라인 큐에 남음). 수량 저장 때 이 저장이 끝나기를 기다림
+    window.lastLogInsert = insertScanLog({
         lot_no: lot, scan_date: today, scanned_at: now,
         scanned_by: scanner, scan_dept: scanDept,
         actual_qty: null, diff: null,
@@ -489,7 +490,7 @@ window.apiLookup = async function(lot){
         stock_unit: isPast ? (stockRow.unit || null) : null,
         stock_dept: isPast ? (stockRow.department || null) : null,
         stock_wh: isPast ? (stockRow.warehouse || null) : null
-    });
+    }).catch(e => console.error(e));
     window.scannedTodaySet.add(lot);   // 진행바 즉시 반영
 
     if (kind === 'none'){
@@ -534,6 +535,7 @@ window.apiRemaining = async function(dept){
 window.apiSaveQty = async function(lot, actualQtyRaw, systemQty){
     const actualQty = Math.round(Number(actualQtyRaw));
     const diff = (systemQty === null || systemQty === undefined) ? null : actualQty - systemQty;
+    try { if (window.lastLogInsert) await window.lastLogInsert; } catch(e) {}
     const { date: today, datetime: now } = nowParts();
 
     const logSnap = await fetchAll(() => sb.from(LOG_COL).select('*').eq('lot_no', lot).eq('scan_date', today));
