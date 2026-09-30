@@ -367,6 +367,7 @@ function masterRowsOf(rows){
     rows.forEach(r => { const d = cleanDate8Digits(r.upload_date); if (d > master) master = d; });
     return rows.filter(r => cleanDate8Digits(r.upload_date) === master);
 }
+window.masterRowsOf = masterRowsOf;   // 아래쪽 일반 스크립트(진행바)에서도 사용
 function parseKst(str){ return new Date(String(str).replace(' ', 'T') + 'Z'); }
 function daysBetween(dateA, dateB){
     const a = cleanDate8Digits(dateA), b = cleanDate8Digits(dateB);
@@ -647,7 +648,7 @@ window.updateProgressBar = function(){
     if (!has) return;
     const rows = Array.from(window.cachedStockMap.values());
     const dept = deptSelect.value;
-    const target = masterRowsOf(rows).filter(r => (!dept || r.department === dept));
+    const target = window.masterRowsOf(rows).filter(r => (!dept || r.department === dept));
     const set = window.scannedTodaySet || new Set();
     const checked = target.filter(r => set.has(r.lot_no)).length;
     const pct = target.length ? Math.round(checked / target.length * 100) : 0;
