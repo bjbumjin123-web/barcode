@@ -35,6 +35,7 @@ tr.dup{background:rgba(255,184,77,0.10);}
 .note-old{color:#c792ea;border-color:#c792ea;}
 .note-none{color:#ff8a8a;border-color:#ff8a8a;}
 .note-ref{color:#4fc3ff;border-color:#4fc3ff;}
+.note-ok{color:#00e676;border-color:#00e676;}
 .start-row td{background:rgba(79,195,255,0.13);color:#4fc3ff;font-weight:bold;}
 </style>
 </head>
@@ -180,7 +181,7 @@ function noteOf(r){
     if (k === 'none' || (!k && !r.is_historical && !stockByLot[r.lot_no]))
         return { kind:'none', cls:'note-none', text:'재고 없음(보관 이력에 없음)' };
     if (!k && r.is_historical) return { kind:'recent', cls:'note-recent', text:`과거자료(${r.historical_date}) 참고` };
-    return { kind:'normal', cls:'', text:'' };
+    return { kind:'normal', cls:'note-ok', text:'정상' };
 }
 
 let dateCloseLogs = [];
