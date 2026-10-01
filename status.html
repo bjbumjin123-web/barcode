@@ -49,7 +49,7 @@ const short = s => s ? String(s).slice(5, 16) : "-";
 async function safe(fn){ try { return await fn(); } catch(e){ console.error(e); return null; } }
 
 async function load(){
-    const [statusRows, runs, master] = await Promise.all([
+    const [statusRows, runs, master, withOrigin] = await Promise.all([
         safe(async () => { const { data, error } = await sb.from("sync_status").select("*"); if (error) throw error; return data; }),
         safe(async () => { const { data, error } = await sb.from("stock_runs").select("upload_date,run_at,n").order("run_at", { ascending: false }).limit(6); if (error) throw error; return data; }),
         safe(async () => {
@@ -57,6 +57,8 @@ async function load(){
             const last = await sb.from("lot_master").select("work_date").order("work_date", { ascending: false }).limit(1);
             return { mat: await cnt("자재"), prod: await cnt("생산"), lastDay: last.data && last.data[0] ? last.data[0].work_date : null };
         }),
+        // 처음 수량(origin_qty)이 채워진 LOT 수 - 컬럼이 아직 없으면 null (이 줄만 숨김)
+        safe(async () => { const { count, error } = await sb.from("lot_master").select("*", { count: "exact", head: true }).not("origin_qty", "is", null); if (error) throw error; return count; }),
     ]);
 
     let html = "";
@@ -67,7 +69,7 @@ async function load(){
     let hbHtml;
     if (statusRows === null) hbHtml = `<span class="warn">상태 테이블을 읽지 못했습니다 (SQL 설정 필요)</span>`;
     else if (!hb) hbHtml = `<span class="warn">신호 기록 없음</span><div class="dim">스케줄러가 꺼져 있거나 서버 전용 키(supabase_secret.txt)가 없습니다.</div>`;
-    else if (hbMin > HEARTBEAT_STALE_MIN) hbHtml = `<span class="big bad">🔴 신호 끊김</span> <span class="bad">마지막 신호 ${agoText(hb.last_attempt_at)}</span><div class="dim">스케줄러(검은 창)가 꺼졌는지 확인하세요.</div>`;
+    else if (hbMin > HEARTBEAT_STALE_MIN) hbHtml = `<span class="big bad">🔴 신호 끊김</span> <span class="bad">마지막 신호 ${agoText(hb.last_attempt_at)}</span><div class="dim">스케줄러(검은 창)가 꺼졌는지 확인하세요. 켜져 있는데도 이 표시면 검은 창의 '저장 키'가 '서버 전용 키'인지 확인하세요. ('기존 키'면 신호가 올라오지 않습니다)</div>`;
     else hbHtml = `<span class="big ok">🟢 작동 중</span> <span class="dim">마지막 신호 ${agoText(hb.last_attempt_at)} · ${esc(hb.message || "")}</span>`;
     html += `<div class="card"><h3>스케줄러</h3>${hbHtml}</div>`;
 
@@ -95,10 +97,15 @@ async function load(){
     }
 
     // 4) LOT 조회용 자료
-    if (master) html += `<div class="card"><h3>LOT 조회용 자료 (자재입고 + 생산실적)</h3>
+    if (master) {
+        const total = (master.mat || 0) + (master.prod || 0);
+        const pct = (withOrigin !== null && total) ? Math.round(withOrigin / total * 100) : null;
+        html += `<div class="card"><h3>LOT 조회용 자료 (자재입고 + 생산실적)</h3>
         <div class="row"><span>자재</span><span>${master.mat ?? "-"}건</span></div>
         <div class="row"><span>생산</span><span>${master.prod ?? "-"}건</span></div>
+        ${withOrigin !== null ? `<div class="row"><span>처음 수량 있음 <span class="dim">(잔량 판단 가능)</span></span><span class="${pct !== null && pct < 50 ? "warn" : "ok"}">${withOrigin}건${pct !== null ? ` (${pct}%)` : ""}</span></div>` : ""}
         <div class="row"><span>가장 최근 날짜</span><span>${esc(master.lastDay || "-")}</span></div></div>`;
+    }
 
     root.innerHTML = html;
     document.getElementById("stamp").textContent = "확인 " + kstNow().slice(11, 19);
