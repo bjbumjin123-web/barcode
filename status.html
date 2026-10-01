@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>갱신현황</title>
+<style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+body{font-family:-apple-system,"Malgun Gothic",Arial,sans-serif;background:#111;color:#eee;margin:0;padding:16px;max-width:560px;margin:0 auto;}
+h2{font-size:18px;text-align:center;margin:0 0 12px;}
+.navbar{display:flex;justify-content:center;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+.navbar a{color:#4fc3ff;font-size:12px;text-decoration:none;padding:5px 8px;border:1px solid #2a4a5c;border-radius:10px;white-space:nowrap;}
+.card{background:#1c1c1c;border:1px solid #333;border-radius:12px;padding:14px;margin-bottom:12px;font-size:14px;line-height:1.7;}
+.card h3{margin:0 0 6px;font-size:14px;color:#aaa;font-weight:bold;}
+.big{font-size:17px;font-weight:bold;}
+.ok{color:#00e676;} .warn{color:#ffb84d;} .bad{color:#ff8a8a;} .dim{color:#888;font-size:12px;}
+.row{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #2a2a2a;padding:4px 0;}
+.row:last-child{border-bottom:none;}
+button{padding:8px 14px;font-size:13px;font-weight:bold;border-radius:8px;border:none;cursor:pointer;background:#4fc3ff;color:#111;}
+.center{text-align:center;}
+</style>
+</head>
+<body>
+<h2>📊 갱신현황</h2>
+<div class="navbar"></div>
+<div class="center" style="margin-bottom:12px;"><button id="refreshBtn">🔄 새로고침</button> <span class="dim" id="stamp"></span></div>
+<div id="root"><div class="card">불러오는 중...</div></div>
+
+<script type="module">
+import { sb, fetchAll, renderNavbar, esc, kstNow } from "./common.js?v=1";
+renderNavbar("status");
+
+const root = document.getElementById("root");
+const STOCK_STALE_HOURS = 13;      // 이 시간 넘게 재고 갱신이 없으면 경고
+const HEARTBEAT_STALE_MIN = 15;    // 이 시간 넘게 스케줄러 신호가 없으면 경고
+
+const asDate = s => new Date(String(s).replace(" ", "T") + "Z");   // 둘 다 한국시간 벽시계 문자열이라 같은 방식으로 파싱하면 차이가 정확
+function agoMin(s){ return s ? Math.floor((asDate(kstNow()) - asDate(s)) / 60000) : null; }
+function agoText(s){
+    const m = agoMin(s);
+    if (m === null) return "기록 없음";
+    if (m < 1) return "방금 전";
+    if (m < 60) return `${m}분 전`;
+    if (m < 60 * 48) return `${Math.floor(m / 60)}시간 ${m % 60}분 전`;
+    return `${Math.floor(m / 1440)}일 전`;
+}
+const short = s => s ? String(s).slice(5, 16) : "-";
+
+async function safe(fn){ try { return await fn(); } catch(e){ console.error(e); return null; } }
+
+async function load(){
+    const [statusRows, runs, master] = await Promise.all([
+        safe(async () => { const { data, error } = await sb.from("sync_status").select("*"); if (error) throw error; return data; }),
+        safe(async () => { const { data, error } = await sb.from("stock_runs").select("upload_date,run_at,n").order("run_at", { ascending: false }).limit(6); if (error) throw error; return data; }),
+        safe(async () => {
+            const cnt = async src => { const { count, error } = await sb.from("lot_master").select("*", { count: "exact", head: true }).eq("source", src); if (error) throw error; return count; };
+            const last = await sb.from("lot_master").select("work_date").order("work_date", { ascending: false }).limit(1);
+            return { mat: await cnt("자재"), prod: await cnt("생산"), lastDay: last.data && last.data[0] ? last.data[0].work_date : null };
+        }),
+    ]);
+
+    let html = "";
+    const st = {}; (statusRows || []).forEach(r => { st[r.task] = r; });
+
+    // 1) 스케줄러 작동 여부
+    const hb = st.scheduler, hbMin = hb ? agoMin(hb.last_attempt_at) : null;
+    let hbHtml;
+    if (statusRows === null) hbHtml = `<span class="warn">상태 테이블을 읽지 못했습니다 (SQL 설정 필요)</span>`;
+    else if (!hb) hbHtml = `<span class="warn">신호 기록 없음</span><div class="dim">스케줄러가 꺼져 있거나 서버 전용 키(supabase_secret.txt)가 없습니다.</div>`;
+    else if (hbMin > HEARTBEAT_STALE_MIN) hbHtml = `<span class="big bad">🔴 신호 끊김</span> <span class="bad">마지막 신호 ${agoText(hb.last_attempt_at)}</span><div class="dim">스케줄러(검은 창)가 꺼졌는지 확인하세요.</div>`;
+    else hbHtml = `<span class="big ok">🟢 작동 중</span> <span class="dim">마지막 신호 ${agoText(hb.last_attempt_at)} · ${esc(hb.message || "")}</span>`;
+    html += `<div class="card"><h3>스케줄러</h3>${hbHtml}</div>`;
+
+    // 2) 작업별 결과
+    const label = { stock: "📦 재고", mat: "📥 자재입고 LOT", prod: "🏭 생산실적 LOT" };
+    html += `<div class="card"><h3>작업별 마지막 결과</h3>` + ["stock", "mat", "prod"].map(k => {
+        const r = st[k];
+        if (!r) return `<div class="row"><span>${label[k]}</span><span class="dim">기록 없음</span></div>`;
+        const good = r.ok === true, cls = good ? "ok" : "bad";
+        return `<div class="row"><span>${label[k]}<br><span class="dim">성공 ${short(r.last_success_at)} (${agoText(r.last_success_at)})</span></span>
+            <span class="${cls}">${good ? "성공" : "실패"} ${r.row_count != null && good ? r.row_count + "건" : ""}<br><span class="dim">${esc(r.message || "")}</span></span></div>`;
+    }).join("") + `</div>`;
+
+    // 3) 재고 저장 회차
+    if (runs === null) html += `<div class="card"><h3>재고 저장 현황</h3><span class="warn">불러오지 못했습니다 (SQL 설정 필요)</span></div>`;
+    else if (!runs.length) html += `<div class="card"><h3>재고 저장 현황</h3>저장된 재고가 없습니다.</div>`;
+    else {
+        const lastRun = runs[0].run_at, hrs = agoMin(lastRun) / 60;
+        const cls = hrs > STOCK_STALE_HOURS ? "bad" : "ok";
+        html += `<div class="card"><h3>재고 저장 현황</h3>
+            <div>최근 저장 <span class="big ${cls}">${short(lastRun)}</span> <span class="${cls}">(${agoText(lastRun)})</span></div>
+            ${hrs > STOCK_STALE_HOURS ? `<div class="bad">⚠️ ${STOCK_STALE_HOURS}시간 넘게 재고가 갱신되지 않았습니다.</div>` : ""}
+            <div class="dim" style="margin-top:6px;">최근 실행 회차</div>` +
+            runs.map(r => `<div class="row"><span>${short(r.run_at)}</span><span>${r.n}건</span></div>`).join("") + `</div>`;
+    }
+
+    // 4) LOT 조회용 자료
+    if (master) html += `<div class="card"><h3>LOT 조회용 자료 (자재입고 + 생산실적)</h3>
+        <div class="row"><span>자재</span><span>${master.mat ?? "-"}건</span></div>
+        <div class="row"><span>생산</span><span>${master.prod ?? "-"}건</span></div>
+        <div class="row"><span>가장 최근 날짜</span><span>${esc(master.lastDay || "-")}</span></div></div>`;
+
+    root.innerHTML = html;
+    document.getElementById("stamp").textContent = "확인 " + kstNow().slice(11, 19);
+}
+
+document.getElementById("refreshBtn").onclick = load;
+load();
+setInterval(load, 60000);
+</script>
+</body>
+</html>

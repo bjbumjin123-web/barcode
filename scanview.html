@@ -43,12 +43,7 @@ tr.dup{background:rgba(255,184,77,0.10);}
 
 <h2>🕒 스캔 기록</h2>
 
-<div class="navbar">
-<a href="index.html">📸 스캔</a>
-<a href="upload.html">📂 업로드</a>
-<a href="progress.html">📋 진행률</a>
-<a href="history.html">📅 이력조회</a>
-</div>
+<div class="navbar"></div>
 
 <div class="toolbar">
 <input type="date" id="dateInput">
@@ -66,24 +61,8 @@ tr.dup{background:rgba(255,184,77,0.10);}
 <div id="content"><div class="empty">불러오는 중...</div></div>
 
 <script type="module">
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-
-const sb = createClient("https://siwaynipvwtwuoobyarp.supabase.co", "sb_publishable_lEKhT8TYzo368Hxfd0E8-Q_D9JEyO9Z");
-
-// Firestore 스냅샷처럼 d.data() 로 읽을 수 있게 감싸는 도우미 (기존 코드 호환용)
-const wrap = r => ({ id: r.id, data: () => r });
-
-// Supabase는 한 번에 1000행까지만 주므로 나눠서 전부 가져옴
-async function fetchAll(build){
-    const out = [];
-    for (let from = 0; ; from += 1000){
-        const { data, error } = await build().order('id').range(from, from + 999);
-        if (error) throw error;
-        data.forEach(r => out.push(wrap(r)));
-        if (data.length < 1000) break;
-    }
-    return out;
-}
+import { sb, wrap, fetchAll, renderNavbar } from "./common.js?v=1";
+renderNavbar("scanview");
 
 
 function todayKST(){
@@ -260,7 +239,7 @@ function render(){
                 html += `<tr class="close-row">
                     <td>${i+1}</td>
                     <td>${esc((r.time||'').toString().slice(11,19))}</td>
-                    <td colspan="12">🏁 마감 · ${who}${hasCounts ? ' · 확인 '+esc(r.checked)+'/'+esc(r.total)+'건 · 남음 '+esc(r.remaining)+'건' : ' · 남은 LOT 확인 못함'}</td>
+                    <td colspan="12">🏁 ${r.event === 'auto_close' ? '자동 마감' : '마감'} · ${who}${hasCounts ? ' · 확인 '+esc(r.checked)+'/'+esc(r.total)+'건 · 남음 '+esc(r.remaining)+'건' : ' · 남은 LOT 확인 못함'}</td>
                 </tr>`;
             }
             return;
@@ -338,7 +317,7 @@ exportBtn.onclick = () => {
         if (r.type === 'close'){
             const note = r.event === 'start'
                 ? `시작${r.total !== null && r.total !== undefined ? ' · 재고 '+r.total+'건 다운로드' : ''}`
-                : (r.checked !== null && r.checked !== undefined ? `마감 · 확인 ${r.checked}/${r.total}건 · 남음 ${r.remaining}건` : '마감');
+                : (r.checked !== null && r.checked !== undefined ? `${r.event === 'auto_close' ? '자동 마감' : '마감'} · 확인 ${r.checked}/${r.total}건 · 남음 ${r.remaining}건` : '마감');
             rows.push([
                 i+1, r.time, r.scanner, r.dept, '', '', '', '', '', '', '', '', '', '',
                 '', note

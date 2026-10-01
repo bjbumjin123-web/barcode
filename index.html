@@ -191,8 +191,37 @@ body.manual-mode #backToCamBtn{ display:block; }
 #modalLotNo, #modalSysQty { white-space:nowrap; overflow-wrap:normal; }
 .modal-info-val.highlight { color:#00e676; font-size:15px; }
 
+#itemModalOverlay{ display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:3500; align-items:center; justify-content:center; padding:16px; }
+#itemModalBox{ background:#1c1c1c; border:2px solid #4fc3ff; border-radius:14px; padding:16px; max-width:480px; width:100%; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 8px 30px rgba(0,0,0,0.9); }
+#itemModalBox h3{ margin:0 0 6px; color:#4fc3ff; font-size:18px; text-align:center; }
+#itemModalHead{ font-size:13px; color:#ccc; text-align:center; margin-bottom:8px; word-break:break-all; }
+#itemModalList{ flex:1 1 auto; overflow-y:auto; max-height:55vh; background:#111; border:1px solid #333; border-radius:8px; padding:6px 10px; margin-bottom:12px; }
+.wh-group-head{ margin:8px 0 4px; padding:6px 8px; background:#222; border-radius:6px; font-size:13px; font-weight:bold; color:#4fc3ff; }
+.wh-group-head small{ display:block; color:#aaa; font-weight:normal; margin-top:2px; }
+.wh-lot{ display:flex; justify-content:space-between; gap:8px; padding:5px 2px; border-bottom:1px solid #2a2a2a; font-size:13px; }
+.wh-lot.cur{ background:rgba(0,230,118,0.12); }
+.wh-lot .ok{ color:#00e676; } .wh-lot .ng{ color:#ff8a8a; } .wh-lot .sub{ color:#888; font-size:12px; }
+.wh-box{ display:none; margin:8px 0 4px; }
+.wh-title{ font-size:12px; color:#888; margin-bottom:4px; }
+.wh-row{ display:flex; justify-content:space-between; gap:8px; padding:8px 10px; margin-bottom:4px; background:#161616; border:1px solid #2a4a5c; border-radius:8px; font-size:13px; cursor:pointer; }
+.wh-row.all-done{ border-color:#00e676; }
+.wh-row b{ color:#00e676; }
 #modalWarn{display:none;margin:0 0 8px;padding:8px;border-radius:8px;font-size:13px;font-weight:bold;line-height:1.4;}
 #modalLotNo.big{font-size:clamp(15px,5.2vw,22px);color:#ff8a8a;letter-spacing:0;}
+#calcOpenBtn{ width:52px; height:48px; font-size:22px; border-radius:8px; border:1px solid #4fc3ff; background:#162a35; color:#fff; cursor:pointer; flex:0 0 auto; }
+.qty-row{ display:flex; gap:8px; margin-bottom:14px; }
+.qty-row #modalQtyInput{ margin-bottom:0; flex:1; width:auto; min-width:0; }
+#calcOverlay{ display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:4000; align-items:center; justify-content:center; padding:16px; }
+#calcBox{ background:#1c1c1c; border:2px solid #4fc3ff; border-radius:14px; padding:14px; width:100%; max-width:320px; box-shadow:0 8px 30px rgba(0,0,0,0.9); }
+#calcExpr{ min-height:20px; text-align:right; color:#888; font-size:14px; word-break:break-all; }
+#calcResult{ text-align:right; font-size:30px; font-weight:bold; color:#00e676; margin-bottom:10px; word-break:break-all; }
+#calcPad{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+#calcPad button{ height:52px; font-size:20px; font-weight:bold; border:none; border-radius:10px; background:#2a2a2a; color:#fff; cursor:pointer; }
+#calcPad button.op{ background:#26455a; color:#4fc3ff; }
+#calcPad button.eq{ background:#4fc3ff; color:#111; grid-row:span 2; height:auto; }
+#calcPad button.zero{ grid-column:span 2; }
+#calcFoot{ display:flex; gap:8px; margin-top:10px; }
+#calcFoot button{ flex:1; height:46px; font-size:15px; font-weight:bold; border:none; border-radius:8px; cursor:pointer; }
 #modalQtyInput{
     width:100%; height:48px; font-size:22px; font-weight:bold; text-align:center;
     border-radius:8px; border:1px solid #00e676; background:#111; color:#fff; margin-bottom:14px;
@@ -209,10 +238,10 @@ body.manual-mode #backToCamBtn{ display:block; }
 <h2>📦 LOT 스캐너</h2>
 
 <div class="navbar">
-<a href="upload.html">📂 업로드</a>
 <a href="scanview.html">🕒 기록조회</a>
 <a href="progress.html">📋 진행률</a>
 <a href="history.html">📅 이력조회</a>
+<a href="status.html">📊 갱신현황</a>
 </div>
 
 <button id="startDataBtn">🚀 시작 (최근 10일 재고 데이터 다운로드)</button>
@@ -252,6 +281,30 @@ body.manual-mode #backToCamBtn{ display:block; }
 
 <div id="lotInfo"></div>
 
+<div id="calcOverlay">
+<div id="calcBox">
+<div id="calcExpr"></div>
+<div id="calcResult">0</div>
+<div id="calcPad">
+<button data-k="C" class="op">C</button><button data-k="B" class="op">⌫</button><button data-k="/" class="op">÷</button><button data-k="*" class="op">×</button>
+<button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button><button data-k="-" class="op">−</button>
+<button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button><button data-k="+" class="op">+</button>
+<button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button><button data-k="=" class="eq">=</button>
+<button data-k="0" class="zero">0</button><button data-k=".">.</button>
+</div>
+<div id="calcFoot"><button id="calcCancelBtn" style="background:#444;color:#fff;">취소</button><button id="calcApplyBtn" style="background:#00e676;color:#111;">수량에 입력</button></div>
+</div>
+</div>
+
+<div id="itemModalOverlay">
+<div id="itemModalBox">
+<h3>📦 같은 품번 현황</h3>
+<div id="itemModalHead"></div>
+<div id="itemModalList"></div>
+<div class="modal-btn-group"><button id="itemModalCloseBtn" style="flex:1;height:44px;font-size:15px;font-weight:bold;border:none;border-radius:8px;background:#4fc3ff;color:#111;cursor:pointer;">닫기</button></div>
+</div>
+</div>
+
 <!-- 모달 팝업: LOT, 품번, 품명, 전산수량 정렬 구조 -->
 <div id="qtyModalOverlay">
 <div id="qtyModalBox">
@@ -262,8 +315,9 @@ body.manual-mode #backToCamBtn{ display:block; }
     <div class="modal-info-item"><span class="modal-info-label">3. 품명</span><span id="modalItemName" class="modal-info-val">-</span></div>
     <div class="modal-info-item"><span class="modal-info-label">4. 전산수량</span><span id="modalSysQty" class="modal-info-val highlight">-</span></div>
 </div>
+<div id="modalItemStatus" class="wh-box"></div>
 <div id="modalWarn"></div>
-<input id="modalQtyInput" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="실사수량 입력">
+<div class="qty-row"><input id="modalQtyInput" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="실사수량 입력"><button id="calcOpenBtn" type="button" title="계산기">🧮</button></div>
 <div class="modal-btn-group">
 <button id="modalSaveBtn">저장</button>
 <button id="modalCloseBtn">취소</button>
@@ -285,6 +339,10 @@ body.manual-mode #backToCamBtn{ display:block; }
 </div>
 </div>
 
+<script type="module">
+import { renderNavbar } from "./common.js?v=1";
+renderNavbar("index");
+</script>
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
@@ -332,10 +390,10 @@ const CACHE_KEY = 'lot_stock_cache_v1';
 window.scannedTodaySet = new Set();
 window.syncScannedToday = async function(){
     const { date: today } = nowParts();
-    const logs = await fetchAll(() => sb.from(LOG_COL).select('lot_no').eq('scan_date', today));
-    const set = new Set();
-    logs.forEach(d => set.add(d.data().lot_no));
-    readQueue().forEach(q => { if (q.scan_date === today) set.add(q.lot_no); });
+    const logs = await fetchAll(() => sb.from(LOG_COL).select('lot_no,actual_qty').eq('scan_date', today));
+    const set = new Set();   // 수량 입력까지 끝낸 LOT만 '확인'으로 인정
+    logs.forEach(d => { const r = d.data(); if (r.actual_qty !== null && r.actual_qty !== undefined) set.add(r.lot_no); });
+    readQueue().forEach(q => { if (q.scan_date === today && q.actual_qty !== null && q.actual_qty !== undefined) set.add(q.lot_no); });
     window.scannedTodaySet = set;
     return set;
 };
@@ -351,6 +409,7 @@ window.saveStockCache = function(){
 window.clearStockCache = function(){
     window.cachedStockMap.clear();
     window.masterRunAt = '';
+    window.serverNewerRun = '';
     try { localStorage.removeItem(CACHE_KEY); } catch(e){}
 };
 // ===== 최근 실행분(master run) 판단 도우미 =====
@@ -368,7 +427,44 @@ function masterRowsOf(rows){
     rows.forEach(r => { const d = cleanDate8Digits(r.upload_date); if (d > master) master = d; });
     return rows.filter(r => cleanDate8Digits(r.upload_date) === master);
 }
-window.masterRowsOf = masterRowsOf;   // 아래쪽 일반 스크립트(진행바)에서도 사용
+window.masterRowsOf = masterRowsOf;
+
+// 서버에 더 새로운 재고(실행 회차)가 있는지 확인 -> 있으면 [마감] 대신 [시작] 버튼으로 전환
+window.serverNewerRun = '';
+window.checkNewStock = async function(){
+    if (!window.masterRunAt || !navigator.onLine) return;
+    try {
+        const { data, error } = await sb.from(STOCK_COL).select('upload_date,run_at,uploaded_at')
+            .order('upload_date', { ascending:false }).order('run_at', { ascending:false }).limit(1);
+        if (error || !data || !data.length) return;
+        const latest = data[0].run_at || data[0].uploaded_at || '';
+        const newer = latest > window.masterRunAt;
+        if (newer !== !!window.serverNewerRun){
+            window.serverNewerRun = newer ? latest : '';
+            if (window.refreshStartBtn) window.refreshStartBtn();
+        }
+    } catch(e){ console.error(e); }
+};
+const WH_ORDER = ['원자재창고', '반제품창고', '완제품창고', '외주창고'];
+// 같은 품번을 창고별로 묶어 확인/남음 집계 (최근 실행분 기준, 확인 = 수량 입력 완료)
+window.apiItemStatus = function(itemNo){
+    const key = String(itemNo || '').trim();
+    if (!key || key === '-' || !window.cachedStockMap) return [];
+    const rows = masterRowsOf(Array.from(window.cachedStockMap.values())).filter(r => String(r.item_no || '').trim() === key);
+    const set = window.scannedTodaySet || new Set();
+    const groups = {};
+    rows.forEach(r => {
+        const wh = r.warehouse || '(창고 미지정)';
+        const g = groups[wh] || (groups[wh] = { warehouse: wh, total: 0, done: 0, qtyTotal: 0, qtyDone: 0, unit: r.unit || '', lots: [] });
+        const done = set.has(r.lot_no), q = Number(r.qty || 0);
+        g.total++; g.qtyTotal += q; if (done){ g.done++; g.qtyDone += q; }
+        g.lots.push({ lot_no: r.lot_no, department: r.department || '-', qty: q, unit: r.unit || '', done });
+    });
+    const rank = w => { const i = WH_ORDER.indexOf(w); return i < 0 ? 99 : i; };
+    return Object.values(groups)
+        .sort((a, b) => rank(a.warehouse) - rank(b.warehouse) || a.warehouse.localeCompare(b.warehouse))
+        .map(g => { g.lots.sort((a, b) => (a.done - b.done) || a.lot_no.localeCompare(b.lot_no)); return g; });
+};   // 아래쪽 일반 스크립트(진행바)에서도 사용
 function parseKst(str){ return new Date(String(str).replace(' ', 'T') + 'Z'); }
 function daysBetween(dateA, dateB){
     const a = cleanDate8Digits(dateA), b = cleanDate8Digits(dateB);
@@ -423,6 +519,7 @@ window.download10DaysStock = async function(){
             }
         });
         computeMasterRun();
+        window.serverNewerRun = '';
         window.saveStockCache();
         status.innerHTML = `✅ 재고 데이터 ${count}건 다운로드 완료!`;
         return { success: true, count };
@@ -507,7 +604,6 @@ window.apiLookup = async function(lot){
         stock_dept: isPast ? (stockRow.department || null) : null,
         stock_wh: isPast ? (stockRow.warehouse || null) : null
     }).catch(e => console.error(e));
-    window.scannedTodaySet.add(lot);   // 진행바 즉시 반영
 
     if (kind === 'none'){
         return { found: false, kind, lot_no: lot, qty: null, unit: '' };
@@ -578,6 +674,7 @@ window.apiSaveQty = async function(lot, actualQtyRaw, systemQty){
         });
     }
 
+    window.scannedTodaySet.add(lot);   // 수량 저장 완료 → 확인 처리 (진행바 즉시 반영)
     return { success: true, actual_qty: actualQty, diff };
 };
 
@@ -639,6 +736,11 @@ const modalItemName = document.getElementById("modalItemName");
 const modalSysQty = document.getElementById("modalSysQty");
 const modalQtyInput = document.getElementById("modalQtyInput");
 const modalWarn = document.getElementById("modalWarn");
+const modalItemStatus = document.getElementById("modalItemStatus");
+const itemModalOverlay = document.getElementById("itemModalOverlay");
+const itemModalHead = document.getElementById("itemModalHead");
+const itemModalList = document.getElementById("itemModalList");
+document.getElementById("itemModalCloseBtn").onclick = () => { itemModalOverlay.style.display = "none"; };
 const modalSaveBtn = document.getElementById("modalSaveBtn");
 const modalCloseBtn = document.getElementById("modalCloseBtn");
 const modalMsg = document.getElementById("modalMsg");
@@ -660,6 +762,7 @@ deptSelect.addEventListener("change", () => { localStorage.setItem("lot_scanner_
 
 const START_LABEL = "🚀 시작 (최근 10일 재고 데이터 다운로드)";
 const CLOSE_LABEL = "🏁 마감 (남은 LOT 확인)";
+const NEW_LABEL = "🔄 시작 (새 재고가 있습니다)";
 
 const closeProgress = document.getElementById("closeProgress");
 const closeProgressFill = document.getElementById("closeProgressFill");
@@ -689,8 +792,9 @@ window.syncProgress = async function(){
 // 캐시가 있으면 [마감] 버튼, 없으면 [시작] 버튼
 window.refreshStartBtn = function(){
     const has = window.cachedStockMap && window.cachedStockMap.size > 0;
-    startDataBtn.textContent = has ? CLOSE_LABEL : START_LABEL;
-    startDataBtn.classList.toggle("closeMode", has);
+    const newer = has && !!window.serverNewerRun;
+    startDataBtn.textContent = !has ? START_LABEL : (newer ? NEW_LABEL : CLOSE_LABEL);
+    startDataBtn.classList.toggle("closeMode", has && !newer);
     captureBtn.disabled = !has;
     if (has && !status.textContent.trim()) status.innerHTML = `✅ 재고 캐시 ${window.cachedStockMap.size}건 사용 중`;
     window.updateProgressBar();
@@ -698,7 +802,9 @@ window.refreshStartBtn = function(){
 };
 
 // 다른 사람의 스캔도 반영되도록 2분마다 서버와 동기화
-setInterval(() => { if (!document.hidden) window.syncProgress(); }, 120000);
+setInterval(() => { if (!document.hidden){ window.syncProgress(); window.checkNewStock(); } }, 120000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) window.checkNewStock(); });
+setTimeout(() => window.checkNewStock(), 3000);
 
 const closeModalOverlay = document.getElementById("closeModalOverlay");
 const closeSummary = document.getElementById("closeSummary");
@@ -778,7 +884,14 @@ startDataBtn.onclick = async () => {
     if (!scannerInput.value.trim()) { alert("작성자 이름을 입력해주세요."); scannerInput.focus(); return; }
     if (!deptSelect.value) { alert("실사 부서를 선택해주세요."); deptSelect.focus(); return; }
 
-    if (window.cachedStockMap.size > 0) { await openCloseModal(); return; }
+    if (window.cachedStockMap.size > 0 && !window.serverNewerRun) { await openCloseModal(); return; }
+    if (window.cachedStockMap.size > 0) {
+        // 새 재고가 올라온 경우: 현재 진행 상황을 '자동 마감'으로 기록한 뒤 새 재고를 받음 (수량 저장한 LOT은 그대로 확인 상태 유지)
+        try {
+            const r0 = await window.apiRemaining(deptSelect.value);
+            window.apiLogEvent('auto_close', { scanner: scannerInput.value.trim(), dept: deptSelect.value, total: r0.total, checked: r0.checked, remaining: r0.remaining });
+        } catch(e){ console.error(e); }
+    }
 
     const r = await window.download10DaysStock();
     if (r && r.success) {
@@ -1173,6 +1286,90 @@ resultInput.addEventListener("blur", () => {
 if (window.visualViewport) window.visualViewport.addEventListener("resize", alignTyping);   // 키보드 크기 변화 시
 
 // 직접 입력 후 수량 창이 닫히면 카메라 화면으로 복귀
+// ---- 같은 품번 창고별 현황 (확인 = 수량 입력 완료) ----
+function renderItemStatus(el, res){
+    if (!el) return;
+    const groups = (res && res.item_no && window.apiItemStatus) ? window.apiItemStatus(res.item_no) : [];
+    if (!groups.length){ el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = 'block';
+    el.innerHTML = '<div class="wh-title">📦 같은 품번 창고별 현황 (누르면 상세)</div>' +
+        groups.map(g => `<div class="wh-row ${g.done === g.total ? 'all-done' : ''}"><span>${esc(g.warehouse)}</span><span>확인 <b>${g.done}</b>/${g.total} · 남음 <b>${g.total - g.done}</b>건<br><small style="color:#aaa;">미확인 수량 ${Math.round((g.qtyTotal - g.qtyDone) * 1000) / 1000} ${esc(g.unit)}</small></span></div>`).join('');
+    el.querySelectorAll('.wh-row').forEach(row => { row.onclick = () => openItemModal(res); });
+}
+function renderItemModal(res){
+    const groups = window.apiItemStatus(res.item_no);
+    itemModalHead.innerHTML = `<b>${esc(res.item_no)}</b><br>${esc(res.item_name || '')}`;
+    itemModalList.innerHTML = groups.map(g => `
+        <div class="wh-group-head">${esc(g.warehouse)} · 확인 ${g.done}/${g.total} (남음 ${g.total - g.done})
+            <small>수량 확인 ${Math.round(g.qtyDone * 1000) / 1000} / 전체 ${Math.round(g.qtyTotal * 1000) / 1000} ${esc(g.unit)} · 미확인 ${Math.round((g.qtyTotal - g.qtyDone) * 1000) / 1000} ${esc(g.unit)}</small></div>
+        ${g.lots.map(l => `<div class="wh-lot ${l.lot_no === res.lot_no ? 'cur' : ''}">
+            <span>${l.done ? '<span class="ok">✅</span>' : '<span class="ng">⬜</span>'} ${esc(l.lot_no)}${l.lot_no === res.lot_no ? ' 👈' : ''}<br><span class="sub">${esc(l.department)}</span></span>
+            <span>${l.qty} ${esc(l.unit)}</span></div>`).join('')}`).join('') || '<div class="wh-lot">최근 실행분에 이 품번 재고가 없습니다.</div>';
+}
+function openItemModal(res){ renderItemModal(res); itemModalOverlay.style.display = 'flex'; }
+function refreshItemStatus(){
+    if (!currentLookupResult) return;
+    renderItemStatus(document.getElementById('itemStatusCard'), currentLookupResult);
+    renderItemStatus(modalItemStatus, currentLookupResult);
+    if (itemModalOverlay.style.display === 'flex') renderItemModal(currentLookupResult);
+}
+
+// ---- 계산기 (수량 칸 옆 🧮) ----
+const calcOverlay = document.getElementById("calcOverlay");
+const calcExpr = document.getElementById("calcExpr");
+const calcResult = document.getElementById("calcResult");
+let calcStr = "";
+const OPS = { "+": "+", "-": "−", "*": "×", "/": "÷" };
+
+// 안전한 사칙연산 계산 (eval 미사용): × ÷ 를 먼저, + − 를 나중에
+function calcEvaluate(str){
+    const toks = str.match(/\d*\.?\d+|\d+\.|[+\-*\/]/g) || [];
+    if (!toks.length) return null;
+    if (toks[0] === "-") toks.unshift("0");
+    if (/[+\-*\/]/.test(toks[toks.length - 1])) toks.pop();      // 끝에 연산자가 남아 있으면 무시
+    let out = [], i = 0;
+    out.push(parseFloat(toks[0]));
+    for (i = 1; i < toks.length; i += 2){
+        const op = toks[i], v = parseFloat(toks[i + 1]);
+        if (isNaN(v)) return null;
+        if (op === "*") out[out.length - 1] *= v;
+        else if (op === "/"){ if (v === 0) return null; out[out.length - 1] /= v; }
+        else { out.push(op); out.push(v); }
+    }
+    let total = out[0];
+    for (i = 1; i < out.length; i += 2) total = out[i] === "+" ? total + out[i + 1] : total - out[i + 1];
+    return isFinite(total) ? total : null;
+}
+function calcRender(){
+    calcExpr.textContent = calcStr.replace(/[+\-*\/]/g, c => " " + OPS[c] + " ");
+    const v = calcEvaluate(calcStr);
+    calcResult.textContent = v === null ? "0" : String(Math.round(v * 1000) / 1000);
+}
+function calcPress(k){
+    if (k === "C") calcStr = "";
+    else if (k === "B") calcStr = calcStr.slice(0, -1);
+    else if (k === "=") { const v = calcEvaluate(calcStr); if (v !== null) calcStr = String(Math.round(v * 1000) / 1000); }
+    else if (/[+\-*\/]/.test(k)){
+        if (!calcStr && k !== "-") return;
+        if (/[+\-*\/]$/.test(calcStr)) calcStr = calcStr.slice(0, -1);   // 연산자 연속 입력 시 교체
+        calcStr += k;
+    } else {
+        if (k === "." && /\d*\.\d*$/.test(calcStr.split(/[+\-*\/]/).pop())) return;   // 한 숫자에 소수점 한 번만
+        calcStr += k;
+    }
+    calcRender();
+}
+document.querySelectorAll("#calcPad button").forEach(b => { b.onclick = () => calcPress(b.dataset.k); });
+document.getElementById("calcOpenBtn").onclick = () => { calcStr = modalQtyInput.value ? String(modalQtyInput.value) : ""; calcRender(); calcOverlay.style.display = "flex"; };
+document.getElementById("calcCancelBtn").onclick = () => { calcOverlay.style.display = "none"; };
+document.getElementById("calcApplyBtn").onclick = () => {
+    const v = calcEvaluate(calcStr);
+    if (v === null) return alert("계산 결과가 올바르지 않습니다.");
+    if (v < 0) return alert("수량은 0 이상이어야 합니다.");
+    modalQtyInput.value = String(Math.round(v));     // 수량은 정수로 반올림
+    calcOverlay.style.display = "none";
+};
+
 function closeQtyModal(){
     qtyModalOverlay.style.display = "none";
     exitManualMode();
@@ -1290,8 +1487,10 @@ async function doLookup(lot){
             <div class="info-label">품명</div><div class="info-value">${esc(res.item_name)}</div>
             <div class="info-label">전산수량</div><div class="info-value big">${res.qty === null ? '- (없음)' : res.qty + ' ' + esc(res.unit)}</div>
         </div>
+        <div id="itemStatusCard" class="wh-box"></div>
         <button id="openQtyModalBtn">📝 실수량 입력하기</button>
     `;
+    renderItemStatus(document.getElementById('itemStatusCard'), res);
     status.innerHTML = "✅ 조회 완료. 실수량을 입력하세요.";
 
     document.getElementById("openQtyModalBtn").onclick = () => openQtyModal(res);
@@ -1317,6 +1516,7 @@ function openQtyModal(res) {
         modalWarn.innerText = `⚠️ ${res.upload_date} 과거자료 기준 · 전산수량 0 처리`;
     } else { modalWarn.style.display = 'none'; }
     
+    renderItemStatus(modalItemStatus, res);
     modalQtyInput.value = "";
     modalMsg.innerText = "";
     qtyModalOverlay.style.display = "flex";
@@ -1349,7 +1549,9 @@ modalSaveBtn.onclick = async () => {
     }
     
     modalMsg.innerHTML = `<span style="color:#00e676;">✅ 저장 완료 ${saveRes.diff === null ? '(전산수량 없음)' : '(차이: ' + saveRes.diff + ')'}</span>`;
-    setTimeout(() => { closeQtyModal(); }, 600);
+    if (window.updateProgressBar) window.updateProgressBar();
+    refreshItemStatus();
+    setTimeout(() => { closeQtyModal(); resultInput.value = ""; }, 600);   // 다음 LOT 입력이 편하도록 LOT 번호만 비움 (결과 카드는 유지)
 };
 
 // 📌 네트워크 상태 실시간 표시 및 UI 업데이트

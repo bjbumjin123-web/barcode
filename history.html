@@ -27,12 +27,7 @@ th{background:#222;color:#aaa;font-size:12px;}
 
 <h2>📅 재고 이력 조회 (일자별)</h2>
 
-<div class="navbar">
-<a href="index.html">📸 스캔</a>
-<a href="upload.html">📂 업로드</a>
-<a href="scanview.html">🕒 기록조회</a>
-<a href="progress.html">📋 진행률</a>
-</div>
+<div class="navbar"></div>
 
 <div class="toolbar">
 <select id="dateSelect"><option value="">실사 날짜 선택...</option></select>
@@ -46,24 +41,8 @@ th{background:#222;color:#aaa;font-size:12px;}
 <div id="content"><div class="empty">날짜를 선택해주세요.</div></div>
 
 <script type="module">
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-
-const sb = createClient("https://siwaynipvwtwuoobyarp.supabase.co", "sb_publishable_lEKhT8TYzo368Hxfd0E8-Q_D9JEyO9Z");
-
-// Firestore 스냅샷처럼 d.data() 로 읽을 수 있게 감싸는 도우미 (기존 코드 호환용)
-const wrap = r => ({ id: r.id, data: () => r });
-
-// Supabase는 한 번에 1000행까지만 주므로 나눠서 전부 가져옴
-async function fetchAll(build){
-    const out = [];
-    for (let from = 0; ; from += 1000){
-        const { data, error } = await build().order('id').range(from, from + 999);
-        if (error) throw error;
-        data.forEach(r => out.push(wrap(r)));
-        if (data.length < 1000) break;
-    }
-    return out;
-}
+import { sb, wrap, fetchAll, renderNavbar } from "./common.js?v=1";
+renderNavbar("history");
 
 
 
