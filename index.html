@@ -175,6 +175,12 @@ body.manual-mode #backToCamBtn{ display:block; }
     max-width:380px; width:100%; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,0.9); padding:16px 14px;
 }
 #qtyModalBox h3{ margin:0 0 10px; color:#00e676; font-size:18px; }
+#qtyModalBox{ box-sizing:border-box; }
+#qtyModalBox.kb{ padding:10px 12px; }
+#qtyModalBox.kb h3{ margin:0 0 4px; font-size:15px; }
+#qtyModalBox.kb .wh-box{ display:none !important; }
+#qtyModalBox.kb .modal-info-group{ padding:6px 8px; margin-bottom:6px; font-size:12px; }
+#qtyModalBox.kb #modalWarn{ padding:5px 8px; margin-bottom:6px; font-size:12px; }
 
 /* 모달 내부 정보 표시 그룹 */
 .modal-info-group {
@@ -900,6 +906,59 @@ startDataBtn.onclick = async () => {
     }
 };
 
+// ===== 매일 자동 마감 (한국시간 06:30 / 18:30) =====
+// 마지막 마감 시각 이전에 받은 재고 캐시가 남아 있으면 '자동 마감'으로 기록하고 캐시를 삭제함.
+const AUTO_CLOSE_TIMES = ["06:30", "18:30"];
+const AUTO_CLOSE_KEY = "lot_auto_close_slot";
+function kstNowParts(){
+    const f = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+    const m = {}; f.formatToParts(new Date()).forEach(p => m[p.type] = p.value);
+    return { date: `${m.year}-${m.month}-${m.day}`, hm: `${m.hour === "24" ? "00" : m.hour}:${m.minute}` };
+}
+function lastCloseSlot(date, hm){
+    let slotDate = date, slotTime = null;
+    for (const t of AUTO_CLOSE_TIMES) if (t <= hm) slotTime = t;
+    if (!slotTime){   // 오늘 첫 마감 시각 전 -> 어제의 마지막 마감 시각
+        slotTime = AUTO_CLOSE_TIMES[AUTO_CLOSE_TIMES.length - 1];
+        slotDate = new Date(Date.parse(date + "T00:00:00Z") - 86400000).toISOString().slice(0, 10);
+    }
+    return { key: slotDate + " " + slotTime, time: slotTime, epoch: Date.parse(slotDate + "T" + slotTime + ":00+09:00") };
+}
+function cacheSavedAtMs(){
+    try { const o = JSON.parse(localStorage.getItem("lot_stock_cache_v1") || "null"); return (o && o.saved_at) ? Date.parse(o.saved_at) : 0; }
+    catch(e){ return 0; }
+}
+let autoClosing = false;
+async function runAutoClose(){
+    if (autoClosing) return;
+    const now = kstNowParts();
+    const slot = lastCloseSlot(now.date, now.hm);
+    let done = ""; try { done = localStorage.getItem(AUTO_CLOSE_KEY) || ""; } catch(e){}
+    if (done === slot.key) return;                                   // 이 마감 시각은 이미 처리함
+    if (!window.cachedStockMap || window.cachedStockMap.size === 0 || cacheSavedAtMs() >= slot.epoch){
+        try { localStorage.setItem(AUTO_CLOSE_KEY, slot.key); } catch(e){}   // 캐시가 없거나 마감 이후에 받은 것이면 건너뜀
+        return;
+    }
+    // 입력/마감 창을 쓰는 중이면 닫힌 뒤 다음 확인 때 처리
+    if (qtyModalOverlay.style.display === "flex" || closeModalOverlay.style.display === "flex" || calcOverlay.style.display === "flex") return;
+    autoClosing = true;
+    try {
+        const dept = deptSelect.value;
+        let info = {};
+        if (dept){ try { const r = await window.apiRemaining(dept); info = { total: r.total, checked: r.checked, remaining: r.remaining }; } catch(e){ console.error(e); } }
+        await window.apiLogEvent("auto_close", Object.assign({ scanner: scannerInput.value.trim(), dept: dept }, info));
+        window.clearStockCache();
+        try { localStorage.setItem(AUTO_CLOSE_KEY, slot.key); } catch(e){}
+        lotInfoBox.style.display = "none"; lotInfoBox.className = "";
+        resultInput.value = "";
+        status.innerHTML = `🕘 ${slot.time} 자동 마감 완료. 다음 실사는 [시작] 버튼으로 데이터를 다시 받아주세요.`;
+        window.refreshStartBtn();
+    } finally { autoClosing = false; }
+}
+setInterval(runAutoClose, 30000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) runAutoClose(); });
+setTimeout(runAutoClose, 2500);
+
 resultInput.addEventListener("input", function() {
     let raw = resultInput.value.replace(/[^0-9-]/g, '');
     let nums = raw.replace(/-/g, '');
@@ -1293,7 +1352,7 @@ function renderItemStatus(el, res){
     if (!groups.length){ el.style.display = 'none'; el.innerHTML = ''; return; }
     el.style.display = 'block';
     el.innerHTML = '<div class="wh-title">📦 같은 품번 창고별 현황 (누르면 상세)</div>' +
-        groups.map(g => `<div class="wh-row ${g.done === g.total ? 'all-done' : ''}"><span>${esc(g.warehouse)}</span><span>확인 <b>${g.done}</b>/${g.total} · 남음 <b>${g.total - g.done}</b>건<br><small style="color:#aaa;">미확인 수량 ${Math.round((g.qtyTotal - g.qtyDone) * 1000) / 1000} ${esc(g.unit)}</small></span></div>`).join('');
+        groups.map(g => `<div class="wh-row ${g.done === g.total ? 'all-done' : ''}"><span>${esc(g.warehouse)}</span><span>확인 <b>${g.done}</b>/${g.total} · 남음 <b>${g.total - g.done}</b>건<br><small style="color:#aaa;">보유 ${Math.round(g.qtyTotal * 1000) / 1000} ${esc(g.unit)} · 미확인 수량 ${Math.round((g.qtyTotal - g.qtyDone) * 1000) / 1000} ${esc(g.unit)}</small></span></div>`).join('');
     el.querySelectorAll('.wh-row').forEach(row => { row.onclick = () => openItemModal(res); });
 }
 function renderItemModal(res){
@@ -1370,8 +1429,35 @@ document.getElementById("calcApplyBtn").onclick = () => {
     calcOverlay.style.display = "none";
 };
 
+// ---- 수량 모달: 키보드가 올라와도 전체가 보이도록 보이는 화면 높이에 맞춤 ----
+function fitQtyModal(){
+    if (qtyModalOverlay.style.display !== "flex") return;
+    var vv = window.visualViewport;
+    if (!vv) return;
+    qtyModalOverlay.style.top = vv.offsetTop + "px";
+    qtyModalOverlay.style.bottom = "auto";
+    qtyModalOverlay.style.height = vv.height + "px";
+    var box = document.getElementById("qtyModalBox");
+    box.style.maxHeight = Math.max(200, vv.height - 24) + "px";
+    box.style.overflowY = "auto";
+    box.classList.toggle("kb", vv.height < window.innerHeight * 0.8);   // 키보드가 올라온 상태면 간략 모드
+    if (document.activeElement === modalQtyInput) modalQtyInput.scrollIntoView({ block: "nearest" });
+}
+function resetQtyModalFit(){
+    var box = document.getElementById("qtyModalBox");
+    qtyModalOverlay.style.top = "0"; qtyModalOverlay.style.bottom = "0"; qtyModalOverlay.style.height = "";
+    box.style.maxHeight = ""; box.style.overflowY = ""; box.classList.remove("kb");
+}
+if (window.visualViewport){
+    window.visualViewport.addEventListener("resize", fitQtyModal);
+    window.visualViewport.addEventListener("scroll", fitQtyModal);
+}
+modalQtyInput.addEventListener("focus", () => { setTimeout(fitQtyModal, 50); setTimeout(fitQtyModal, 350); });
+
 function closeQtyModal(){
     qtyModalOverlay.style.display = "none";
+    resetQtyModalFit();
+    resultInput.value = "";      // 닫히면 LOT 번호 입력칸만 비움 (결과 카드는 유지)
     exitManualMode();
     if (scrolledForTyping){ scrolledForTyping = false; window.scrollTo(0, 0); }
 }
@@ -1520,6 +1606,7 @@ function openQtyModal(res) {
     modalQtyInput.value = "";
     modalMsg.innerText = "";
     qtyModalOverlay.style.display = "flex";
+    fitQtyModal();
     setTimeout(() => modalQtyInput.focus(), 100);
 }
 
@@ -1551,7 +1638,7 @@ modalSaveBtn.onclick = async () => {
     modalMsg.innerHTML = `<span style="color:#00e676;">✅ 저장 완료 ${saveRes.diff === null ? '(전산수량 없음)' : '(차이: ' + saveRes.diff + ')'}</span>`;
     if (window.updateProgressBar) window.updateProgressBar();
     refreshItemStatus();
-    setTimeout(() => { closeQtyModal(); resultInput.value = ""; }, 600);   // 다음 LOT 입력이 편하도록 LOT 번호만 비움 (결과 카드는 유지)
+    setTimeout(() => { closeQtyModal(); }, 600);   // 닫히면서 LOT 번호만 비움 (결과 카드는 유지)
 };
 
 // 📌 네트워크 상태 실시간 표시 및 UI 업데이트
