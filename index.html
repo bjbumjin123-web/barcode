@@ -75,6 +75,11 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
     background:#111; border:1px solid #333; border-radius:8px; padding:4px 10px; margin-bottom:12px;
 }
 .close-item{ padding:7px 0; border-bottom:1px solid #2a2a2a; }
+#closeStateChips{ display:flex; gap:6px; margin-bottom:6px; }
+#closeStateChips button{ flex:1; padding:7px 2px; font-size:12px; font-weight:bold; color:#bbb; background:#1a1a1a; border:1px solid #444; border-radius:8px; }
+#closeStateChips button.on{ color:#111; background:#ffb84d; border-color:#ffb84d; }
+.rm-remain{ color:#ffb84d !important; } .rm-full{ color:#00e676 !important; } .rm-unknown{ color:#aaa !important; }
+.rm-tag{ display:inline-block; margin-left:6px; padding:1px 6px; font-size:11px; border-radius:6px; border:1px solid currentColor; }
 #closeSearch{ width:100%; box-sizing:border-box; height:40px; margin-bottom:6px; padding:0 12px; font-size:14px; color:#fff; background:#111; border:1px solid #444; border-radius:8px; outline:none; }
 #closeSearch:focus{ border-color:#ffb84d; }
 #closeFilterInfo{ font-size:12px; color:#888; margin-bottom:6px; text-align:center; min-height:14px; }
@@ -343,6 +348,7 @@ body.manual-mode #backToCamBtn{ display:block; }
 <h3>🏁 마감 확인</h3>
 <div id="closeSummary">불러오는 중...</div>
 <input id="closeSearch" type="search" placeholder="🔍 LOT · 품번 · 품명 · 창고 검색" autocomplete="off">
+<div id="closeStateChips"></div>
 <div id="closeFilterInfo"></div>
 <div id="closeList"></div>
 <div class="modal-btn-group">
@@ -555,6 +561,31 @@ function nowParts(){
     return { date, datetime: `${date} ${time}` };
 }
 
+// ===== 잔량 판정: 현재 재고 수량 vs 처음 수량(lot_master.origin_qty, 생산/입고 기록 합계) =====
+window.originCache = new Map();   // lot_no -> 처음 수량(없으면 null)
+window.fetchOrigins = async function(lots){
+    const need = Array.from(new Set(lots)).filter(l => l && !window.originCache.has(l));
+    for (let i = 0; i < need.length; i += 100){
+        const part = need.slice(i, i + 100);
+        try {
+            const { data, error } = await sb.from('lot_master').select('lot_no,origin_qty').in('lot_no', part);
+            if (error) throw error;
+            const got = new Set();
+            (data || []).forEach(r => { got.add(r.lot_no); window.originCache.set(r.lot_no, r.origin_qty == null ? null : Number(r.origin_qty)); });
+            part.forEach(l => { if (!got.has(l)) window.originCache.set(l, null); });
+        } catch(e){ console.error('처음 수량 조회 실패(무시하고 계속)', e); }   // 실패분은 캐시에 넣지 않아 다음에 다시 시도
+    }
+};
+// 반환: { state: 'remain'(잔량) | 'full'(온전) | 'unknown'(판단 불가), text }
+window.remainState = function(curQty, originQty){
+    const o = Number(originQty), c = Number(curQty);
+    const f = x => String(Math.round(x * 1000) / 1000);
+    if (originQty == null || !isFinite(o) || o <= 0 || curQty == null || !isFinite(c)) return { state: 'unknown', text: '판단 불가 (처음 수량 정보 없음)' };
+    if (c < o) return { state: 'remain', text: `잔량 (처음 ${f(o)} → 현재 ${f(c)})` };
+    if (c === o) return { state: 'full', text: `온전 (처음 수량 ${f(o)} 그대로)` };
+    return { state: 'unknown', text: `판단 불가 (현재 ${f(c)}가 처음 ${f(o)}보다 많음)` };
+};
+
 window.apiLookup = async function(lot){
     lot = (lot || '').trim();
     if (!lot) return { found:false, error:'LOT 번호가 없습니다.' };
@@ -631,6 +662,7 @@ window.apiLookup = async function(lot){
         };
     }
 
+    if (kind === 'normal') await window.fetchOrigins([lot]);
     return {
         found: true,
         kind,
@@ -641,7 +673,8 @@ window.apiLookup = async function(lot){
         qty: kind === 'normal' ? Number(stockRow.qty || 0) : 0,
         unit: stockRow.unit || '',
         upload_date: refDate || '-',
-        days_ago: days
+        days_ago: days,
+        origin_qty: kind === 'normal' ? (window.originCache.get(lot) ?? null) : null
     };
 };
 
@@ -825,6 +858,8 @@ const closeList = document.getElementById("closeList");
 const closeSearch = document.getElementById("closeSearch");
 const closeFilterInfo = document.getElementById("closeFilterInfo");
 let closeItems = [];
+let closeStateFilter = 'all';
+const closeStateChips = document.getElementById("closeStateChips");
 const closeConfirmBtn = document.getElementById("closeConfirmBtn");
 const closeCancelBtn = document.getElementById("closeCancelBtn");
 let closeLoadFailed = false;
@@ -835,31 +870,47 @@ let closeWho = { scanner: "", dept: "" };
 function esc(v){ return String(v == null ? "" : v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
 // 남은 LOT 목록: 검색어로 거르고 창고별로 묶어서 표시
-function buildCloseListHtml(items, query){
+function closeStateOf(it){
+    return window.remainState(it.qty, window.originCache ? window.originCache.get(it.lot_no) : null);
+}
+function buildCloseListHtml(items, query, stateFilter){
     const q = String(query || "").trim().toLowerCase();
-    const list = q ? items.filter(it => [it.lot_no, it.item_no, it.item_name, it.warehouse].some(v => String(v == null ? "" : v).toLowerCase().includes(q))) : items;
+    const byQuery = q ? items.filter(it => [it.lot_no, it.item_no, it.item_name, it.warehouse].some(v => String(v == null ? "" : v).toLowerCase().includes(q))) : items;
+    const counts = { all: byQuery.length, remain: 0, full: 0, unknown: 0 };
+    const withState = byQuery.map(it => { const st = closeStateOf(it); counts[st.state]++; return { it, st }; });
+    const list = (stateFilter && stateFilter !== "all") ? withState.filter(x => x.st.state === stateFilter) : withState;
     const groups = new Map();
-    list.forEach(it => {
-        const wh = it.warehouse || "창고 미지정";
+    list.forEach(x => {
+        const wh = x.it.warehouse || "창고 미지정";
         if (!groups.has(wh)) groups.set(wh, []);
-        groups.get(wh).push(it);
+        groups.get(wh).push(x);
     });
     const order = Array.from(groups.keys()).sort((a, b) => groups.get(b).length - groups.get(a).length || a.localeCompare(b));
+    const tagLabel = { remain: "🟡 잔량", full: "✅ 온전", unknown: "❔ 판단 불가" };
     const html = order.map(wh => {
         const arr = groups.get(wh);
-        const sum = arr.reduce((t, it) => t + (Number(it.qty) || 0), 0);
-        const unit = (arr.find(it => it.unit) || {}).unit || "";
+        const sum = arr.reduce((t, x) => t + (Number(x.it.qty) || 0), 0);
+        const unit = ((arr.find(x => x.it.unit) || {}).it || {}).unit || "";
         return `<div class="close-wh">🏭 ${esc(wh)}<small>${arr.length}건 · ${Math.round(sum * 1000) / 1000}${esc(unit)}</small></div>` +
-            arr.map(it => `<div class="close-item"><div class="lot">${esc(it.lot_no)}</div>` +
-                `<div class="sub">${esc(it.item_no)} · ${esc(it.item_name)} · ${esc(it.qty)}${esc(it.unit || "")}</div></div>`).join("");
+            arr.map(x => `<div class="close-item"><div class="lot">${esc(x.it.lot_no)}<span class="rm-tag rm-${x.st.state}">${tagLabel[x.st.state]}</span></div>` +
+                `<div class="sub">${esc(x.it.item_no)} · ${esc(x.it.item_name)} · ${esc(x.it.qty)}${esc(x.it.unit || "")}${x.st.state === "remain" ? " · " + esc(x.st.text) : ""}</div></div>`).join("");
     }).join("");
-    return { html: html || `<div class="close-item"><div class="sub" style="text-align:center;">검색 결과가 없습니다.</div></div>`, count: list.length };
+    return { html: html || `<div class="close-item"><div class="sub" style="text-align:center;">검색 결과가 없습니다.</div></div>`, count: list.length, counts };
 }
 function renderCloseList(){
-    const r = buildCloseListHtml(closeItems, closeSearch.value);
+    const r = buildCloseListHtml(closeItems, closeSearch.value, closeStateFilter);
     closeList.innerHTML = r.html;
-    closeFilterInfo.textContent = closeSearch.value.trim() ? `검색 결과 ${r.count} / ${closeItems.length}건` : `남은 LOT ${closeItems.length}건 (창고별)`;
+    const c = r.counts;
+    closeStateChips.innerHTML = [["all", `전체 ${c.all}`], ["remain", `🟡 잔량 ${c.remain}`], ["full", `✅ 온전 ${c.full}`], ["unknown", `❔ 판단불가 ${c.unknown}`]]
+        .map(([k, label]) => `<button data-st="${k}" class="${closeStateFilter === k ? "on" : ""}">${label}</button>`).join("");
+    closeFilterInfo.textContent = closeSearch.value.trim() ? `검색 결과 ${r.counts.all} / ${closeItems.length}건` : `남은 LOT ${closeItems.length}건 (창고별)`;
 }
+closeStateChips.addEventListener("click", ev => {
+    const b = ev.target.closest("button[data-st]");
+    if (!b) return;
+    closeStateFilter = b.dataset.st;
+    renderCloseList();
+});
 closeSearch.addEventListener("input", renderCloseList);
 
 // 마감 창: 키보드가 올라와도 목록·버튼이 보이도록 보이는 화면 높이에 맞춤
@@ -888,7 +939,7 @@ async function openCloseModal(){
     closeModalOverlay.style.display = "flex";
     closeSummary.textContent = "불러오는 중...";
     closeList.innerHTML = "";
-    closeItems = []; closeSearch.value = ""; closeFilterInfo.textContent = "";
+    closeItems = []; closeSearch.value = ""; closeFilterInfo.textContent = ""; closeStateFilter = 'all'; closeStateChips.innerHTML = "";
     fitCloseModal();
     closeConfirmBtn.disabled = true;
     closeLoadFailed = false; closeRemainingCount = 0;
@@ -908,6 +959,8 @@ async function openCloseModal(){
         } else {
             closeItems = r.items;
             renderCloseList();
+            // 처음 수량은 따로 가져와서 도착하면 잔량 표시를 갱신 (목록은 먼저 보여줌)
+            window.fetchOrigins(r.items.map(it => it.lot_no)).then(() => { if (closeItems === r.items) renderCloseList(); });
         }
     } catch(e) {
         console.error(e);
@@ -1628,6 +1681,7 @@ async function doLookup(lot){
             <div class="info-label">품번</div><div class="info-value">${esc(res.item_no)}</div>
             <div class="info-label">품명</div><div class="info-value">${esc(res.item_name)}</div>
             <div class="info-label">전산수량</div><div class="info-value big">${res.qty === null ? '- (없음)' : res.qty + ' ' + esc(res.unit)}</div>
+            ${res.kind === 'normal' ? `<div class="info-label">잔량</div><div class="info-value rm-${window.remainState(res.qty, res.origin_qty).state}">${esc(window.remainState(res.qty, res.origin_qty).text)}</div>` : ''}
         </div>
         <div id="itemStatusCard" class="wh-box"></div>
         <button id="openQtyModalBtn">📝 실수량 입력하기</button>
@@ -1656,6 +1710,11 @@ function openQtyModal(res) {
     } else if (res.kind === 'recent_past' || res.kind === 'old_past'){
         modalWarn.style.display = 'block'; modalWarn.style.background = 'rgba(255,184,77,0.15)'; modalWarn.style.color = res.kind === 'old_past' ? '#c792ea' : '#ffb84d';
         modalWarn.innerText = `⚠️ ${res.upload_date} 과거자료 기준 · 전산수량 0 처리`;
+    } else if (res.kind === 'normal') {
+        const rs = window.remainState(res.qty, res.origin_qty);
+        const tone = { remain: ['rgba(255,184,77,0.15)', '#ffb84d', '🟡'], full: ['rgba(0,230,118,0.12)', '#00e676', '✅'], unknown: ['rgba(160,160,160,0.15)', '#aaa', '❔'] }[rs.state];
+        modalWarn.style.display = 'block'; modalWarn.style.background = tone[0]; modalWarn.style.color = tone[1];
+        modalWarn.innerText = `${tone[2]} ${rs.text}`;
     } else { modalWarn.style.display = 'none'; }
     
     renderItemStatus(modalItemStatus, res);
