@@ -1720,9 +1720,15 @@ function openQtyModal(res) {
     renderItemStatus(modalItemStatus, res);
     modalQtyInput.value = "";
     modalMsg.innerText = "";
+    // 처음 수량과 현재 재고가 같은 LOT(온전)이면 수량을 미리 채워 둠. 다르면(잔량/판단 불가) 비워 두고 계산기 또는 직접 입력
+    const autoFill = res.kind === 'normal' && window.remainState(res.qty, res.origin_qty).state === 'full';
+    if (autoFill){
+        modalQtyInput.value = res.qty;
+        modalMsg.innerHTML = "<span style='color:#00e676;'>✅ 처음 수량과 같아 자동 입력했습니다. 실물이 다르면 수정하세요.</span>";
+    }
     qtyModalOverlay.style.display = "flex";
     fitQtyModal();
-    setTimeout(() => modalQtyInput.focus(), 100);
+    setTimeout(() => { modalQtyInput.focus(); if (autoFill) modalQtyInput.select(); }, 100);   // 자동 입력 시 바로 덮어쓸 수 있게 선택 상태로
 }
 
 modalCloseBtn.onclick = () => closeQtyModal();
