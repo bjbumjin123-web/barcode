@@ -76,6 +76,7 @@ let dateLogs = [];
 
 dateInput.value = todayKST();
 
+const statusText = r => { const a = (r.lot_status||'').toString().trim(), b = (r.lot_substatus||'').toString().trim(); return a ? (b && b !== a ? a + ' / ' + b : a) : (b || '-'); };
 function esc(s){
     if (s === null || s === undefined) return '';
     return s.toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -187,7 +188,7 @@ function render(){
         const latest = latestByLot[r.lot_no];
         if (latest){
             checkedList.push({
-                lot_no:r.lot_no, item_no:r.item_no, item_name:r.item_name, qty:r.qty, unit:r.unit,
+                lot_no:r.lot_no, item_no:r.item_no, item_name:r.item_name, lot_status:r.lot_status, lot_substatus:r.lot_substatus, qty:r.qty, unit:r.unit,
                 warehouse:r.warehouse, department:r.department, subcontract_type:r.subcontract_type,
                 scanned_at: latest.scanned_at, scanned_by: latest.scanned_by, scan_dept: latest.scan_dept,
                 actual_qty: latest.actual_qty, diff: latest.diff
@@ -217,9 +218,9 @@ function render(){
         if (!unchecked.length){
             html += '<div class="empty">🎉 이 날짜 기준으로 모든 LOT 확인이 완료됐습니다.</div>';
         } else {
-            html += '<div class="scroll-wrap"><table><thead><tr><th>#</th><th>LOT NO</th><th>부서</th><th>품번</th><th>품명</th><th>수량</th><th>창고</th></tr></thead><tbody>';
+            html += '<div class="scroll-wrap"><table><thead><tr><th>#</th><th>LOT NO</th><th>부서</th><th>품번</th><th>품명</th><th>LOT상태</th><th>수량</th><th>창고</th></tr></thead><tbody>';
             unchecked.forEach((r,i) => {
-                html += `<tr><td>${i+1}</td><td>${esc(r.lot_no)}</td><td>${esc(r.department||'-')}${r.subcontract_type?' ('+esc(r.subcontract_type)+')':''}</td><td>${esc(r.item_no)}</td><td>${esc(r.item_name)}</td><td>${esc(r.qty)} ${esc(r.unit)}</td><td>${esc(r.warehouse||'-')}</td></tr>`;
+                html += `<tr><td>${i+1}</td><td>${esc(r.lot_no)}</td><td>${esc(r.department||'-')}${r.subcontract_type?' ('+esc(r.subcontract_type)+')':''}</td><td>${esc(r.item_no)}</td><td>${esc(r.item_name)}</td><td>${esc(statusText(r))}</td><td>${esc(r.qty)} ${esc(r.unit)}</td><td>${esc(r.warehouse||'-')}</td></tr>`;
             });
             html += '</tbody></table></div>';
         }
@@ -227,7 +228,7 @@ function render(){
         if (!checkedList.length){
             html += '<div class="empty">이 날짜에 확인된 LOT이 아직 없습니다.</div>';
         } else {
-            html += '<div class="scroll-wrap"><table><thead><tr><th>#</th><th>확인시각</th><th>확인자</th><th>확인부서</th><th>LOT NO</th><th>부서</th><th>품번</th><th>품명</th><th>시스템수량</th><th>실제수량</th><th>차이</th><th>창고</th></tr></thead><tbody>';
+            html += '<div class="scroll-wrap"><table><thead><tr><th>#</th><th>확인시각</th><th>확인자</th><th>확인부서</th><th>LOT NO</th><th>부서</th><th>품번</th><th>품명</th><th>LOT상태</th><th>시스템수량</th><th>실제수량</th><th>차이</th><th>창고</th></tr></thead><tbody>';
             checkedList.forEach((r,i) => {
                 const mismatch = r.diff !== null && r.diff !== 0;
                 const deptMismatch = r.scan_dept && r.department && r.scan_dept !== r.department;
@@ -242,6 +243,7 @@ function render(){
                     <td>${esc(r.department||'-')}${r.subcontract_type?' ('+esc(r.subcontract_type)+')':''}</td>
                     <td>${esc(r.item_no)}</td>
                     <td>${esc(r.item_name)}</td>
+                    <td>${esc(statusText(r))}</td>
                     <td>${r.qty !== null ? esc(r.qty)+' '+esc(r.unit) : '-'}</td>
                     <td>${r.actual_qty !== null && r.actual_qty !== undefined ? esc(r.actual_qty) : '-'}</td>
                     <td class="${diffClass}">${diffText}</td>
@@ -268,7 +270,7 @@ function buildExportRows(){
         if (!latestByLot[r.lot_no] || r.scanned_at > latestByLot[r.lot_no].scanned_at) latestByLot[r.lot_no] = r;
     });
 
-    const rows = [['#','확인여부','LOT NO','부서','외주구분','품번','품명','시스템수량','단위','창고','확인시각','확인자','확인부서','실제수량','차이']];
+    const rows = [['#','확인여부','LOT NO','부서','외주구분','품번','품명','LOT상태','시스템수량','단위','창고','확인시각','확인자','확인부서','실제수량','차이']];
 
     filteredMaster.forEach((r, i) => {
         const latest = latestByLot[r.lot_no];
@@ -276,7 +278,7 @@ function buildExportRows(){
             i + 1,
             latest ? '확인완료' : '미확인',
             r.lot_no, r.department || '', r.subcontract_type || '',
-            r.item_no, r.item_name, r.qty, r.unit, r.warehouse || '',
+            r.item_no, r.item_name, statusText(r), r.qty, r.unit, r.warehouse || '',
             latest ? latest.scanned_at : '',
             latest ? latest.scanned_by : '',
             latest ? latest.scan_dept : '',

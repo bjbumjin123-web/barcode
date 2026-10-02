@@ -59,6 +59,7 @@ const content = document.getElementById("content");
 let allRowsForDate = [];   // 선택한 날짜의 모든 실행(run) 원본 데이터
 let currentRows = [];      // 화면에 표시 중인 데이터 (회차 필터 적용 후)
 
+const statusText = r => { const a = (r.lot_status||'').toString().trim(), b = (r.lot_substatus||'').toString().trim(); return a ? (b && b !== a ? a + ' / ' + b : a) : (b || '-'); };
 function esc(s){
     if (s === null || s === undefined) return '';
     return s.toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -229,7 +230,7 @@ function render(){
         return;
     }
 
-    let html = '<div class="scroll-wrap"><table><thead><tr><th>#</th><th>LOT NO</th><th>부서</th><th>품번</th><th>품명</th><th>수량</th><th>단위</th><th>창고</th></tr></thead><tbody>';
+    let html = '<div class="scroll-wrap"><table><thead><tr><th>#</th><th>LOT NO</th><th>부서</th><th>품번</th><th>품명</th><th>LOT상태</th><th>수량</th><th>단위</th><th>창고</th></tr></thead><tbody>';
     rows.forEach((r,i) => {
         html += `<tr>
             <td>${i+1}</td>
@@ -237,6 +238,7 @@ function render(){
             <td>${esc(r.department||'-')}${r.subcontract_type?' ('+esc(r.subcontract_type)+')':''}</td>
             <td>${esc(r.item_no)}</td>
             <td>${esc(r.item_name)}</td>
+            <td>${esc(statusText(r))}</td>
             <td>${esc(r.qty)}</td>
             <td>${esc(r.unit)}</td>
             <td>${esc(r.warehouse||'-')}</td>
@@ -249,10 +251,10 @@ function render(){
 exportBtn.onclick = () => {
     const rows = getFiltered();
     if (!rows.length) return;
-    const header = ['#','LOT NO','부서','외주구분','품번','품명','수량','단위','창고','업로드시각'];
+    const header = ['#','LOT NO','부서','외주구분','품번','품명','LOT상태','수량','단위','창고','업로드시각'];
     const aoa = [header];
     rows.forEach((r,i) => {
-        aoa.push([i+1, r.lot_no, r.department||'', r.subcontract_type||'', r.item_no, r.item_name, r.qty, r.unit, r.warehouse||'', r.uploaded_at||'']);
+        aoa.push([i+1, r.lot_no, r.department||'', r.subcontract_type||'', r.item_no, r.item_name, statusText(r), r.qty, r.unit, r.warehouse||'', r.uploaded_at||'']);
     });
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     const wb = XLSX.utils.book_new();
