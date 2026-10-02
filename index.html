@@ -76,6 +76,13 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 }
 .close-item{ padding:7px 0; border-bottom:1px solid #2a2a2a; }
 #closeStateChips{ display:flex; gap:6px; margin-bottom:6px; }
+#closeStatusChips{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom:6px; }
+#closeStatusChips button{ padding:4px 8px; font-size:11px; color:#bbb; background:#1a1a1a; border:1px solid #444; border-radius:12px; }
+#closeStatusChips button.on{ color:#111; background:#4fc3ff; border-color:#4fc3ff; }
+.st-bad{ color:#ff8a8a !important; }
+.st-tag{ display:inline-block; margin-left:6px; padding:1px 6px; font-size:11px; border-radius:6px; border:1px solid #666; color:#bbb; }
+.st-tag.st-bad{ border-color:#ff8a8a; }
+#modalStatus{ margin:0 0 6px; font-size:12px; color:#aaa; text-align:center; }
 #closeStateChips button{ flex:1; padding:7px 2px; font-size:12px; font-weight:bold; color:#bbb; background:#1a1a1a; border:1px solid #444; border-radius:8px; }
 #closeStateChips button.on{ color:#111; background:#ffb84d; border-color:#ffb84d; }
 .rm-remain{ color:#ffb84d !important; } .rm-full{ color:#00e676 !important; } .rm-unknown{ color:#aaa !important; }
@@ -332,6 +339,7 @@ body.manual-mode #backToCamBtn{ display:block; }
     <div class="modal-info-item"><span class="modal-info-label">4. 전산수량</span><span id="modalSysQty" class="modal-info-val highlight">-</span></div>
 </div>
 <div id="modalItemStatus" class="wh-box"></div>
+<div id="modalStatus"></div>
 <div id="modalWarn"></div>
 <div class="qty-row"><input id="modalQtyInput" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="실사수량 입력"><button id="calcOpenBtn" type="button" title="계산기">🧮</button></div>
 <div class="modal-btn-group">
@@ -349,6 +357,7 @@ body.manual-mode #backToCamBtn{ display:block; }
 <div id="closeSummary">불러오는 중...</div>
 <input id="closeSearch" type="search" placeholder="🔍 LOT · 품번 · 품명 · 창고 검색" autocomplete="off">
 <div id="closeStateChips"></div>
+<div id="closeStatusChips"></div>
 <div id="closeFilterInfo"></div>
 <div id="closeList"></div>
 <div class="modal-btn-group">
@@ -672,6 +681,7 @@ window.apiLookup = async function(lot){
         item_name: stockRow.item_name || '-',
         qty: kind === 'normal' ? Number(stockRow.qty || 0) : 0,
         unit: stockRow.unit || '',
+        lot_status: stockRow.lot_status || '', lot_substatus: stockRow.lot_substatus || '', chk_type: stockRow.chk_type || '',
         upload_date: refDate || '-',
         days_ago: days,
         origin_qty: kind === 'normal' ? (window.originCache.get(lot) ?? null) : null
@@ -859,6 +869,8 @@ const closeSearch = document.getElementById("closeSearch");
 const closeFilterInfo = document.getElementById("closeFilterInfo");
 let closeItems = [];
 let closeStateFilter = 'all';
+let closeStatusFilter = 'all';
+const closeStatusChips = document.getElementById("closeStatusChips");
 const closeStateChips = document.getElementById("closeStateChips");
 const closeConfirmBtn = document.getElementById("closeConfirmBtn");
 const closeCancelBtn = document.getElementById("closeCancelBtn");
@@ -873,12 +885,16 @@ function esc(v){ return String(v == null ? "" : v).replace(/[&<>"']/g, c => ({"&
 function closeStateOf(it){
     return window.remainState(it.qty, window.originCache ? window.originCache.get(it.lot_no) : null);
 }
-function buildCloseListHtml(items, query, stateFilter){
+function buildCloseListHtml(items, query, stateFilter, statusFilter){
     const q = String(query || "").trim().toLowerCase();
     const byQuery = q ? items.filter(it => [it.lot_no, it.item_no, it.item_name, it.warehouse].some(v => String(v == null ? "" : v).toLowerCase().includes(q))) : items;
     const counts = { all: byQuery.length, remain: 0, full: 0, unknown: 0 };
     const withState = byQuery.map(it => { const st = closeStateOf(it); counts[st.state]++; return { it, st }; });
-    const list = (stateFilter && stateFilter !== "all") ? withState.filter(x => x.st.state === stateFilter) : withState;
+    const statusCounts = {}, nocheckCount = withState.filter(x => x.it.chk_type === '실사불가 상태').length;
+    withState.forEach(x => { const k = x.it.lot_status || '(없음)'; statusCounts[k] = (statusCounts[k] || 0) + 1; });
+    let list = (stateFilter && stateFilter !== "all") ? withState.filter(x => x.st.state === stateFilter) : withState;
+    if (statusFilter === '__nocheck__') list = list.filter(x => x.it.chk_type === '실사불가 상태');
+    else if (statusFilter && statusFilter !== 'all') list = list.filter(x => (x.it.lot_status || '(없음)') === statusFilter);
     const groups = new Map();
     list.forEach(x => {
         const wh = x.it.warehouse || "창고 미지정";
@@ -892,23 +908,36 @@ function buildCloseListHtml(items, query, stateFilter){
         const sum = arr.reduce((t, x) => t + (Number(x.it.qty) || 0), 0);
         const unit = ((arr.find(x => x.it.unit) || {}).it || {}).unit || "";
         return `<div class="close-wh">🏭 ${esc(wh)}<small>${arr.length}건 · ${Math.round(sum * 1000) / 1000}${esc(unit)}</small></div>` +
-            arr.map(x => `<div class="close-item"><div class="lot">${esc(x.it.lot_no)}<span class="rm-tag rm-${x.st.state}">${tagLabel[x.st.state]}</span></div>` +
+            arr.map(x => `<div class="close-item"><div class="lot">${esc(x.it.lot_no)}<span class="rm-tag rm-${x.st.state}">${tagLabel[x.st.state]}</span>${x.it.lot_status ? `<span class="st-tag ${statusIsBad(x.it) ? 'st-bad' : ''}">${esc(x.it.lot_status)}</span>` : ''}${x.it.chk_type === '실사불가 상태' ? '<span class="st-tag st-bad">실사불가</span>' : ''}</div>` +
                 `<div class="sub">${esc(x.it.item_no)} · ${esc(x.it.item_name)} · ${esc(x.it.qty)}${esc(x.it.unit || "")}${x.st.state === "remain" ? " · " + esc(x.st.text) : ""}</div></div>`).join("");
     }).join("");
-    return { html: html || `<div class="close-item"><div class="sub" style="text-align:center;">검색 결과가 없습니다.</div></div>`, count: list.length, counts };
+    return { html: html || `<div class="close-item"><div class="sub" style="text-align:center;">검색 결과가 없습니다.</div></div>`, count: list.length, counts, statusCounts, nocheckCount };
 }
 function renderCloseList(){
-    const r = buildCloseListHtml(closeItems, closeSearch.value, closeStateFilter);
+    const r = buildCloseListHtml(closeItems, closeSearch.value, closeStateFilter, closeStatusFilter);
     closeList.innerHTML = r.html;
     const c = r.counts;
     closeStateChips.innerHTML = [["all", `전체 ${c.all}`], ["remain", `🟡 잔량 ${c.remain}`], ["full", `✅ 온전 ${c.full}`], ["unknown", `❔ 판단불가 ${c.unknown}`]]
         .map(([k, label]) => `<button data-st="${k}" class="${closeStateFilter === k ? "on" : ""}">${label}</button>`).join("");
+    // LOT 상태별 보기 (재고에 상태 값이 하나라도 있을 때만 표시)
+    const keys = Object.keys(r.statusCounts).filter(k => k !== '(없음)').sort((a, b) => r.statusCounts[b] - r.statusCounts[a]);
+    if (keys.length || r.nocheckCount){
+        const chips = [['all', `상태 전체`]].concat(keys.map(k => [k, `${k} ${r.statusCounts[k]}`]));
+        if (r.nocheckCount) chips.push(['__nocheck__', `⛔ 실사불가 ${r.nocheckCount}`]);
+        closeStatusChips.innerHTML = chips.map(([k, label]) => `<button data-ss="${encodeURIComponent(k)}" class="${closeStatusFilter === k ? 'on' : ''}">${esc(label)}</button>`).join('');
+    } else { closeStatusChips.innerHTML = ''; }
     closeFilterInfo.textContent = closeSearch.value.trim() ? `검색 결과 ${r.counts.all} / ${closeItems.length}건` : `남은 LOT ${closeItems.length}건 (창고별)`;
 }
 closeStateChips.addEventListener("click", ev => {
     const b = ev.target.closest("button[data-st]");
     if (!b) return;
     closeStateFilter = b.dataset.st;
+    renderCloseList();
+});
+closeStatusChips.addEventListener("click", ev => {
+    const b = ev.target.closest("button[data-ss]");
+    if (!b) return;
+    closeStatusFilter = decodeURIComponent(b.dataset.ss);
     renderCloseList();
 });
 closeSearch.addEventListener("input", renderCloseList);
@@ -939,7 +968,7 @@ async function openCloseModal(){
     closeModalOverlay.style.display = "flex";
     closeSummary.textContent = "불러오는 중...";
     closeList.innerHTML = "";
-    closeItems = []; closeSearch.value = ""; closeFilterInfo.textContent = ""; closeStateFilter = 'all'; closeStateChips.innerHTML = "";
+    closeItems = []; closeSearch.value = ""; closeFilterInfo.textContent = ""; closeStateFilter = 'all'; closeStateChips.innerHTML = ""; closeStatusFilter = 'all'; closeStatusChips.innerHTML = "";
     fitCloseModal();
     closeConfirmBtn.disabled = true;
     closeLoadFailed = false; closeRemainingCount = 0;
@@ -1642,6 +1671,21 @@ recheckBtn.onclick = async () => {
     await doLookup(lot);
 };
 
+// LOT 상태 표시: 투입취소 / 실사불가는 빨간색으로 강조
+function statusIsBad(o){
+    return /투입취소/.test(String((o && o.lot_status) || '') + String((o && o.lot_substatus) || '')) || (!!o && o.chk_type === '실사불가 상태');
+}
+function statusText(o){
+    const parts = [];
+    if (o.lot_status) parts.push(o.lot_status);
+    if (o.lot_substatus && o.lot_substatus !== o.lot_status) parts.push(o.lot_substatus);
+    return parts.join(' / ');
+}
+function lotStatusHtml(o){
+    if (!o || (!o.lot_status && !o.lot_substatus && o.chk_type !== '실사불가 상태')) return '';
+    return `<div class="info-label">LOT 상태</div><div class="info-value ${statusIsBad(o) ? 'st-bad' : ''}">${esc(statusText(o))}${o.chk_type === '실사불가 상태' ? ' · 실사불가' : ''}</div>`;
+}
+
 async function doLookup(lot){
     status.innerHTML = "🔎 조회 중...";
     let res;
@@ -1681,6 +1725,7 @@ async function doLookup(lot){
             <div class="info-label">품번</div><div class="info-value">${esc(res.item_no)}</div>
             <div class="info-label">품명</div><div class="info-value">${esc(res.item_name)}</div>
             <div class="info-label">전산수량</div><div class="info-value big">${res.qty === null ? '- (없음)' : res.qty + ' ' + esc(res.unit)}</div>
+            ${lotStatusHtml(res)}
             ${res.kind === 'normal' ? `<div class="info-label">잔량</div><div class="info-value rm-${window.remainState(res.qty, res.origin_qty).state}">${esc(window.remainState(res.qty, res.origin_qty).text)}</div>` : ''}
         </div>
         <div id="itemStatusCard" class="wh-box"></div>
@@ -1720,6 +1765,12 @@ function openQtyModal(res) {
     renderItemStatus(modalItemStatus, res);
     modalQtyInput.value = "";
     modalMsg.innerText = "";
+    const stEl = document.getElementById("modalStatus");
+    if (res.lot_status || res.lot_substatus || res.chk_type === '실사불가 상태'){
+        stEl.className = statusIsBad(res) ? 'st-bad' : '';
+        stEl.textContent = (statusIsBad(res) ? '⚠️ ' : 'LOT 상태: ') + statusText(res) + (res.chk_type === '실사불가 상태' ? ' · 실사불가' : '');
+        stEl.style.display = 'block';
+    } else { stEl.textContent = ''; stEl.style.display = 'none'; }
     // 처음 수량과 현재 재고가 같은 LOT(온전)이면 수량을 미리 채워 둠. 다르면(잔량/판단 불가) 비워 두고 계산기 또는 직접 입력
     const autoFill = res.kind === 'normal' && window.remainState(res.qty, res.origin_qty).state === 'full';
     if (autoFill){
