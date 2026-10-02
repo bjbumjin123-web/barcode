@@ -75,7 +75,7 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
     background:#111; border:1px solid #333; border-radius:8px; padding:4px 10px; margin-bottom:12px;
 }
 .close-item{ padding:7px 0; border-bottom:1px solid #2a2a2a; }
-#closeStateChips{ display:flex; gap:6px; margin-bottom:6px; }
+#closeStateChips{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px; }
 #closeStatusChips{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom:6px; }
 #closeStatusChips button{ padding:4px 8px; font-size:11px; color:#bbb; background:#1a1a1a; border:1px solid #444; border-radius:12px; }
 #closeStatusChips button.on{ color:#111; background:#4fc3ff; border-color:#4fc3ff; }
@@ -83,10 +83,17 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 .st-tag{ display:inline-block; margin-left:6px; padding:1px 6px; font-size:11px; border-radius:6px; border:1px solid #666; color:#bbb; }
 .st-tag.st-bad{ border-color:#ff8a8a; }
 #modalStatus{ margin:0 0 6px; font-size:12px; color:#aaa; text-align:center; }
-#closeStateChips button{ flex:1; padding:7px 2px; font-size:12px; font-weight:bold; color:#bbb; background:#1a1a1a; border:1px solid #444; border-radius:8px; }
+#closeStateChips button{ flex:1 1 auto; padding:7px 6px; font-size:12px; font-weight:bold; color:#bbb; background:#1a1a1a; border:1px solid #444; border-radius:8px; }
 #closeStateChips button.on{ color:#111; background:#ffb84d; border-color:#ffb84d; }
-.rm-remain{ color:#ffb84d !important; } .rm-full{ color:#00e676 !important; } .rm-nodata{ color:#aaa !important; } .rm-over{ color:#ff6ec7 !important; }
+.rm-remain{ color:#ffb84d !important; } .rm-full{ color:#00e676 !important; } .rm-nodata{ color:#aaa !important; } .rm-increase{ color:#6ec1ff !important; }
 .rm-tag{ display:inline-block; margin-left:6px; padding:1px 6px; font-size:11px; border-radius:6px; border:1px solid currentColor; }
+.close-item .sub.txt{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.close-item.open .sub.txt{ white-space:normal; }
+.close-item .sub.qty{ display:flex; align-items:baseline; flex-wrap:wrap; gap:3px; margin-top:2px; color:#ddd; }
+.close-item .qn{ font-size:16px; font-weight:bold; color:#fff; }
+.close-item .qu{ font-size:11px; color:#999; }
+.close-item .qi{ margin-left:8px; font-size:12px; }
+.close-item .qi.remain{ color:#ffb84d; } .close-item .qi.increase{ color:#6ec1ff; }
 #closeSearch{ width:100%; box-sizing:border-box; height:40px; margin-bottom:6px; padding:0 12px; font-size:14px; color:#fff; background:#111; border:1px solid #444; border-radius:8px; outline:none; }
 #closeSearch:focus{ border-color:#ffb84d; }
 #closeFilterInfo{ font-size:12px; color:#888; margin-bottom:6px; text-align:center; min-height:14px; }
@@ -456,6 +463,9 @@ function masterRowsOf(rows){
     return rows.filter(r => cleanDate8Digits(r.upload_date) === master);
 }
 window.masterRowsOf = masterRowsOf;
+// 실사 대상: 최신 재고 중 '실사불가 상태'(CHK_TYPE) LOT 은 마감 대상/진행바에서 제외
+function auditTargetsOf(rows){ return masterRowsOf(rows).filter(r => r.chk_type !== '실사불가 상태'); }
+window.auditTargetsOf = auditTargetsOf;
 
 // 서버에 더 새로운 재고(실행 회차)가 있는지 확인 -> 있으면 [마감] 대신 [시작] 버튼으로 전환
 window.serverNewerRun = '';
@@ -473,8 +483,7 @@ window.checkNewStock = async function(){
         }
     } catch(e){ console.error(e); }
 };
-const WH_ORDER = ['원자재창고', '외주창고', '반제품창고', '완제품창고'];
-window.WH_ORDER = WH_ORDER;   // 마감 목록에서도 같은 창고 순서를 사용
+const WH_ORDER = ['원자재창고', '반제품창고', '완제품창고', '외주창고'];
 // 같은 품번을 창고별로 묶어 확인/남음 집계 (최근 실행분 기준, 확인 = 수량 입력 완료)
 window.apiItemStatus = function(itemNo){
     const key = String(itemNo || '').trim();
@@ -586,14 +595,14 @@ window.fetchOrigins = async function(lots){
         } catch(e){ console.error('처음 수량 조회 실패(무시하고 계속)', e); }   // 실패분은 캐시에 넣지 않아 다음에 다시 시도
     }
 };
-// 반환: { state: 'remain'(잔량) | 'full'(온전) | 'nodata'(데이터 없음) | 'over'(수량 초과), text }
+// 반환: { state: 'remain'(잔량) | 'full'(온전) | 'increase'(판단 불가-수량 증가) | 'nodata'(판단 불가-데이터 없음), text, origin, diff }
 window.remainState = function(curQty, originQty){
     const o = Number(originQty), c = Number(curQty);
-    const f = x => String(Math.round(x * 1000) / 1000);
-    if (originQty == null || !isFinite(o) || o <= 0 || curQty == null || !isFinite(c)) return { state: 'nodata', text: '데이터 없음 (처음 수량 정보 없음)' };
-    if (c < o) return { state: 'remain', text: `잔량 (처음 ${f(o)} → 현재 ${f(c)})` };
-    if (c === o) return { state: 'full', text: `온전 (처음 수량 ${f(o)} 그대로)` };
-    return { state: 'over', text: `수량 초과 (처음 ${f(o)} → 현재 ${f(c)})` };
+    const f = x => (Math.round(x * 1000) / 1000).toLocaleString('ko-KR');
+    if (originQty == null || !isFinite(o) || o <= 0 || curQty == null || !isFinite(c)) return { state: 'nodata', text: '판단 불가 · 데이터 없음 (처음 수량 기록 없음)' };
+    if (c < o) return { state: 'remain', text: `잔량 (처음 ${f(o)} → 현재 ${f(c)})`, origin: o, diff: c - o };
+    if (c === o) return { state: 'full', text: `온전 (처음 수량 ${f(o)} 그대로)`, origin: o, diff: 0 };
+    return { state: 'increase', text: `판단 불가 · 수량 증가 (처음 ${f(o)} → 현재 ${f(c)}, +${f(c - o)})`, origin: o, diff: c - o };
 };
 
 window.apiLookup = async function(lot){
@@ -692,7 +701,7 @@ window.apiLookup = async function(lot){
 // 마감: 캐시(가장 최근 업로드분) 중 선택 부서의 LOT 가운데 오늘 아직 스캔 안 된 것
 window.apiRemaining = async function(dept){
     const rows = Array.from(window.cachedStockMap.values());
-    const masterRows = masterRowsOf(rows);
+    const masterRows = auditTargetsOf(rows);
     let master = '';
     masterRows.forEach(r => { const d = cleanDate8Digits(r.upload_date); if (d > master) master = d; });
     const deptRows = masterRows.filter(r => (r.department || '') === dept);
@@ -832,7 +841,7 @@ window.updateProgressBar = function(){
     if (!has) return;
     const rows = Array.from(window.cachedStockMap.values());
     const dept = deptSelect.value;
-    const target = window.masterRowsOf(rows).filter(r => (!dept || r.department === dept));
+    const target = window.auditTargetsOf(rows).filter(r => (!dept || r.department === dept));
     const set = window.scannedTodaySet || new Set();
     const checked = target.filter(r => set.has(r.lot_no)).length;
     const pct = target.length ? Math.round(checked / target.length * 100) : 0;
@@ -886,10 +895,15 @@ function esc(v){ return String(v == null ? "" : v).replace(/[&<>"']/g, c => ({"&
 function closeStateOf(it){
     return window.remainState(it.qty, window.originCache ? window.originCache.get(it.lot_no) : null);
 }
+function fmtNum(v){
+    const n = Number(v);
+    return Number.isFinite(n) ? (Math.round(n * 1000) / 1000).toLocaleString("ko-KR") : String(v == null ? "" : v);
+}
+function fmtSigned(d){ return (d > 0 ? "+" : d < 0 ? "−" : "") + fmtNum(Math.abs(d)); }
 function buildCloseListHtml(items, query, stateFilter, statusFilter){
     const q = String(query || "").trim().toLowerCase();
     const byQuery = q ? items.filter(it => [it.lot_no, it.item_no, it.item_name, it.warehouse].some(v => String(v == null ? "" : v).toLowerCase().includes(q))) : items;
-    const counts = { all: byQuery.length, remain: 0, full: 0, nodata: 0, over: 0 };
+    const counts = { all: byQuery.length, remain: 0, full: 0, increase: 0, nodata: 0 };
     const withState = byQuery.map(it => { const st = closeStateOf(it); counts[st.state]++; return { it, st }; });
     const statusCounts = {};
     withState.forEach(x => { const k = x.it.lot_status || '(없음)'; statusCounts[k] = (statusCounts[k] || 0) + 1; });
@@ -901,16 +915,20 @@ function buildCloseListHtml(items, query, stateFilter, statusFilter){
         if (!groups.has(wh)) groups.set(wh, []);
         groups.get(wh).push(x);
     });
-    const whRank = w => { const i = (window.WH_ORDER || []).indexOf(w); return i < 0 ? 99 : i; };   // 정해진 창고 순서 (목록에 없는 창고는 맨 뒤)
-    const order = Array.from(groups.keys()).sort((a, b) => whRank(a) - whRank(b) || a.localeCompare(b));
-    const tagLabel = { remain: "🟡 잔량", full: "✅ 온전", nodata: "❔ 데이터 없음", over: "⚠️ 수량 초과" };
+    const order = Array.from(groups.keys()).sort((a, b) => groups.get(b).length - groups.get(a).length || a.localeCompare(b));
+    const tagLabel = { remain: "🟡 잔량", full: "✅ 온전", increase: "📈 증가", nodata: "❔ 데이터없음" };
     const html = order.map(wh => {
         const arr = groups.get(wh);
         const sum = arr.reduce((t, x) => t + (Number(x.it.qty) || 0), 0);
         const unit = ((arr.find(x => x.it.unit) || {}).it || {}).unit || "";
-        return `<div class="close-wh">🏭 ${esc(wh)}<small>${arr.length}건 · ${Math.round(sum * 1000) / 1000}${esc(unit)}</small></div>` +
-            arr.map(x => `<div class="close-item"><div class="lot">${esc(x.it.lot_no)}<span class="rm-tag rm-${x.st.state}">${tagLabel[x.st.state]}</span>${x.it.lot_status ? `<span class="st-tag ${statusIsBad(x.it) ? 'st-bad' : ''}">${esc(x.it.lot_status)}</span>` : ''}</div>` +
-                `<div class="sub">${esc(x.it.item_no)} · ${esc(x.it.item_name)} · ${esc(x.it.qty)}${esc(x.it.unit || "")}${(x.st.state === "remain" || x.st.state === "over") ? " · " + esc(x.st.text) : ""}</div></div>`).join("");
+        return `<div class="close-wh">🏭 ${esc(wh)}<small>${arr.length}건 · ${fmtNum(sum)}${esc(unit)}</small></div>` +
+            arr.map(x => {
+                const info = (x.st.state === "remain" || x.st.state === "increase")
+                    ? `<span class="qi ${x.st.state}">처음 ${fmtNum(x.st.origin)} → 현재 ${fmtNum(x.it.qty)} (${fmtSigned(x.st.diff)})</span>` : "";
+                return `<div class="close-item"><div class="lot">${esc(x.it.lot_no)}<span class="rm-tag rm-${x.st.state}">${tagLabel[x.st.state]}</span>${x.it.lot_status ? `<span class="st-tag ${statusIsBad(x.it) ? 'st-bad' : ''}">${esc(x.it.lot_status)}</span>` : ''}</div>` +
+                    `<div class="sub txt">${esc(x.it.item_no)} · ${esc(x.it.item_name)}</div>` +
+                    `<div class="sub qty"><span class="qn">${fmtNum(x.it.qty)}</span><span class="qu">${esc(x.it.unit || "")}</span>${info}</div></div>`;
+            }).join("");
     }).join("");
     return { html: html || `<div class="close-item"><div class="sub" style="text-align:center;">검색 결과가 없습니다.</div></div>`, count: list.length, counts, statusCounts };
 }
@@ -918,7 +936,7 @@ function renderCloseList(){
     const r = buildCloseListHtml(closeItems, closeSearch.value, closeStateFilter, closeStatusFilter);
     closeList.innerHTML = r.html;
     const c = r.counts;
-    closeStateChips.innerHTML = [["all", `전체 ${c.all}`], ["remain", `🟡 잔량 ${c.remain}`], ["full", `✅ 온전 ${c.full}`], ["nodata", `❔ 데이터없음 ${c.nodata}`], ["over", `⚠️ 수량초과 ${c.over}`]]
+    closeStateChips.innerHTML = [["all", `전체 ${c.all}`], ["remain", `🟡 잔량 ${c.remain}`], ["full", `✅ 온전 ${c.full}`], ["increase", `📈 증가 ${c.increase}`], ["nodata", `❔ 데이터없음 ${c.nodata}`]]
         .map(([k, label]) => `<button data-st="${k}" class="${closeStateFilter === k ? "on" : ""}">${label}</button>`).join("");
     // LOT 상태별 보기 (재고에 상태 값이 하나라도 있을 때만 표시)
     const keys = Object.keys(r.statusCounts).filter(k => k !== '(없음)').sort((a, b) => r.statusCounts[b] - r.statusCounts[a]);
@@ -926,8 +944,10 @@ function renderCloseList(){
         const chips = [['all', `상태 전체`]].concat(keys.map(k => [k, `${k} ${r.statusCounts[k]}`]));
         closeStatusChips.innerHTML = chips.map(([k, label]) => `<button data-ss="${encodeURIComponent(k)}" class="${closeStatusFilter === k ? 'on' : ''}">${esc(label)}</button>`).join('');
     } else { closeStatusChips.innerHTML = ''; }
-    closeFilterInfo.textContent = closeSearch.value.trim() ? `검색 결과 ${r.counts.all} / ${closeItems.length}건` : `남은 LOT ${closeItems.length}건 (창고별)`;
+    closeFilterInfo.textContent = closeSearch.value.trim() ? `검색 결과 ${r.counts.all} / ${closeItems.length}건` : `남은 LOT ${closeItems.length}건 (창고별) · 글을 누르면 전체가 펼쳐집니다`;
 }
+// 목록의 LOT 을 누르면 품번·품명 전체가 펼쳐지고, 다시 누르면 한 줄로 접힘
+closeList.addEventListener("click", ev => { const it = ev.target.closest(".close-item"); if (it) it.classList.toggle("open"); });
 closeStateChips.addEventListener("click", ev => {
     const b = ev.target.closest("button[data-st]");
     if (!b) return;
@@ -1671,9 +1691,9 @@ recheckBtn.onclick = async () => {
     await doLookup(lot);
 };
 
-// LOT 상태 표시: 투입취소는 빨간색으로 강조
+// LOT 상태 표시: 투입취소 / 실사불가는 빨간색으로 강조
 function statusIsBad(o){
-    return /투입취소/.test(String((o && o.lot_status) || '') + String((o && o.lot_substatus) || ''));
+    return /투입취소/.test(String((o && o.lot_status) || '') + String((o && o.lot_substatus) || '')) || (!!o && o.chk_type === '실사불가 상태');
 }
 function statusText(o){
     const parts = [];
@@ -1682,8 +1702,8 @@ function statusText(o){
     return parts.join(' / ');
 }
 function lotStatusHtml(o){
-    if (!o || (!o.lot_status && !o.lot_substatus)) return '';
-    return `<div class="info-label">LOT 상태</div><div class="info-value ${statusIsBad(o) ? 'st-bad' : ''}">${esc(statusText(o))}</div>`;
+    if (!o || (!o.lot_status && !o.lot_substatus && o.chk_type !== '실사불가 상태')) return '';
+    return `<div class="info-label">LOT 상태</div><div class="info-value ${statusIsBad(o) ? 'st-bad' : ''}">${esc(statusText(o))}${o.chk_type === '실사불가 상태' ? ' · 실사불가' : ''}</div>`;
 }
 
 async function doLookup(lot){
@@ -1757,7 +1777,7 @@ function openQtyModal(res) {
         modalWarn.innerText = `⚠️ ${res.upload_date} 과거자료 기준 · 전산수량 0 처리`;
     } else if (res.kind === 'normal') {
         const rs = window.remainState(res.qty, res.origin_qty);
-        const tone = { remain: ['rgba(255,184,77,0.15)', '#ffb84d', '🟡'], full: ['rgba(0,230,118,0.12)', '#00e676', '✅'], nodata: ['rgba(160,160,160,0.15)', '#aaa', '❔'], over: ['rgba(255,110,199,0.15)', '#ff6ec7', '⚠️'] }[rs.state];
+        const tone = { remain: ['rgba(255,184,77,0.15)', '#ffb84d', '🟡'], full: ['rgba(0,230,118,0.12)', '#00e676', '✅'], nodata: ['rgba(160,160,160,0.15)', '#aaa', '❔'], increase: ['rgba(110,193,255,0.15)', '#6ec1ff', '📈'] }[rs.state];
         modalWarn.style.display = 'block'; modalWarn.style.background = tone[0]; modalWarn.style.color = tone[1];
         modalWarn.innerText = `${tone[2]} ${rs.text}`;
     } else { modalWarn.style.display = 'none'; }
@@ -1766,12 +1786,12 @@ function openQtyModal(res) {
     modalQtyInput.value = "";
     modalMsg.innerText = "";
     const stEl = document.getElementById("modalStatus");
-    if (res.lot_status || res.lot_substatus){
+    if (res.lot_status || res.lot_substatus || res.chk_type === '실사불가 상태'){
         stEl.className = statusIsBad(res) ? 'st-bad' : '';
-        stEl.textContent = (statusIsBad(res) ? '⚠️ ' : 'LOT 상태: ') + statusText(res);
+        stEl.textContent = (statusIsBad(res) ? '⚠️ ' : 'LOT 상태: ') + statusText(res) + (res.chk_type === '실사불가 상태' ? ' · 실사불가' : '');
         stEl.style.display = 'block';
     } else { stEl.textContent = ''; stEl.style.display = 'none'; }
-    // 처음 수량과 현재 재고가 같은 LOT(온전)이면 수량을 미리 채워 둠. 다르면(잔량/데이터 없음/수량 초과) 비워 두고 계산기 또는 직접 입력
+    // 처음 수량과 현재 재고가 같은 LOT(온전)이면 수량을 미리 채워 둠. 다르면(잔량/판단 불가) 비워 두고 계산기 또는 직접 입력
     const autoFill = res.kind === 'normal' && window.remainState(res.qty, res.origin_qty).state === 'full';
     if (autoFill){
         modalQtyInput.value = res.qty;
