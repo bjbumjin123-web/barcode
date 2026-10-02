@@ -473,7 +473,8 @@ window.checkNewStock = async function(){
         }
     } catch(e){ console.error(e); }
 };
-const WH_ORDER = ['원자재창고', '반제품창고', '완제품창고', '외주창고'];
+const WH_ORDER = ['원자재창고', '외주창고', '반제품창고', '완제품창고'];
+window.WH_ORDER = WH_ORDER;   // 마감 목록에서도 같은 창고 순서를 사용
 // 같은 품번을 창고별로 묶어 확인/남음 집계 (최근 실행분 기준, 확인 = 수량 입력 완료)
 window.apiItemStatus = function(itemNo){
     const key = String(itemNo || '').trim();
@@ -900,7 +901,8 @@ function buildCloseListHtml(items, query, stateFilter, statusFilter){
         if (!groups.has(wh)) groups.set(wh, []);
         groups.get(wh).push(x);
     });
-    const order = Array.from(groups.keys()).sort((a, b) => groups.get(b).length - groups.get(a).length || a.localeCompare(b));
+    const whRank = w => { const i = (window.WH_ORDER || []).indexOf(w); return i < 0 ? 99 : i; };   // 정해진 창고 순서 (목록에 없는 창고는 맨 뒤)
+    const order = Array.from(groups.keys()).sort((a, b) => whRank(a) - whRank(b) || a.localeCompare(b));
     const tagLabel = { remain: "🟡 잔량", full: "✅ 온전", nodata: "❔ 데이터 없음", over: "⚠️ 수량 초과" };
     const html = order.map(wh => {
         const arr = groups.get(wh);
