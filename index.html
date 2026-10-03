@@ -483,7 +483,11 @@ window.checkNewStock = async function(){
         }
     } catch(e){ console.error(e); }
 };
-const WH_ORDER = ['원자재창고', '반제품창고', '완제품창고', '외주창고'];
+// 창고 표시 순서: 원자재 -> 외주 -> 반제품 -> 완제품 (목록에 없는 창고는 맨 뒤, 이름순). 공백은 무시하고 비교 ('반제품 창고' = '반제품창고')
+const WH_ORDER = ['원자재창고', '외주창고', '반제품창고', '완제품창고'];
+const whNorm = w => String(w || '').replace(/\s+/g, '');
+const whRank = w => { const i = WH_ORDER.indexOf(whNorm(w)); return i < 0 ? 99 : i; };
+window.whRank = whRank;
 // 같은 품번을 창고별로 묶어 확인/남음 집계 (최근 실행분 기준, 확인 = 수량 입력 완료)
 window.apiItemStatus = function(itemNo){
     const key = String(itemNo || '').trim();
@@ -498,7 +502,7 @@ window.apiItemStatus = function(itemNo){
         g.total++; g.qtyTotal += q; if (done){ g.done++; g.qtyDone += q; }
         g.lots.push({ lot_no: r.lot_no, department: r.department || '-', qty: q, unit: r.unit || '', done });
     });
-    const rank = w => { const i = WH_ORDER.indexOf(w); return i < 0 ? 99 : i; };
+    const rank = whRank;
     return Object.values(groups)
         .sort((a, b) => rank(a.warehouse) - rank(b.warehouse) || a.warehouse.localeCompare(b.warehouse))
         .map(g => { g.lots.sort((a, b) => (a.done - b.done) || a.lot_no.localeCompare(b.lot_no)); return g; });
@@ -709,7 +713,7 @@ window.apiRemaining = async function(dept){
     const scanned = await window.syncScannedToday();   // 미전송 오프라인 스캔 포함
 
     const items = deptRows.filter(r => !scanned.has(r.lot_no))
-        .sort((a,b) => String(a.item_no||'').localeCompare(String(b.item_no||'')) || String(a.lot_no).localeCompare(String(b.lot_no)));
+        .sort((a,b) => String(a.item_name||'').localeCompare(String(b.item_name||'')) || String(a.item_no||'').localeCompare(String(b.item_no||'')) || String(a.lot_no).localeCompare(String(b.lot_no)));   // 품명 -> 품번 -> LOT 번호
 
     const deptValues = Array.from(new Set(masterRows.map(r => r.department || '(없음)'))).sort();
     return {
@@ -915,7 +919,7 @@ function buildCloseListHtml(items, query, stateFilter, statusFilter){
         if (!groups.has(wh)) groups.set(wh, []);
         groups.get(wh).push(x);
     });
-    const order = Array.from(groups.keys()).sort((a, b) => groups.get(b).length - groups.get(a).length || a.localeCompare(b));
+    const order = Array.from(groups.keys()).sort((a, b) => window.whRank(a) - window.whRank(b) || a.localeCompare(b));   // 창고 고정 순서
     const tagLabel = { remain: "🟡 잔량", full: "✅ 온전", increase: "📈 증가", nodata: "❔ 데이터없음" };
     const html = order.map(wh => {
         const arr = groups.get(wh);
