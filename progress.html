@@ -146,6 +146,8 @@ async function loadData(){
         let maxRun = '';
         masterRows.forEach(r => { const k = r.run_at || r.uploaded_at || ''; if (k > maxRun) maxRun = k; });
         if (maxRun) masterRows = masterRows.filter(r => (r.run_at || r.uploaded_at || '') === maxRun);
+        // 실사불가 상태(CHK_TYPE) LOT 은 실사 대상에서 제외 (스캔 화면의 진행바/마감 대상과 동일 기준)
+        masterRows = masterRows.filter(r => r.chk_type !== '실사불가 상태');
 
         const logSnap = await fetchAll(() => sb.from(LOG_COL).select('*').eq('scan_date', dateInput.value));
         dateLogs = [];
