@@ -488,6 +488,16 @@ const WH_ORDER = ['원자재창고', '외주창고', '반제품창고', '완제�
 const whNorm = w => String(w || '').replace(/\s+/g, '');
 const whRank = w => { const i = WH_ORDER.indexOf(whNorm(w)); return i < 0 ? 99 : i; };
 window.whRank = whRank;
+// 같은 창고 + 같은 품번의 수량 합계 (최근 실행분, 실사 대상 전체 LOT 기준 - 확인 여부/부서 무관). 품번이 없으면 LOT 단독으로 취급
+window.itemWhKey = r => whNorm(r.warehouse) + '|' + (String(r.item_no || '').trim() || r.lot_no);
+window.itemWhTotals = function(){
+    const m = new Map();
+    auditTargetsOf(Array.from(window.cachedStockMap.values())).forEach(r => {
+        const k = window.itemWhKey(r);
+        m.set(k, (m.get(k) || 0) + (Number(r.qty) || 0));
+    });
+    return m;
+};
 // 같은 품번을 창고별로 묶어 확인/남음 집계 (최근 실행분 기준, 확인 = 수량 입력 완료)
 window.apiItemStatus = function(itemNo){
     const key = String(itemNo || '').trim();
@@ -886,6 +896,8 @@ const closeFilterInfo = document.getElementById("closeFilterInfo");
 let closeItems = [];
 let closeStateFilter = 'all';
 let closeStatusFilter = 'all';
+let closeSmallOnly = false;
+const SMALL_QTY = 10;   // '수량 N 이하' 보기 기준: 같은 창고 안에서 같은 품번의 수량 합계
 const closeStatusChips = document.getElementById("closeStatusChips");
 const closeStateChips = document.getElementById("closeStateChips");
 const closeConfirmBtn = document.getElementById("closeConfirmBtn");
@@ -906,7 +918,7 @@ function fmtNum(v){
     return Number.isFinite(n) ? (Math.round(n * 1000) / 1000).toLocaleString("ko-KR") : String(v == null ? "" : v);
 }
 function fmtSigned(d){ return (d > 0 ? "+" : d < 0 ? "−" : "") + fmtNum(Math.abs(d)); }
-function buildCloseListHtml(items, query, stateFilter, statusFilter){
+function buildCloseListHtml(items, query, stateFilter, statusFilter, smallOnly){
     const q = String(query || "").trim().toLowerCase();
     const byQuery = q ? items.filter(it => [it.lot_no, it.item_no, it.item_name, it.warehouse].some(v => String(v == null ? "" : v).toLowerCase().includes(q))) : items;
     const counts = { all: byQuery.length, remain: 0, full: 0, increase: 0, nodata: 0 };
@@ -915,6 +927,10 @@ function buildCloseListHtml(items, query, stateFilter, statusFilter){
     withState.forEach(x => { const k = x.it.lot_status || '(없음)'; statusCounts[k] = (statusCounts[k] || 0) + 1; });
     let list = (stateFilter && stateFilter !== "all") ? withState.filter(x => x.st.state === stateFilter) : withState;
     if (statusFilter && statusFilter !== 'all') list = list.filter(x => (x.it.lot_status || '(없음)') === statusFilter);
+    const totals = window.itemWhTotals();
+    const totalOf = x => { const t = totals.get(window.itemWhKey(x.it)); return Math.round((t === undefined ? (Number(x.it.qty) || 0) : t) * 1000) / 1000; };
+    counts.small = list.filter(x => totalOf(x) <= SMALL_QTY).length;
+    if (smallOnly) list = list.filter(x => totalOf(x) <= SMALL_QTY);
     const groups = new Map();
     list.forEach(x => {
         const wh = x.it.warehouse || "창고 미지정";
@@ -933,17 +949,18 @@ function buildCloseListHtml(items, query, stateFilter, statusFilter){
                     ? `<span class="qi ${x.st.state}">처음 ${fmtNum(x.st.origin)} → 현재 ${fmtNum(x.it.qty)} (${fmtSigned(x.st.diff)})</span>` : "";
                 return `<div class="close-item"><div class="lot">${esc(x.it.lot_no)}<span class="rm-tag rm-${x.st.state}">${tagLabel[x.st.state]}</span>${x.it.lot_status ? `<span class="st-tag ${statusIsBad(x.it) ? 'st-bad' : ''}">${esc(x.it.lot_status)}</span>` : ''}</div>` +
                     `<div class="sub txt">${esc(x.it.item_no)} · ${esc(x.it.item_name)}</div>` +
-                    `<div class="sub qty"><span class="qn">${fmtNum(x.it.qty)}</span><span class="qu">${esc(x.it.unit || "")}</span>${info}</div></div>`;
+                    `<div class="sub qty"><span class="qn">${fmtNum(x.it.qty)}</span><span class="qu">${esc(x.it.unit || "")}</span>${info}${smallOnly ? `<span class="qi">창고 합계 ${fmtNum(totalOf(x))}${esc(x.it.unit || "")}</span>` : ""}</div></div>`;
             }).join("");
     }).join("");
     return { html: html || `<div class="close-item"><div class="sub" style="text-align:center;">검색 결과가 없습니다.</div></div>`, count: list.length, counts, statusCounts };
 }
 function renderCloseList(){
-    const r = buildCloseListHtml(closeItems, closeSearch.value, closeStateFilter, closeStatusFilter);
+    const r = buildCloseListHtml(closeItems, closeSearch.value, closeStateFilter, closeStatusFilter, closeSmallOnly);
     closeList.innerHTML = r.html;
     const c = r.counts;
     closeStateChips.innerHTML = [["all", `전체 ${c.all}`], ["remain", `🟡 잔량 ${c.remain}`], ["full", `✅ 온전 ${c.full}`], ["increase", `📈 증가 ${c.increase}`], ["nodata", `❔ 데이터없음 ${c.nodata}`]]
         .map(([k, label]) => `<button data-st="${k}" class="${closeStateFilter === k ? "on" : ""}">${label}</button>`).join("");
+    if (c.small > 0 || closeSmallOnly) closeStateChips.innerHTML += `<button data-sm="1" class="${closeSmallOnly ? "on" : ""}">📦 수량 ${SMALL_QTY} 이하 ${c.small}</button>`;
     // LOT 상태별 보기 (재고에 상태 값이 하나라도 있을 때만 표시)
     const keys = Object.keys(r.statusCounts).filter(k => k !== '(없음)').sort((a, b) => r.statusCounts[b] - r.statusCounts[a]);
     if (keys.length){
@@ -958,6 +975,12 @@ closeStateChips.addEventListener("click", ev => {
     const b = ev.target.closest("button[data-st]");
     if (!b) return;
     closeStateFilter = b.dataset.st;
+    renderCloseList();
+});
+closeStateChips.addEventListener("click", ev => {
+    const b = ev.target.closest("button[data-sm]");
+    if (!b) return;
+    closeSmallOnly = !closeSmallOnly;
     renderCloseList();
 });
 closeStatusChips.addEventListener("click", ev => {
@@ -994,7 +1017,7 @@ async function openCloseModal(){
     closeModalOverlay.style.display = "flex";
     closeSummary.textContent = "불러오는 중...";
     closeList.innerHTML = "";
-    closeItems = []; closeSearch.value = ""; closeFilterInfo.textContent = ""; closeStateFilter = 'all'; closeStateChips.innerHTML = ""; closeStatusFilter = 'all'; closeStatusChips.innerHTML = "";
+    closeItems = []; closeSearch.value = ""; closeFilterInfo.textContent = ""; closeStateFilter = 'all'; closeStateChips.innerHTML = ""; closeStatusFilter = 'all'; closeStatusChips.innerHTML = ""; closeSmallOnly = false;
     fitCloseModal();
     closeConfirmBtn.disabled = true;
     closeLoadFailed = false; closeRemainingCount = 0;
