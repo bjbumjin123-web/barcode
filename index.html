@@ -579,9 +579,11 @@ function nowParts(){
     });
     const map = {};
     fmt.formatToParts(new Date()).forEach(p => map[p.type] = p.value);
-    const date = `${map.year}-${map.month}-${map.day}`;
+    const calDate = `${map.year}-${map.month}-${map.day}`;
     const time = `${map.hour}:${map.minute}:${map.second}`;
-    return { date, datetime: `${date} ${time}` };
+    // date = '회차 날짜' (07:00 ~ 다음날 06:59 가 한 회). 07:00 이전이면 전날 날짜. datetime 은 실제 시각 그대로.
+    const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date(Date.now() - 7 * 3600 * 1000));
+    return { date, datetime: `${calDate} ${time}` };
 }
 
 // ===== 잔량 판정: 현재 재고 수량 vs 처음 수량(lot_master.origin_qty, 생산/입고 기록 합계) =====
@@ -1070,7 +1072,7 @@ startDataBtn.onclick = async () => {
 
 // ===== 매일 자동 마감 (한국시간 06:30 / 18:30) =====
 // 마지막 마감 시각 이전에 받은 재고 캐시가 남아 있으면 '자동 마감'으로 기록하고 캐시를 삭제함.
-const AUTO_CLOSE_TIMES = ["06:30", "18:30"];
+const AUTO_CLOSE_TIMES = ["06:55"];   // 하루 1회: 회차(07:00~06:59)가 끝나기 직전
 const AUTO_CLOSE_KEY = "lot_auto_close_slot";
 function kstNowParts(){
     const f = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });

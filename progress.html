@@ -57,9 +57,11 @@ import { sb, wrap, fetchAll, renderNavbar } from "./common.js?v=1";
 renderNavbar("progress");
 
 
-function todayKST(){
+// 하루(1회) 기준: 한국시간 07:00 ~ 다음날 06:59 를 한 회로 봄 -> 07:00 이전이면 전날 날짜를 '회차 날짜'로 사용
+const ROUND_START_HOUR = 7;
+function roundDateKST(){
     const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year:"numeric", month:"2-digit", day:"2-digit" });
-    return fmt.format(new Date());
+    return fmt.format(new Date(Date.now() - ROUND_START_HOUR * 3600 * 1000));
 }
 
 const STOCK_COL = "stock";
@@ -74,7 +76,7 @@ let masterDate = null;
 let masterRows = [];       
 let dateLogs = [];         
 
-dateInput.value = todayKST();
+dateInput.value = roundDateKST();
 
 const statusText = r => { const a = (r.lot_status||'').toString().trim(), b = (r.lot_substatus||'').toString().trim(); return a ? (b && b !== a ? a + ' / ' + b : a) : (b || '-'); };
 function esc(s){
@@ -312,7 +314,7 @@ dateInput.addEventListener("change", () => { userPickedDate = true; });
 
 setInterval(() => {
     if (userPickedDate) return;
-    const todayNow = todayKST();
+    const todayNow = roundDateKST();
     if (dateInput.value !== todayNow){
         dateInput.value = todayNow;
         loadData();
