@@ -1193,7 +1193,7 @@ function setupFocus(track){
 }
 
 // ---- 카메라 자동 절전: 일정 시간 아무 조작이 없으면 카메라를 완전히 끔 (화면 자동 꺼짐 + 배터리 절약) ----
-const CAM_IDLE_MS = 60000;      // 마지막 조작 후 이 시간(ms)이 지나면 카메라 종료 (60초)
+const CAM_IDLE_MS = 90000;      // 마지막 조작 후 이 시간(ms)이 지나면 카메라 종료 (90초)
 let currentStream = null;
 let camStarting = false;
 let camIdleTimer = null;
@@ -1714,6 +1714,7 @@ function closeQtyModal(){
     resetQtyModalFit();
     resultInput.value = "";      // 닫히면 LOT 번호 입력칸만 비움 (결과 카드는 유지)
     exitManualMode();
+    if (!document.body.classList.contains("manual-mode") && !document.hidden) initCamera();   // 수량 입력 끝 → 카메라 다시 켬
     if (scrolledForTyping){ scrolledForTyping = false; window.scrollTo(0, 0); }
 }
 
@@ -1897,6 +1898,7 @@ function openQtyModal(res) {
         modalMsg.innerHTML = "<span style='color:#00e676;'>✅ 처음 수량과 같아 자동 입력했습니다. 실물이 다르면 수정하세요.</span>";
     }
     qtyModalOverlay.style.display = "flex";
+    stopCamera();   // 수량 입력 중에는 카메라를 끔 (닫으면 다시 켬)
     fitQtyModal();
     setTimeout(() => { modalQtyInput.focus(); if (autoFill) modalQtyInput.select(); }, 100);   // 자동 입력 시 바로 덮어쓸 수 있게 선택 상태로
 }
