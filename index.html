@@ -142,6 +142,8 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 #zoomControls button{ width:28px; height:28px; border-radius:50%; border:none; background:#00e676; color:#111; font-weight:bold; font-size:15px; cursor:pointer; }
 #zoomControls > *{ margin:0 3px; }
 #zoomLabel{ color:#fff; font-size:12px; min-width:36px; text-align:center; font-weight:bold; }
+#camOff{ display:none; position:absolute; left:0; top:0; right:0; bottom:0; z-index:30; background:rgba(0,0,0,0.88); color:#fff; font-size:15px; font-weight:bold; text-align:center; line-height:1.7; align-items:center; justify-content:center; flex-direction:column; cursor:pointer; }
+#camOff small{ color:#aaa; font-size:12px; font-weight:normal; }
 #torchBtn{
     position:absolute; left:8px; top:8px; width:36px; height:36px; border-radius:50%;
     border:none; background:rgba(0,0,0,0.65); color:#fff; font-size:18px; z-index:20; cursor:pointer;
@@ -296,6 +298,7 @@ body.manual-mode #backToCamBtn{ display:block; }
 <div id="guideBox"></div>
 <div id="guideLabel">박스 안에 LOT 번호 맞추기</div>
 <div id="camStatus">카메라 연결 중...</div>
+<div id="camOff">📷 카메라가 꺼졌습니다<small>화면을 터치하면 다시 켜집니다</small></div>
 <button id="torchBtn">🔦</button>
 <div id="zoomControls"><button id="zoomOut">➖</button><span id="zoomLabel">1.0x</span><button id="zoomIn">➕</button></div>
 </div>
@@ -1189,32 +1192,97 @@ function setupFocus(track){
     } catch(e) {}
 }
 
+// ---- 카메라 자동 절전: 일정 시간 아무 조작이 없으면 카메라를 완전히 끔 (화면 자동 꺼짐 + 배터리 절약) ----
+const CAM_IDLE_MS = 60000;      // 마지막 조작 후 이 시간(ms)이 지나면 카메라 종료 (60초)
+let currentStream = null;
+let camStarting = false;
+let camIdleTimer = null;
+let stoppedByHide = false;
+const camOff = document.getElementById("camOff");
+
+function touchCamActivity(){
+    if (!currentStream) return;
+    if (camIdleTimer) clearTimeout(camIdleTimer);
+    camIdleTimer = setTimeout(onCamIdle, CAM_IDLE_MS);
+}
+function onCamIdle(){
+    // 촬영/인식 중이거나 수량 입력창이 열려 있으면 끄지 않고 다시 대기
+    if (capturing || qtyModalOverlay.style.display === "flex" || itemModalOverlay.style.display === "flex"){ touchCamActivity(); return; }
+    stopCamera();
+}
+function stopCamera(){
+    if (camIdleTimer){ clearTimeout(camIdleTimer); camIdleTimer = null; }
+    if (currentStream){
+        currentStream.getTracks().forEach(function(t){ try { t.stop(); } catch(e){} });
+        currentStream = null;
+    }
+    try { video.pause(); } catch(e){}
+    video.srcObject = null;
+    videoTrack = null;
+    torchOn = false; torchBtn.classList.remove("on");
+    currentZoom = 1; video.style.transform = "none"; updateZoomLabel();
+    camOff.style.display = "flex";
+}
+
 async function initCamera(){
-    var camStatus = document.getElementById("camStatus");
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-        camStatus.innerText = "⚠️ 카메라 미지원 (Chrome 최신 버전 사용)";
-        return;
+    if (camStarting || currentStream) return;
+    camStarting = true;
+    try {
+        var camStatus = document.getElementById("camStatus");
+        camOff.style.display = "none";
+        camStatus.style.display = "";
+        camStatus.innerText = "카메라 연결 중...";
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+            camStatus.innerText = "⚠️ 카메라 미지원 (Chrome 최신 버전 사용)";
+            return;
+        }
+        // 폰이 지원하지 않는 해상도 요청이면 단계적으로 낮춰서 재시도 (구형 폰 대응)
+        var attempts = [
+            { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+            { video: { facingMode: "environment" }, audio: false },
+            { video: true, audio: false }
+        ];
+        var stream = null;
+        for (var i = 0; i < attempts.length && !stream; i++){
+            try { stream = await navigator.mediaDevices.getUserMedia(attempts[i]); } catch(e) { console.error(e); }
+        }
+        if (!stream){ camStatus.innerText = "⚠️ 카메라 사용 불가 (권한 확인)"; return; }
+        // 연결되는 사이 화면이 가려졌으면(앱 전환/화면 꺼짐) 바로 끄고, 돌아오면 다시 켬
+        if (document.hidden){
+            stream.getTracks().forEach(function(t){ try { t.stop(); } catch(e){} });
+            stoppedByHide = true;
+            camOff.style.display = "flex";
+            return;
+        }
+        currentStream = stream;
+        video.srcObject = stream;
+        try { await video.play(); } catch(e) {}
+        videoTrack = stream.getVideoTracks()[0];
+        camStatus.style.display = "none";
+        setupZoom(videoTrack); setupTorch(videoTrack); setupFocus(videoTrack);
+        touchCamActivity();
+        // 숫자 인식 엔진은 미리 준비해 두면 첫 촬영이 빨라짐
+        setTimeout(function(){ getOcrWorker().catch(function(){}); }, 2500);
+    } finally {
+        camStarting = false;
     }
-    // 폰이 지원하지 않는 해상도 요청이면 단계적으로 낮춰서 재시도 (구형 폰 대응)
-    var attempts = [
-        { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
-        { video: { facingMode: "environment" }, audio: false },
-        { video: true, audio: false }
-    ];
-    var stream = null;
-    for (var i = 0; i < attempts.length && !stream; i++){
-        try { stream = await navigator.mediaDevices.getUserMedia(attempts[i]); } catch(e) { console.error(e); }
-    }
-    if (!stream){ camStatus.innerText = "⚠️ 카메라 사용 불가 (권한 확인)"; return; }
-    video.srcObject = stream;
-    try { await video.play(); } catch(e) {}
-    videoTrack = stream.getVideoTracks()[0];
-    camStatus.style.display = "none";
-    setupZoom(videoTrack); setupTorch(videoTrack); setupFocus(videoTrack);
-    // 숫자 인식 엔진은 미리 준비해 두면 첫 촬영이 빨라짐
-    setTimeout(function(){ getOcrWorker().catch(function(){}); }, 2500);
 }
 initCamera();
+
+// 조작이 있을 때마다 절전 타이머를 처음부터 다시 셈
+['touchstart', 'click', 'keydown', 'input'].forEach(function(evt){ document.addEventListener(evt, touchCamActivity, true); });
+// 꺼진 카메라 화면을 터치하면 다시 켬
+camOff.addEventListener("click", function(){ initCamera(); });
+// 다른 앱으로 전환하거나 화면이 잠기면 즉시 끄고, 돌아오면 다시 켬
+document.addEventListener("visibilitychange", function(){
+    if (document.hidden){
+        if (currentStream){ stoppedByHide = true; stopCamera(); }
+    } else if (stoppedByHide){
+        stoppedByHide = false;
+        initCamera();
+    }
+});
+window.addEventListener("pagehide", stopCamera);
 
 function setZoom(val){
     if (zoomCaps){
@@ -1658,7 +1726,8 @@ function enterManualMode(){
 function exitManualMode(){
     if (!document.body.classList.contains("manual-mode")) return;
     document.body.classList.remove("manual-mode");
-    try { var pr = video.play(); if (pr && pr.catch) pr.catch(function(){}); } catch(e){}
+    if (currentStream){ try { var pr = video.play(); if (pr && pr.catch) pr.catch(function(){}); } catch(e){} }
+    else initCamera();   // 절전으로 꺼져 있었다면 다시 켬
     window.scrollTo(0, 0);
 }
 document.getElementById("backToCamBtn").onclick = function(){
@@ -1687,6 +1756,7 @@ function handleRecognitionFail(){
 
 captureBtn.onclick = async () => {
     if (capturing) return;
+    if (!currentStream){ status.innerHTML = "📷 카메라를 켭니다. 준비되면 다시 촬영 버튼을 눌러주세요."; initCamera(); return; }
     if (!scannerInput.value.trim()) { alert("작성자 이름을 입력해주세요."); scannerInput.focus(); return; }
     if (!deptSelect.value) { alert("실사 부서를 선택해주세요."); deptSelect.focus(); return; }
     if (!video.videoWidth) { status.innerHTML = "⚠️ 카메라 준비 중입니다."; return; }
