@@ -1221,48 +1221,74 @@ function stopCamera(){
     videoTrack = null;
     torchOn = false; torchBtn.classList.remove("on");
     currentZoom = 1; video.style.transform = "none"; updateZoomLabel();
+    camOff.innerHTML = CAM_OFF_HTML;
     camOff.style.display = "flex";
 }
 
+const CAM_OFF_HTML = '📷 카메라가 꺼졌습니다<small>화면을 터치하면 다시 켜집니다</small>';
+const CAM_FAIL_HTML = '⚠️ 카메라를 켜지 못했습니다<small>화면을 터치하면 다시 시도합니다<br>(다른 앱이 카메라를 쓰고 있지 않은지, 카메라 권한이 허용인지 확인)</small>';
+
+// 카메라를 한 번 켜 봄. 성공 true / 실패 false / 화면이 가려져 중단 "hidden" / 미지원 "fatal"
+async function startCameraOnce(){
+    var camStatus = document.getElementById("camStatus");
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+        camStatus.style.display = "";
+        camStatus.innerText = "⚠️ 카메라 미지원 (Chrome 최신 버전 사용)";
+        return "fatal";
+    }
+    // 폰이 지원하지 않는 해상도 요청이면 단계적으로 낮춰서 재시도 (구형 폰 대응)
+    var attempts = [
+        { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+        { video: { facingMode: "environment" }, audio: false },
+        { video: true, audio: false }
+    ];
+    var stream = null;
+    for (var i = 0; i < attempts.length && !stream; i++){
+        try { stream = await navigator.mediaDevices.getUserMedia(attempts[i]); } catch(e) { console.error(e); }
+    }
+    if (!stream) return false;
+    // 연결되는 사이 화면이 가려졌으면(앱 전환/화면 꺼짐) 바로 끄고, 돌아오면 다시 켬
+    if (document.hidden){
+        stream.getTracks().forEach(function(t){ try { t.stop(); } catch(e){} });
+        return "hidden";
+    }
+    currentStream = stream;
+    video.srcObject = stream;
+    try { await video.play(); } catch(e) {}
+    videoTrack = stream.getVideoTracks()[0];
+    setupZoom(videoTrack); setupTorch(videoTrack); setupFocus(videoTrack);
+    return true;
+}
+
+// 켜기에 실패하면 자동으로 한 번 더 시도하고, 그래도 안 되면 "터치해서 다시 시도" 안내를 보여줌
 async function initCamera(){
     if (camStarting || currentStream) return;
     camStarting = true;
     try {
         var camStatus = document.getElementById("camStatus");
+        camOff.innerHTML = CAM_OFF_HTML;
         camOff.style.display = "none";
         camStatus.style.display = "";
         camStatus.innerText = "카메라 연결 중...";
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-            camStatus.innerText = "⚠️ 카메라 미지원 (Chrome 최신 버전 사용)";
-            return;
+        var r = await startCameraOnce();
+        if (r === false){
+            camStatus.innerText = "카메라 다시 연결 중...";
+            await new Promise(function(res){ setTimeout(res, 1200); });
+            r = await startCameraOnce();
         }
-        // 폰이 지원하지 않는 해상도 요청이면 단계적으로 낮춰서 재시도 (구형 폰 대응)
-        var attempts = [
-            { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
-            { video: { facingMode: "environment" }, audio: false },
-            { video: true, audio: false }
-        ];
-        var stream = null;
-        for (var i = 0; i < attempts.length && !stream; i++){
-            try { stream = await navigator.mediaDevices.getUserMedia(attempts[i]); } catch(e) { console.error(e); }
-        }
-        if (!stream){ camStatus.innerText = "⚠️ 카메라 사용 불가 (권한 확인)"; return; }
-        // 연결되는 사이 화면이 가려졌으면(앱 전환/화면 꺼짐) 바로 끄고, 돌아오면 다시 켬
-        if (document.hidden){
-            stream.getTracks().forEach(function(t){ try { t.stop(); } catch(e){} });
+        if (r === true){
+            camStatus.style.display = "none";
+            touchCamActivity();
+            // 숫자 인식 엔진은 미리 준비해 두면 첫 촬영이 빨라짐
+            setTimeout(function(){ getOcrWorker().catch(function(){}); }, 2500);
+        } else if (r === "hidden"){
             stoppedByHide = true;
             camOff.style.display = "flex";
-            return;
+        } else if (r === false){
+            camStatus.style.display = "none";
+            camOff.innerHTML = CAM_FAIL_HTML;
+            camOff.style.display = "flex";
         }
-        currentStream = stream;
-        video.srcObject = stream;
-        try { await video.play(); } catch(e) {}
-        videoTrack = stream.getVideoTracks()[0];
-        camStatus.style.display = "none";
-        setupZoom(videoTrack); setupTorch(videoTrack); setupFocus(videoTrack);
-        touchCamActivity();
-        // 숫자 인식 엔진은 미리 준비해 두면 첫 촬영이 빨라짐
-        setTimeout(function(){ getOcrWorker().catch(function(){}); }, 2500);
     } finally {
         camStarting = false;
     }
