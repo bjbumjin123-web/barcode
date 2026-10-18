@@ -1299,15 +1299,29 @@ initCamera();
 ['touchstart', 'click', 'keydown', 'input'].forEach(function(evt){ document.addEventListener(evt, touchCamActivity, true); });
 // 꺼진 카메라 화면을 터치하면 다시 켬
 camOff.addEventListener("click", function(){ initCamera(); });
-// 다른 앱으로 전환하거나 화면이 잠기면 즉시 끄고, 돌아오면 다시 켬
+// 다른 앱으로 전환하거나 화면이 잠기면(3초 이상 가려져 있으면) 끄고, 돌아오면 다시 켬
+// - 안내창(alert) 같은 잠깐의 가려짐은 무시하고, 돌아왔을 때 카메라가 죽어 있으면 되살림
+var hideTimer = null;
+function recoverCamera(){
+    if (!currentStream) return;
+    if (!videoTrack || videoTrack.readyState !== "live"){ stopCamera(); initCamera(); return; }
+    try { var pr = video.play(); if (pr && pr.catch) pr.catch(function(){}); } catch(e){}
+    touchCamActivity();
+}
 document.addEventListener("visibilitychange", function(){
     if (document.hidden){
-        if (currentStream){ stoppedByHide = true; stopCamera(); }
-    } else if (stoppedByHide){
-        stoppedByHide = false;
-        initCamera();
+        if (hideTimer) clearTimeout(hideTimer);
+        hideTimer = setTimeout(function(){
+            hideTimer = null;
+            if (document.hidden && currentStream){ stoppedByHide = true; stopCamera(); }
+        }, 3000);
+    } else {
+        if (hideTimer){ clearTimeout(hideTimer); hideTimer = null; }
+        if (stoppedByHide){ stoppedByHide = false; initCamera(); }
+        else recoverCamera();
     }
 });
+window.addEventListener("focus", recoverCamera);
 window.addEventListener("pagehide", stopCamera);
 
 function setZoom(val){
@@ -1813,7 +1827,7 @@ resultInput.addEventListener("keydown", (e) => {
 recheckBtn.onclick = async () => {
     recogFailCount = 0;
     const lot = resultInput.value.trim();
-    if (!lot) return alert("LOT 번호를 입력하세요.");
+    if (!lot){ status.innerHTML = "⚠️ LOT 번호를 입력하세요."; resultInput.focus(); return; }
     await doLookup(lot);
 };
 
