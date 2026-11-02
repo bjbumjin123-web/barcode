@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LOT 업로드</title>
-<script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<title>LOT 스캐너</title>
 <style>
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
 body{font-family:-apple-system,"Malgun Gothic",Arial,sans-serif;background:#111;color:#eee;max-width:480px;margin:20px auto;padding:16px;}
@@ -13,55 +12,62 @@ h2{font-size:16px; text-align:center; margin:0 0 10px; white-space:nowrap;}
 .navbar a{color:#4fc3ff;font-size:12px;letter-spacing:-0.3px;text-decoration:none;padding:5px 6px;border:1px solid #2a4a5c;border-radius:10px;white-space:nowrap;}
 .box{background:#1c1c1c;border:1px solid #333;border-radius:12px;padding:18px;margin-top:14px;}
 label{display:block;margin-top:10px;font-size:13px;color:#ccc;white-space:nowrap;}
-input[type=file], input[type=date], select{width:100%;padding:10px;background:#222;color:#eee;border:1px solid #444;border-radius:8px;margin:6px 0 12px;font-size:14px;white-space:nowrap;}
-button{width:100%;padding:12px;font-size:14px;letter-spacing:-0.3px;font-weight:bold;background:#00e676;color:#111;border:none;border-radius:8px;white-space:nowrap;cursor:pointer;}
+input, select{width:100%;padding:10px;background:#222;color:#eee;border:1px solid #444;border-radius:8px;margin:6px 0 12px;font-size:14px;box-sizing:border-box;}
+button{width:100%;padding:12px;font-size:14px;letter-spacing:-0.3px;font-weight:bold;background:#00e676;color:#111;border:none;border-radius:8px;cursor:pointer;}
 button:disabled{background:#555;color:#999;}
-.btn2{background:#4fc3ff;margin-top:10px;display:none;}
-.hint{margin-top:6px;font-size:12px;color:#999;line-height:1.5;}
-.msg{margin-top:14px;font-weight:bold;font-size:14px;}
-.dup-msg{margin-top:10px;font-weight:bold;color:#ffb84d;font-size:13px;}
-.validation-msg{margin-top:8px;font-weight:bold;color:#ff8a8a;font-size:12px;line-height:1.5;}
-.date-warning{margin-top:8px;font-size:12px;color:#ffb84d;display:none;white-space:nowrap;}
-.info{color:#4fc3ff;font-size:13px;margin-top:8px;line-height:1.6;background:#1c1c1c;padding:12px;border-radius:10px;border:1px solid #333;}
+.start-btn{background:#4fc3ff;color:#111;margin-bottom:10px;}
+.net-status{text-align:center;font-size:13px;margin-bottom:12px;color:#00e676;}
+.camera-box{background:#000;border:2px solid #00e676;border-radius:10px;height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;margin-top:10px;}
+.guide-rect{width:220px;height:70px;border:2px solid #00e676;border-radius:6px;margin-bottom:10px;}
+.msg{margin-top:12px;font-size:13px;font-weight:bold;}
 </style>
 </head>
 <body>
 
-<h2>📂 LOT 업로드</h2>
+<h2>📦 LOT 스캐너</h2>
 
 <div class="navbar">
 <a href="index.html">📸 스캔</a>
 <a href="scanview.html">🕒 기록조회</a>
 <a href="progress.html">📋 진행률</a>
 <a href="history.html">📅 이력조회</a>
+<a href="upload.html">📂 업로드</a>
 </div>
 
-<div class="info" id="summaryBox">불러오는 중...</div>
-<div class="info" id="lotSummaryBox">LOT 조회용 자료(자재/생산) 불러오는 중...</div>
+<button class="start-btn" id="startBtn">🚀 시작 (최근 10일 재고 데이터 다운로드)</button>
+<div class="net-status" id="netStatus">🟢 준비 완료 (시작 버튼을 눌러주세요)</div>
 
 <div class="box">
-<label>업로드 종류</label>
-<select id="typeSelect">
-<option value="stock">📦 재고 (MES 재고 엑셀)</option>
-<option value="mat">🚚 자재실적 (LOT 조회용)</option>
-<option value="prod">🏭 생산실적 (LOT 조회용)</option>
+<label>작성자 입력</label>
+<input type="text" id="authorInput" placeholder="작성자 이름 입력 (최초 1회 자동 저장)">
+
+<label>실사 부서 선택</label>
+<select id="deptSelect">
+<option value="">부서를 선택하세요</option>
+<option value="1F(가공생산)">1F(가공생산)</option>
+<option value="2F(검사/포장)">2F(검사/포장)</option>
+<option value="주조">주조</option>
+<option value="청우">청우</option>
+<option value="자재">자재</option>
+<option value="영업">영업</option>
+<option value="외주">외주</option>
 </select>
-<div class="hint" id="typeHint" style="display:none;">엑셀 컬럼: LOT NO / 품번 / 품명 / 날짜 — 날짜가 비어 있는 행은 아래 기본 날짜로 저장됩니다. 60일 지나면 자동 삭제됩니다.</div>
 
-<label id="dateLabel">실사 기준 날짜</label>
-<input type="date" id="uploadDateInput" required>
-<div class="date-warning" id="dateWarning"></div>
+<div class="camera-box">
+<div class="guide-rect"></div>
+<div style="font-size:12px; color:#00e676;">박스 안에 LOT 번호 맞추기</div>
+<div style="font-size:11px; color:#999; margin-top:5px;" id="camStatus">카메라 대기 중...</div>
+</div>
 
-<label>엑셀 파일 선택 (.xlsx)</label>
-<input type="file" id="excelFile" accept=".xlsx">
+<button style="margin-top:14px;" id="scanBtn">📷 인식하기</button>
 
-<button id="uploadBtn">업로드 시작</button>
-<button id="templateBtn" class="btn2">📄 양식 다운로드</button>
+<label style="margin-top:16px;">LOT 번호 직접 조회</label>
+<div style="display:flex; gap:6px;">
+<input type="text" id="lotInput" placeholder="예: 2606260022-001" style="margin:0;">
+<button id="searchBtn" style="width:100px; background:#4fc3ff;">🔍 조회</button>
+</div>
 
 <div class="msg" id="msgBox"></div>
-<div class="dup-msg" id="dupBox"></div>
-<div class="validation-msg" id="validationBox"></div>
-<button id="downloadBtn" style="display:none;margin-top:10px;background:#4fc3ff;">📥 업로드한 데이터 다운로드</button>
 </div>
 
 <script type="module">
@@ -75,396 +81,41 @@ const sb = createClient("https://siwaynipvwtwuoobyarp.supabase.co", "sb_publisha
     }
 });
 
-const wrap = r => ({ id: r.id, data: () => r });
+const netStatus = document.getElementById("netStatus");
+const startBtn = document.getElementById("startBtn");
+const authorInput = document.getElementById("authorInput");
+const deptSelect = document.getElementById("deptSelect");
+const scanBtn = document.getElementById("scanBtn");
 
-async function fetchAll(build){
-    const out = [];
-    for (let from = 0; ; from += 1000){
-        const { data, error } = await build().order('id').range(from, from + 999);
+authorInput.value = localStorage.getItem("scanner_author") || "";
+deptSelect.value = localStorage.getItem("scanner_dept") || "";
+
+authorInput.addEventListener("input", () => {
+    localStorage.setItem("scanner_author", authorInput.value.trim());
+});
+
+deptSelect.addEventListener("change", () => {
+    localStorage.setItem("scanner_dept", deptSelect.value);
+});
+
+startBtn.onclick = async () => {
+    startBtn.disabled = true;
+    startBtn.textContent = "⏳ 데이터 다운로드 중...";
+    netStatus.textContent = "⏳ 최신 재고 데이터를 동기화하는 중...";
+    try {
+        const { data, error } = await sb.from('stock').select('*').limit(100);
         if (error) throw error;
-        data.forEach(r => out.push(wrap(r)));
-        if (data.length < 1000) break;
-    }
-    return out;
-}
-
-function todayKST(){
-    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year:"numeric", month:"2-digit", day:"2-digit" });
-    return fmt.format(new Date());
-}
-
-const STOCK_COL = "stock";
-
-function nowDateTimeStr(){
-    const fmt = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit',
-        hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false
-    });
-    const map = {};
-    fmt.formatToParts(new Date()).forEach(p => map[p.type] = p.value);
-    return `${map.year}-${map.month}-${map.day} ${map.hour}:${map.minute}:${map.second}`;
-}
-
-function classifyDepartment(ref, warehouse, itemName){
-    ref = ref || ''; warehouse = warehouse || ''; itemName = itemName || '';
-    const isCheongwoo = ref.indexOf('청우') !== -1;
-
-    if (ref.indexOf('2F') !== -1) return { department:'2F(검사/포장)', subcontractType:null };
-
-    if (warehouse === '원자재창고') return { department:'자재', subcontractType:null };
-    if (warehouse === '완제품창고') return { department:'영업', subcontractType:null };
-    if (warehouse === '외주창고') return { department:'외주', subcontractType:null };
-
-    if (warehouse.indexOf('반제품') !== -1 && itemName.indexOf('주조') !== -1 && itemName.indexOf('창고') === -1) {
-        return { department: '주조', subcontractType: null };
-    }
-
-    if (ref.indexOf('주조') !== -1 || ref.indexOf('사상') !== -1) {
-        return { department: '주조', subcontractType: null };
-    }
-
-    if (isCheongwoo) {
-        return { department: '청우', subcontractType: '청우' };
-    }
-
-    if (warehouse.indexOf('반제품') !== -1 || ref.indexOf('1F') !== -1) {
-        return { department: '1F(가공생산)', subcontractType: '자체' };
-    }
-
-    return { department:'미분류', subcontractType:null };
-}
-
-const dateInput = document.getElementById("uploadDateInput");
-const dateWarning = document.getElementById("dateWarning");
-const excelFile = document.getElementById("excelFile");
-const uploadBtn = document.getElementById("uploadBtn");
-const msgBox = document.getElementById("msgBox");
-const dupBox = document.getElementById("dupBox");
-const validationBox = document.getElementById("validationBox");
-const summaryBox = document.getElementById("summaryBox");
-const downloadBtn = document.getElementById("downloadBtn");
-const typeSelect = document.getElementById("typeSelect");
-const typeHint = document.getElementById("typeHint");
-const dateLabel = document.getElementById("dateLabel");
-const templateBtn = document.getElementById("templateBtn");
-const lotSummaryBox = document.getElementById("lotSummaryBox");
-const LOT_TABLE = "lot_master";
-const TYPE_INFO = { mat:{ label:'자재실적', source:'수동(자재)' }, prod:{ label:'생산실적', source:'수동(생산)' } };
-
-let lastUploadedRows = [];
-let lastUploadedDate = '';
-let lastUploadedType = 'stock';
-let existingCountForDate = 0;
-
-dateInput.value = todayKST();
-
-async function loadSummary(){
-    try{
-        const { data: dates, error } = await sb.from('stock_dates').select('*').order('upload_date', { ascending:false });
-        if (error) throw error;
-        const total = dates.reduce((s, r) => s + Number(r.n), 0);
-        const lastAt = dates.reduce((m, r) => ((r.last_at || '') > m ? r.last_at : m), '');
-        const maxDate = dates.length ? dates[0].upload_date : null;
-
-        const deptBreakdown = {};
-        if (maxDate){
-            const rows = await fetchAll(() => sb.from(STOCK_COL).select('department').eq('upload_date', maxDate));
-            rows.forEach(d => {
-                const dep = d.data().department || '미분류';
-                deptBreakdown[dep] = (deptBreakdown[dep] || 0) + 1;
-            });
-        }
-
-        let html = `누적 저장된 LOT 기록: <b>${total}</b>건<br>실사 날짜 종류: <b>${dates.length}</b>개<br>마지막 업로드: <b>${lastAt || '없음'}</b>`;
-        if (maxDate){
-            html += `<br><br>최신 실사(${maxDate}) 부서별 분포:<br>`;
-            html += Object.keys(deptBreakdown).map(d => `${d}: <b>${deptBreakdown[d]}</b>건`).join('&nbsp;&nbsp;');
-        }
-        summaryBox.innerHTML = html;
-    }catch(e){
-        console.error(e);
-        summaryBox.textContent = '요약 정보를 불러오지 못했습니다.';
-    }
-}
-
-async function checkDate(){
-    if (typeSelect.value !== 'stock'){ existingCountForDate = 0; dateWarning.style.display = "none"; return; }
-    const dt = dateInput.value;
-    if (!dt) return;
-    try{
-        const { count, error: cntErr } = await sb.from(STOCK_COL).select('id', { count:'exact', head:true }).eq('upload_date', dt);
-        if (cntErr) throw cntErr;
-        const snap = { size: count || 0 };
-        existingCountForDate = snap.size;
-        if (existingCountForDate > 0){
-            dateWarning.textContent = `⚠ 이 날짜에 이미 ${existingCountForDate}건의 데이터가 있습니다. 업로드하면 덮어씁니다.`;
-            dateWarning.style.display = "block";
-        } else {
-            dateWarning.style.display = "none";
-        }
-    }catch(e){
-        console.error("날짜 확인 실패:", e);
-    }
-}
-
-dateInput.addEventListener("change", checkDate);
-
-async function loadLotSummary(){
-    try{
-        const head = { count:'exact', head:true };
-        const [all, mat, prod, latest] = await Promise.all([
-            sb.from(LOT_TABLE).select('lot_no', head),
-            sb.from(LOT_TABLE).select('lot_no', head).ilike('source', '%자재%'),
-            sb.from(LOT_TABLE).select('lot_no', head).ilike('source', '%생산%'),
-            sb.from(LOT_TABLE).select('work_date').order('work_date', { ascending:false }).limit(1)
-        ]);
-        [all, mat, prod, latest].forEach(r => { if (r.error) throw r.error; });
-        const latestDate = latest.data.length ? latest.data[0].work_date : '없음';
-        lotSummaryBox.innerHTML = `LOT 조회용 자료(최근 60일): <b>${all.count || 0}</b>건 (자재 <b>${mat.count || 0}</b> / 생산 <b>${prod.count || 0}</b>)<br>가장 최근 날짜: <b>${latestDate}</b>`;
-    }catch(e){
-        console.error(e);
-        lotSummaryBox.textContent = 'LOT 조회용 자료를 불러오지 못했습니다.';
-    }
-}
-
-function onTypeChange(){
-    const t = typeSelect.value;
-    msgBox.textContent = ''; dupBox.textContent = ''; validationBox.innerHTML = '';
-    downloadBtn.style.display = 'none'; lastUploadedRows = [];
-    if (t === 'stock'){
-        dateLabel.textContent = '실사 기준 날짜';
-        typeHint.style.display = 'none';
-        templateBtn.style.display = 'none';
-    } else {
-        dateLabel.textContent = '기본 날짜 (엑셀 날짜가 빈 행에 사용)';
-        typeHint.style.display = 'block';
-        templateBtn.style.display = 'block';
-    }
-    checkDate();
-}
-typeSelect.addEventListener('change', onTypeChange);
-
-function normalizeDate(v, fallback){
-    if (v === null || v === undefined || v === '') return fallback;
-    if (v instanceof Date && !isNaN(v)) return v.toISOString().slice(0, 10);
-    if (typeof v === 'number'){
-        if (v > 20000 && v < 80000){                        
-            return new Date(Math.round((v - 25569) * 86400 * 1000)).toISOString().slice(0, 10);
-        }
-        v = String(Math.trunc(v));
-    }
-    const digits = String(v).replace(/[^0-9]/g, '');
-    if (digits.length >= 8){
-        const y = digits.slice(0,4), m = digits.slice(4,6), d = digits.slice(6,8);
-        if (+m >= 1 && +m <= 12 && +d >= 1 && +d <= 31) return `${y}-${m}-${d}`;
-    }
-    const m2 = String(v).trim().match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})/);
-    if (m2) return `${m2[1]}-${m2[2].padStart(2,'0')}-${m2[3].padStart(2,'0')}`;
-    return fallback;
-}
-
-function parseLotExcel(file, defaultDate){
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try{
-                const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-                const sheet = wb.Sheets[wb.SheetNames[0]];
-                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' });
-                if (rows.length < 2){ reject('❌ 엑셀에 데이터가 없습니다.'); return; }
-
-                const header = rows[0].map(h => (h || '').toString().trim());
-                let lotIdx = header.indexOf('LOT NO'); if (lotIdx === -1) lotIdx = header.indexOf('LOT');
-                const idx = { lot_no: lotIdx, item_no: header.indexOf('품번'), item_name: header.indexOf('품명') };
-                const dateIdx = header.indexOf('날짜');
-                const missing = Object.keys(idx).filter(k => idx[k] === -1);
-                if (missing.length){ reject('❌ 엑셀에서 필수 컬럼을 찾을 수 없습니다.'); return; }
-
-                const parsed = [];
-                for (let i = 1; i < rows.length; i++){
-                    const row = rows[i];
-                    const lotNo = (row[idx.lot_no] || '').toString().trim();
-                    if (!lotNo || lotNo === 'LOT NO') continue;
-                    const rawDate = dateIdx !== -1 ? row[dateIdx] : '';
-                    parsed.push({
-                        lot_no: lotNo,
-                        item_no: (row[idx.item_no] || '').toString().trim(),
-                        item_name: (row[idx.item_name] || '').toString().trim(),
-                        work_date: normalizeDate(rawDate, defaultDate),
-                        date_ok: rawDate === '' || rawDate === null || rawDate === undefined || normalizeDate(rawDate, '') !== ''
-                    });
-                }
-                resolve(parsed);
-            }catch(err){
-                reject('❌ 엑셀 파일을 읽을 수 없습니다: ' + err.message);
-            }
-        };
-        reader.onerror = () => reject('❌ 파일을 읽는 중 오류가 발생했습니다.');
-        reader.readAsArrayBuffer(file);
-    });
-}
-
-async function uploadLotMaster(type, rows){
-    const info = TYPE_INFO[type];
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateInput.value)) return { success:false, message:'❌ 기본 날짜 형식이 올바르지 않습니다.' };
-    if (!rows || !rows.length) return { success:false, message:'❌ 엑셀에 데이터가 없습니다.' };
-
-    const byLot = {};
-    rows.forEach(r => {
-        if (!r.item_no && !r.item_name) return;
-        const old = byLot[r.lot_no];
-        if (!old || r.work_date >= old.work_date){                                
-            byLot[r.lot_no] = { lot_no: r.lot_no, item_no: r.item_no, item_name: r.item_name, work_date: r.work_date, source: info.source };
-        }
-    });
-    const savedRows = Object.values(byLot);
-    for (let i = 0; i < savedRows.length; i += 500){
-        const { error } = await sb.from(LOT_TABLE).upsert(savedRows.slice(i, i + 500), { onConflict: 'lot_no' });
-        if (error) throw error;
-    }
-    return { success:true, message:`✅ ${info.label} 업로드 완료: ${savedRows.length}건 반영됨`, saved_rows: savedRows };
-}
-
-templateBtn.onclick = () => {
-    const t = typeSelect.value;
-    if (t === 'stock') return;
-    const label = TYPE_INFO[t].label;
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([['LOT NO', '품번', '품명', '날짜']]);
-    XLSX.utils.book_append_sheet(wb, ws, label);
-    XLSX.writeFile(wb, `LOT양식_${label}.xlsx`);
-};
-
-function parseExcelFile(file){
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try{
-                const data = new Uint8Array(e.target.result);
-                const wb = XLSX.read(data, { type: 'array' });
-                const sheet = wb.Sheets[wb.SheetNames[0]];
-                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' });
-
-                if (rows.length < 2){ reject('❌ 엑셀에 데이터가 없습니다.'); return; }
-
-                const header = rows[0].map(h => (h || '').toString().trim());
-                const colIndex = {
-                    lot_no: header.indexOf('LOT NO'),
-                    item_no: header.indexOf('품번'),
-                    item_name: header.indexOf('품명'),
-                    qty: header.indexOf('현 재고'),
-                    unit: header.indexOf('단위'),
-                    warehouse: header.indexOf('창고'),
-                };
-                const refIdx = header.indexOf('참조');
-                const missing = Object.keys(colIndex).filter(k => colIndex[k] === -1);
-                if (missing.length){ reject('❌ 필수 컬럼 누락: ' + missing.join(', ')); return; }
-
-                const parsed = [];
-                for (let i = 1; i < rows.length; i++){
-                    const row = rows[i];
-                    const lotNo = (row[colIndex.lot_no] || '').toString().trim();
-                    if (!lotNo || lotNo === 'LOT NO') continue;
-
-                    parsed.push({
-                        lot_no: lotNo,
-                        item_no: (row[colIndex.item_no] || '').toString().trim(),
-                        item_name: (row[colIndex.item_name] || '').toString().trim(),
-                        qty: row[colIndex.qty],
-                        unit: (row[colIndex.unit] || '').toString().trim(),
-                        warehouse: (row[colIndex.warehouse] || '').toString().trim(),
-                        ref: refIdx !== -1 ? (row[refIdx] || '').toString().trim() : '',
-                    });
-                }
-                resolve(parsed);
-            }catch(err){
-                reject('❌ 엑셀 파일을 읽을 수 없습니다: ' + err.message);
-            }
-        };
-        reader.onerror = () => reject('❌ 파일을 읽는 중 오류가 발생했습니다.');
-        reader.readAsArrayBuffer(file);
-    });
-}
-
-async function uploadMaster(uploadDate, rows){
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(uploadDate)){
-        return { success:false, message:'❌ 실사 날짜 형식이 올바르지 않습니다.' };
-    }
-    if (!rows || !rows.length){
-        return { success:false, message:'❌ 엑셀에 데이터가 없습니다.' };
-    }
-
-    const { count: existingCount, error: cntErr } = await sb.from(STOCK_COL).select('id', { count:'exact', head:true }).eq('upload_date', uploadDate);
-    if (cntErr) throw cntErr;
-
-    const uploadedAt = nowDateTimeStr();
-    const byLot = {};   
-    for (const r of rows){
-        const lotNo = (r.lot_no || '').trim();
-        if (!lotNo) continue;
-        const itemName = (r.item_name || '').trim();
-        const warehouse = (r.warehouse || '').trim();
-        const cls = classifyDepartment(r.ref || '', warehouse, itemName);
-        byLot[lotNo] = {
-            lot_no: lotNo,
-            item_no: (r.item_no || '').trim(),
-            item_name: itemName,
-            qty: isNaN(r.qty) ? 0 : Math.trunc(Number(r.qty)),
-            unit: (r.unit || '').trim(),
-            warehouse: warehouse,
-            department: cls.department,
-            subcontract_type: cls.subcontractType,
-            upload_date: uploadDate,
-            uploaded_at: uploadedAt,
-            run_at: ''
-        };
-    }
-    const savedRows = Object.values(byLot);
-    for (let i = 0; i < savedRows.length; i += 500){
-        const { error: upErr } = await sb.from(STOCK_COL).upsert(savedRows.slice(i, i + 500), { onConflict: 'upload_date,lot_no,run_at' });
-        if (upErr) throw upErr;
-    }
-    return { success:true, message:`✅ 업로드 완료: ${savedRows.length}건 반영됨 (실사 날짜: ${uploadDate})`, saved_rows: savedRows };
-}
-
-uploadBtn.onclick = async () => {
-    msgBox.textContent = ''; dupBox.textContent = ''; validationBox.innerHTML = '';
-    const file = excelFile.files[0];
-    if (!file){ msgBox.textContent = '❌ 파일을 선택해주세요.'; return; }
-
-    uploadBtn.disabled = true;
-    uploadBtn.textContent = '업로드 중...';
-
-    try{
-        const type = typeSelect.value;
-        const parsedRows = type === 'stock' ? await parseExcelFile(file) : await parseLotExcel(file, dateInput.value);
-        const result = type === 'stock' ? await uploadMaster(dateInput.value, parsedRows) : await uploadLotMaster(type, parsedRows);
-
-        if (result.success){
-            msgBox.textContent = result.message;
-            msgBox.style.color = '#00e676';
-            lastUploadedRows = result.saved_rows || [];
-            lastUploadedDate = dateInput.value;
-            lastUploadedType = type;
-            downloadBtn.style.display = lastUploadedRows.length ? 'block' : 'none';
-            if (type === 'stock'){ await loadSummary(); await checkDate(); }
-            else { await loadLotSummary(); }
-        } else {
-            msgBox.textContent = result.message;
-            msgBox.style.color = '#ff8a8a';
-        }
-    }catch(err){
-        msgBox.textContent = typeof err === 'string' ? err : ('❌ 업로드 실패: ' + err.message);
-        msgBox.style.color = '#ff8a8a';
+        alert(`✅ 최신 재고 데이터 동기화 완료! (${data.length}건 로드됨)`);
+        netStatus.textContent = "🟢 데이터 동기화 완료 (스캔 가능)";
+        scanBtn.disabled = false;
+    } catch (err) {
+        alert("❌ 다운로드 실패: " + err.message);
+        netStatus.textContent = "🔴 다운로드 실패 (다시 시도해주세요)";
     } finally {
-        uploadBtn.disabled = false;
-        uploadBtn.textContent = '업로드 시작';
+        startBtn.disabled = false;
+        startBtn.textContent = "🚀 시작 (최근 10일 재고 데이터 다운로드)";
     }
 };
-
-loadSummary();
-loadLotSummary();
-checkDate();
 </script>
 
 </body>
