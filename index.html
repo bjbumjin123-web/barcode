@@ -82,7 +82,7 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 .st-bad{ color:#ff8a8a !important; }
 .st-tag{ display:inline-block; margin-left:6px; padding:1px 6px; font-size:11px; border-radius:6px; border:1px solid #666; color:#bbb; }
 .st-tag.st-bad{ border-color:#ff8a8a; }
-#modalStatus{ margin:0 0 6px; font-size:12px; color:#aaa; text-align:center; }
+#modalStatus{ margin:0 0 4px; font-size:11px; color:#aaa; text-align:center; }
 #closeStateChips button{ flex:1 1 auto; padding:7px 6px; font-size:12px; font-weight:bold; color:#bbb; background:#1a1a1a; border:1px solid #444; border-radius:8px; }
 #closeStateChips button.on{ color:#111; background:#ffb84d; border-color:#ffb84d; }
 .rm-remain{ color:#ffb84d !important; } .rm-full{ color:#00e676 !important; } .rm-nodata{ color:#aaa !important; } .rm-increase{ color:#6ec1ff !important; }
@@ -159,8 +159,7 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 #status{ margin-top:2px; font-weight:bold; color:#4fc3ff; text-align:center; font-size:12px; min-height:16px; flex:0 0 auto; }
 
 #resultRow{ display:flex; margin-top:6px; flex:0 0 auto; }
-body.kb-open{ padding-bottom:70vh; }   /* 키보드가 올라올 때 화면을 위로 밀어올릴 여백 */
-/* 3회 연속 인식 실패 → 직접 입력 모드: 카메라를 숨기고 [상태 문구 + LOT 입력칸 + 조회]만 남김 */
+body.kb-open{ padding-bottom:70vh; }   
 #backToCamBtn{ display:none; width:100%; margin-top:6px; padding:10px; border:1px solid #444; border-radius:10px; background:#222; color:#ddd; font-size:13px; font-weight:bold; }
 body.manual-mode #camWrap, body.manual-mode #captureBtn{ display:none; }
 body.manual-mode #backToCamBtn{ display:block; }
@@ -191,37 +190,33 @@ body.manual-mode #backToCamBtn{ display:block; }
     background:#00e676; color:#111; border:none; border-radius:8px; cursor:pointer;
 }
 
-/* 화면 중앙 실수량 입력 모달 팝업 */
+/* 화면 중앙 실수량 입력 모달 팝업 최적화 (작은 화면 대응) */
 #qtyModalOverlay{
     display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:3000;
-    align-items:center; justify-content:center; padding:16px;
+    align-items:center; justify-content:center; padding:12px;
 }
 #qtyModalBox{
-    background:#1c1c1c; border:2px solid #00e676; border-radius:14px; padding:18px;
-    max-width:380px; width:100%; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,0.9); padding:16px 14px;
+    background:#1c1c1c; border:2px solid #00e676; border-radius:14px;
+    max-width:380px; width:100%; box-shadow:0 8px 30px rgba(0,0,0,0.9);
+    padding:12px 14px; box-sizing:border-box;
+    display:flex; flex-direction:column; max-height:90vh;
 }
-#qtyModalBox h3{ margin:0 0 10px; color:#00e676; font-size:18px; }
-#qtyModalBox{ box-sizing:border-box; }
-#qtyModalBox.kb{ padding:10px 12px; }
-#qtyModalBox.kb h3{ margin:0 0 4px; font-size:15px; }
-#qtyModalBox.kb .wh-box{ display:none !important; }
-#qtyModalBox.kb .modal-info-group{ padding:6px 8px; margin-bottom:6px; font-size:12px; }
-#qtyModalBox.kb #modalWarn{ padding:5px 8px; margin-bottom:6px; font-size:12px; }
+#qtyModalBox h3{ margin:0 0 6px; color:#00e676; font-size:16px; flex-shrink:0; text-align:center; }
 
-/* 모달 내부 정보 표시 그룹 */
+/* 모달 내부 정보 그룹 (키보드 올라올 때 숨김 처리용) */
 .modal-info-group {
-    background:#111; border:1px solid #333; border-radius:8px; padding:8px 12px;
-    margin-bottom:14px; text-align:left; font-size:13px;
+    background:#111; border:1px solid #333; border-radius:8px; padding:6px 10px;
+    margin-bottom:8px; text-align:left; font-size:12px; flex-shrink:0;
 }
 .modal-info-item {
     display:flex; justify-content:space-between; align-items:flex-start;
-    padding:6px 0; border-bottom:1px solid #222;
+    padding:3px 0; border-bottom:1px solid #222;
 }
 .modal-info-item:last-child { border-bottom:none; }
 .modal-info-label { margin-right:8px; color:#888; font-weight:bold; flex-shrink:0; white-space:nowrap; }
 .modal-info-val { color:#fff; font-weight:bold; word-break:keep-all; overflow-wrap:anywhere; text-align:right; flex-grow:1; min-width:0; }
 #modalLotNo, #modalSysQty { white-space:nowrap; overflow-wrap:normal; }
-.modal-info-val.highlight { color:#00e676; font-size:15px; }
+.modal-info-val.highlight { color:#00e676; font-size:14px; }
 
 #itemModalOverlay{ display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:3500; align-items:center; justify-content:center; padding:16px; }
 #itemModalBox{ background:#1c1c1c; border:2px solid #4fc3ff; border-radius:14px; padding:16px; max-width:480px; width:100%; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 8px 30px rgba(0,0,0,0.9); }
@@ -238,11 +233,27 @@ body.manual-mode #backToCamBtn{ display:block; }
 .wh-row{ display:flex; justify-content:space-between; gap:8px; padding:8px 10px; margin-bottom:4px; background:#161616; border:1px solid #2a4a5c; border-radius:8px; font-size:13px; cursor:pointer; }
 .wh-row.all-done{ border-color:#00e676; }
 .wh-row b{ color:#00e676; }
-#modalWarn{display:none;margin:0 0 8px;padding:8px;border-radius:8px;font-size:13px;font-weight:bold;line-height:1.4;}
-#modalLotNo.big{font-size:clamp(15px,5.2vw,22px);color:#ff8a8a;letter-spacing:0;}
-#calcOpenBtn{ width:52px; height:48px; font-size:22px; border-radius:8px; border:1px solid #4fc3ff; background:#162a35; color:#fff; cursor:pointer; flex:0 0 auto; }
-.qty-row{ display:flex; gap:8px; margin-bottom:14px; }
-.qty-row #modalQtyInput{ margin-bottom:0; flex:1; width:auto; min-width:0; }
+#modalItemStatus { display: none; }
+#modalWarn{ display:none; margin:0 0 4px; padding:4px; border-radius:6px; font-size:11px; font-weight:bold; }
+#modalLotNo.big{ font-size:clamp(15px,5.2vw,22px); color:#ff8a8a; letter-spacing:0; }
+
+#calcOpenBtn{ width:42px; height:42px; font-size:18px; border-radius:8px; border:1px solid #4fc3ff; background:#162a35; color:#fff; cursor:pointer; flex:0 0 auto; }
+.qty-row{ display:flex; gap:6px; margin-bottom:8px; flex-shrink:0; }
+#modalQtyInput{
+    width:100%; height:42px; font-size:20px; font-weight:bold; text-align:center;
+    border-radius:8px; border:1px solid #00e676; background:#111; color:#fff; margin-bottom:0;
+}
+
+/* 버튼 그룹이 항상 하단에 고정되도록 처리 */
+.modal-btn-group{ display:flex; gap:6px; flex-shrink:0; margin-top:auto; }
+.modal-btn-group button{ flex:1; height:40px; font-size:14px; font-weight:bold; border:none; border-radius:8px; cursor:pointer; }
+#modalSaveBtn{ background:#00e676; color:#111; }
+#modalCloseBtn{ background:#444; color:#eee; }
+
+/* 키보드가 올라왔을 때(.kb 클래스가 붙을 때) 불필요한 영역을 숨겨 버튼 확보 */
+#qtyModalBox.kb .modal-info-group { display: none !important; }
+#qtyModalBox.kb { padding: 10px 12px; }
+
 #calcOverlay{ display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:4000; align-items:center; justify-content:center; padding:16px; }
 #calcBox{ background:#1c1c1c; border:2px solid #4fc3ff; border-radius:14px; padding:14px; width:100%; max-width:320px; box-shadow:0 8px 30px rgba(0,0,0,0.9); }
 #calcExpr{ min-height:20px; text-align:right; color:#888; font-size:14px; word-break:break-all; }
@@ -254,15 +265,6 @@ body.manual-mode #backToCamBtn{ display:block; }
 #calcPad button.zero{ grid-column:span 2; }
 #calcFoot{ display:flex; gap:8px; margin-top:10px; }
 #calcFoot button{ flex:1; height:46px; font-size:15px; font-weight:bold; border:none; border-radius:8px; cursor:pointer; }
-#modalQtyInput{
-    width:100%; height:48px; font-size:22px; font-weight:bold; text-align:center;
-    border-radius:8px; border:1px solid #00e676; background:#111; color:#fff; margin-bottom:14px;
-}
-.modal-btn-group{ display:flex; }
-.modal-btn-group button + button{ margin-left:8px; }
-.modal-btn-group button{ flex:1; height:44px; font-size:15px; font-weight:bold; border:none; border-radius:8px; cursor:pointer; }
-#modalSaveBtn{ background:#00e676; color:#111; }
-#modalCloseBtn{ background:#444; color:#eee; }
 </style>
 </head>
 <body>
@@ -290,7 +292,7 @@ body.manual-mode #backToCamBtn{ display:block; }
     <option value="주조">주조</option>
     <option value="자재">자재</option>
     <option value="1F(가공생산)">1F(가공생산)</option>
-    <option value="청우">청우</option>  <!-- 이 항목이 반드시 있어야 합니다 -->
+    <option value="청우">청우</option>
     <option value="2F(검사/포장)">2F(검사/포장)</option>
     <option value="영업">영업</option>
     <option value="외주">외주</option>
@@ -360,7 +362,7 @@ body.manual-mode #backToCamBtn{ display:block; }
 <button id="modalSaveBtn">저장</button>
 <button id="modalCloseBtn">취소</button>
 </div>
-<div id="modalMsg" style="margin-top:8px;font-size:12px;font-weight:bold;"></div>
+<div id="modalMsg" style="margin-top:4px;font-size:11px;font-weight:bold;"></div>
 </div>
 </div>
 
@@ -406,7 +408,6 @@ async function fetchAll(build){
 const STOCK_COL = "stock";
 const LOG_COL = "scan_log";
 
-// 오프라인 큐 로직
 const QUEUE_KEY = 'lot_scan_queue';
 function readQueue(){ try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch(e){ return []; } }
 function writeQueue(q){ try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); } catch(e){} }
@@ -426,14 +427,12 @@ flushQueue();
 
 window.cachedStockMap = new Map();
 
-// 재고 캐시 영속 저장 (새로고침해도 유지, 마감 시 삭제)
 const CACHE_KEY = 'lot_stock_cache_v1';
-// 오늘 스캔된 LOT 집합 (진행바/마감 공용) - 서버 기록 + 미전송 오프라인 큐
 window.scannedTodaySet = new Set();
 window.syncScannedToday = async function(){
     const { date: today } = nowParts();
     const logs = await fetchAll(() => sb.from(LOG_COL).select('lot_no,actual_qty').eq('scan_date', today));
-    const set = new Set();   // 수량 입력까지 끝낸 LOT만 '확인'으로 인정
+    const set = new Set();
     logs.forEach(d => { const r = d.data(); if (r.actual_qty !== null && r.actual_qty !== undefined) set.add(r.lot_no); });
     readQueue().forEach(q => { if (q.scan_date === today && q.actual_qty !== null && q.actual_qty !== undefined) set.add(q.lot_no); });
     window.scannedTodaySet = set;
@@ -446,7 +445,7 @@ window.saveStockCache = function(){
             saved_at: new Date().toISOString(),
             rows: Array.from(window.cachedStockMap.values())
         }));
-    } catch(e) { console.error('캐시 저장 실패(메모리 캐시만 사용)', e); }
+    } catch(e) { console.error(e); }
 };
 window.clearStockCache = function(){
     window.cachedStockMap.clear();
@@ -454,8 +453,7 @@ window.clearStockCache = function(){
     window.serverNewerRun = '';
     try { localStorage.removeItem(CACHE_KEY); } catch(e){}
 };
-// ===== 최근 실행분(master run) 판단 도우미 =====
-const FRESH_HOURS = 13;   // 최근 실행분이 이 시간 이내면 '당일 정상' (하루 1회 07:58 갱신 + 재시도/지연 여유, 다음 날 아침 갱신 전까지 인정)
+const FRESH_HOURS = 13;
 window.masterRunAt = '';
 function runKeyOf(r){ return (r && (r.run_at || r.uploaded_at)) || ''; }
 function computeMasterRun(){
@@ -470,11 +468,9 @@ function masterRowsOf(rows){
     return rows.filter(r => cleanDate8Digits(r.upload_date) === master);
 }
 window.masterRowsOf = masterRowsOf;
-// 실사 대상: 최신 재고 중 '실사불가 상태'(CHK_TYPE) LOT 은 마감 대상/진행바에서 제외
 function auditTargetsOf(rows){ return masterRowsOf(rows).filter(r => r.chk_type !== '실사불가 상태'); }
 window.auditTargetsOf = auditTargetsOf;
 
-// 서버에 더 새로운 재고(실행 회차)가 있는지 확인 -> 있으면 [마감] 대신 [시작] 버튼으로 전환
 window.serverNewerRun = '';
 window.checkNewStock = async function(){
     if (!window.masterRunAt || !navigator.onLine) return;
@@ -488,14 +484,12 @@ window.checkNewStock = async function(){
             window.serverNewerRun = newer ? latest : '';
             if (window.refreshStartBtn) window.refreshStartBtn();
         }
-    } catch(e){ console.error(e); }
+    }catch(e){ console.error(e); }
 };
-// 창고 표시 순서: 원자재 -> 외주 -> 반제품 -> 완제품 (목록에 없는 창고는 맨 뒤, 이름순). 공백은 무시하고 비교 ('반제품 창고' = '반제품창고')
 const WH_ORDER = ['원자재창고', '외주창고', '반제품창고', '완제품창고'];
 const whNorm = w => String(w || '').replace(/\s+/g, '');
 const whRank = w => { const i = WH_ORDER.indexOf(whNorm(w)); return i < 0 ? 99 : i; };
 window.whRank = whRank;
-// 같은 창고 + 같은 품번의 수량 합계 (최근 실행분, 실사 대상 전체 LOT 기준 - 확인 여부/부서 무관). 품번이 없으면 LOT 단독으로 취급
 window.itemWhKey = r => whNorm(r.warehouse) + '|' + (String(r.item_no || '').trim() || r.lot_no);
 window.itemWhTotals = function(){
     const m = new Map();
@@ -505,7 +499,6 @@ window.itemWhTotals = function(){
     });
     return m;
 };
-// 같은 품번을 창고별로 묶어 확인/남음 집계 (최근 실행분 기준, 확인 = 수량 입력 완료)
 window.apiItemStatus = function(itemNo){
     const key = String(itemNo || '').trim();
     if (!key || key === '-' || !window.cachedStockMap) return [];
@@ -523,14 +516,7 @@ window.apiItemStatus = function(itemNo){
     return Object.values(groups)
         .sort((a, b) => rank(a.warehouse) - rank(b.warehouse) || a.warehouse.localeCompare(b.warehouse))
         .map(g => { g.lots.sort((a, b) => (a.done - b.done) || a.lot_no.localeCompare(b.lot_no)); return g; });
-};   // 아래쪽 일반 스크립트(진행바)에서도 사용
-function parseKst(str){ return new Date(String(str).replace(' ', 'T') + 'Z'); }
-function daysBetween(dateA, dateB){
-    const a = cleanDate8Digits(dateA), b = cleanDate8Digits(dateB);
-    if (a.length !== 8 || b.length !== 8) return null;
-    const t = x => Date.UTC(+x.slice(0,4), +x.slice(4,6) - 1, +x.slice(6,8));
-    return Math.round((t(b) - t(a)) / 86400000);
-}
+};
 
 (function restoreStockCache(){
     try {
@@ -552,10 +538,9 @@ window.download10DaysStock = async function(){
     try {
         let snap = [];
         try {
-            snap = await fetchAll(() => sb.from('stock_latest').select('*'));   // 최근 10일, LOT별 최신 1건
+            snap = await fetchAll(() => sb.from('stock_latest').select('*'));
             if (!snap.length) throw new Error('stock_latest 결과 없음');
         } catch(viewErr){
-            console.error('stock_latest 조회 실패 → 기존 방식(최신 2,000행)으로 대체', viewErr);
             snap = [];
             for (let from = 0; from < 2000; from += 1000){
                 const { data, error } = await sb.from(STOCK_COL).select('*')
@@ -598,13 +583,11 @@ function nowParts(){
     fmt.formatToParts(new Date()).forEach(p => map[p.type] = p.value);
     const calDate = `${map.year}-${map.month}-${map.day}`;
     const time = `${map.hour}:${map.minute}:${map.second}`;
-    // date = '회차 날짜' (07:00 ~ 다음날 06:59 가 한 회). 07:00 이전이면 전날 날짜. datetime 은 실제 시각 그대로.
     const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date(Date.now() - 7 * 3600 * 1000));
     return { date, datetime: `${calDate} ${time}` };
 }
 
-// ===== 잔량 판정: 현재 재고 수량 vs 처음 수량(lot_master.origin_qty, 생산/입고 기록 합계) =====
-window.originCache = new Map();   // lot_no -> 처음 수량(없으면 null)
+window.originCache = new Map();
 window.fetchOrigins = async function(lots){
     const need = Array.from(new Set(lots)).filter(l => l && !window.originCache.has(l));
     for (let i = 0; i < need.length; i += 100){
@@ -613,1395 +596,29 @@ window.fetchOrigins = async function(lots){
             const { data, error } = await sb.from('lot_master').select('lot_no,origin_qty').in('lot_no', part);
             if (error) throw error;
             const got = new Set();
-            (data || []).forEach(r => { got.add(r.lot_no); window.originCache.set(r.lot_no, r.origin_qty == null ? null : Number(r.origin_qty)); });
+            (data || []).forEach(r => { got.add(r.lot_no); window.originCache.set(r.lot_no, r.origin_qty); });
             part.forEach(l => { if (!got.has(l)) window.originCache.set(l, null); });
-        } catch(e){ console.error('처음 수량 조회 실패(무시하고 계속)', e); }   // 실패분은 캐시에 넣지 않아 다음에 다시 시도
-    }
-};
-// 반환: { state: 'remain'(잔량) | 'full'(온전) | 'increase'(판단 불가-수량 증가) | 'nodata'(판단 불가-데이터 없음), text, origin, diff }
-window.remainState = function(curQty, originQty){
-    const o = Number(originQty), c = Number(curQty);
-    const f = x => (Math.round(x * 1000) / 1000).toLocaleString('ko-KR');
-    if (originQty == null || !isFinite(o) || o <= 0 || curQty == null || !isFinite(c)) return { state: 'nodata', text: '판단 불가 · 데이터 없음 (처음 수량 기록 없음)' };
-    if (c < o) return { state: 'remain', text: `잔량 (처음 ${f(o)} → 현재 ${f(c)})`, origin: o, diff: c - o };
-    if (c === o) return { state: 'full', text: `온전 (처음 수량 ${f(o)} 그대로)`, origin: o, diff: 0 };
-    return { state: 'increase', text: `판단 불가 · 수량 증가 (처음 ${f(o)} → 현재 ${f(c)}, +${f(c - o)})`, origin: o, diff: c - o };
-};
-
-window.apiLookup = async function(lot){
-    lot = (lot || '').trim();
-    if (!lot) return { found:false, error:'LOT 번호가 없습니다.' };
-
-    const scanner = document.getElementById("scannerInput").value.trim();
-    const scanDept = document.getElementById("deptSelect").value;
-
-    let stockRow = window.cachedStockMap.get(lot);
-    if (!stockRow) {
-        const { data: foundRows, error: findErr } = await sb.from(STOCK_COL).select('*').eq('lot_no', lot)
-            .order('upload_date', { ascending:false }).order('run_at', { ascending:false }).limit(1);
-        if (findErr) throw findErr;
-        let rows = foundRows;
-        if (rows.length > 0) {
-            rows.sort((a,b) => (a.upload_date < b.upload_date ? 1 : -1));
-            stockRow = rows[0];
-        }
-    }
-
-    // 재고(오늘/과거 이력) 어디에도 없으면 자재입고·생산실적 LOT 자료(lot_master)에서 품번/품명만 참조
-    let lotRef = null;
-    if (!stockRow) {
-        try {
-            const { data: refRows, error: refErr } = await sb.from('lot_master').select('*').eq('lot_no', lot).limit(1);
-            if (refErr) throw refErr;
-            if (refRows && refRows.length) lotRef = refRows[0];
-        } catch(refE) { console.error('lot_master 조회 실패(무시하고 계속)', refE); }
-    }
-
-    const { date: today, datetime: now } = nowParts();
-
-    // 종류: normal(최근 실행분) / recent_past(10일 내 과거자료) / old_past(11일~ 과거자료) / lot_ref(재고엔 없고 MES 실적에서 품번/품명 확인) / none(어디에도 없음)
-    let kind = 'none', refDate = null, days = null;
-    if (!stockRow && lotRef){
-        kind = 'lot_ref';
-        refDate = lotRef.work_date || null;
-        days = daysBetween(refDate, today);
-    } else if (stockRow){
-        refDate = stockRow.upload_date || null;
-        days = daysBetween(refDate, today);
-        let fresh;
-        if (window.masterRunAt){
-            fresh = runKeyOf(stockRow) === window.masterRunAt && (parseKst(now) - parseKst(window.masterRunAt)) <= FRESH_HOURS * 3600000;
-        } else {
-            fresh = cleanDate8Digits(refDate) === cleanDate8Digits(today);
-        }
-        kind = fresh ? 'normal' : ((days !== null && days <= 10) ? 'recent_past' : 'old_past');
-    }
-    const isPast = (kind === 'recent_past' || kind === 'old_past');
-
-    // 서버 저장을 기다리지 않고 바로 화면을 띄움 (실패 시 오프라인 큐에 남음). 수량 저장 때 이 저장이 끝나기를 기다림
-    window.lastLogInsert = insertScanLog({
-        lot_no: lot, scan_date: today, scanned_at: now,
-        scanned_by: scanner, scan_dept: scanDept,
-        actual_qty: null, diff: null,
-        stock_kind: kind, stock_ref_date: refDate,
-        stock_item_no: isPast ? (stockRow.item_no || null) : (kind === 'lot_ref' ? (lotRef.item_no || null) : null),
-        stock_item_name: isPast ? (stockRow.item_name || null) : (kind === 'lot_ref' ? (lotRef.item_name || null) : null),
-        stock_unit: isPast ? (stockRow.unit || null) : null,
-        stock_dept: isPast ? (stockRow.department || null) : null,
-        stock_wh: isPast ? (stockRow.warehouse || null) : null
-    }).catch(e => console.error(e));
-
-    if (kind === 'none'){
-        return { found: false, kind, lot_no: lot, qty: null, unit: '' };
-    }
-
-    if (kind === 'lot_ref'){
-        return {
-            found: true, kind, isRecent1Day: false, lot_no: lot,
-            item_no: lotRef.item_no || '-', item_name: lotRef.item_name || '-',
-            qty: null, unit: '', ref_source: lotRef.source || '',
-            upload_date: refDate || '-', days_ago: days
-        };
-    }
-
-    if (kind === 'normal') await window.fetchOrigins([lot]);
-    return {
-        found: true,
-        kind,
-        isRecent1Day: kind === 'normal',
-        lot_no: lot,
-        item_no: stockRow.item_no || '-',
-        item_name: stockRow.item_name || '-',
-        qty: kind === 'normal' ? Number(stockRow.qty || 0) : 0,
-        unit: stockRow.unit || '',
-        lot_status: stockRow.lot_status || '', lot_substatus: stockRow.lot_substatus || '', chk_type: stockRow.chk_type || '',
-        upload_date: refDate || '-',
-        days_ago: days,
-        origin_qty: kind === 'normal' ? (window.originCache.get(lot) ?? null) : null
-    };
-};
-
-// 마감: 캐시(가장 최근 업로드분) 중 선택 부서의 LOT 가운데 오늘 아직 스캔 안 된 것
-window.apiRemaining = async function(dept){
-    const rows = Array.from(window.cachedStockMap.values());
-    const masterRows = auditTargetsOf(rows);
-    let master = '';
-    masterRows.forEach(r => { const d = cleanDate8Digits(r.upload_date); if (d > master) master = d; });
-    const deptRows = masterRows.filter(r => (r.department || '') === dept);
-
-    const scanned = await window.syncScannedToday();   // 미전송 오프라인 스캔 포함
-
-    const items = deptRows.filter(r => !scanned.has(r.lot_no))
-        .sort((a,b) => String(a.item_name||'').localeCompare(String(b.item_name||'')) || String(a.item_no||'').localeCompare(String(b.item_no||'')) || String(a.lot_no).localeCompare(String(b.lot_no)));   // 품명 -> 품번 -> LOT 번호
-
-    const deptValues = Array.from(new Set(masterRows.map(r => r.department || '(없음)'))).sort();
-    return {
-        master_date: master, dept, total: deptRows.length,
-        checked: deptRows.length - items.length, remaining: items.length,
-        items, deptValues
-    };
-};
-
-window.apiSaveQty = async function(lot, actualQtyRaw, systemQty){
-    const actualQty = Math.round(Number(actualQtyRaw));
-    const diff = (systemQty === null || systemQty === undefined) ? null : actualQty - systemQty;
-    try { if (window.lastLogInsert) await window.lastLogInsert; } catch(e) {}
-    const { date: today, datetime: now } = nowParts();
-
-    const logSnap = await fetchAll(() => sb.from(LOG_COL).select('*').eq('lot_no', lot).eq('scan_date', today));
-    let logRows = [];
-    logSnap.forEach(d => logRows.push({ id: d.id, ...d.data() }));
-    logRows.sort((a,b) => (a.scanned_at > b.scanned_at ? -1 : 1));
-    const target = logRows[0];
-
-    if (target){
-        const { error: updErr } = await sb.from(LOG_COL).update({ actual_qty: actualQty, diff: diff }).eq('id', target.id);
-        if (updErr) throw updErr;
-    } else {
-        await insertScanLog({
-            lot_no: lot, scan_date: today, scanned_at: now, actual_qty: actualQty, diff: diff
-        });
-    }
-
-    window.scannedTodaySet.add(lot);   // 수량 저장 완료 → 확인 처리 (진행바 즉시 반영)
-    return { success: true, actual_qty: actualQty, diff };
-};
-
-// 시작/마감 이벤트 기록 (close_log 테이블). 전송 실패 시 큐에 보관했다가 재전송
-const EVENT_LOG_COL = "close_log";
-const EVENT_QUEUE_KEY = 'lot_event_queue';
-function readEvtQ(){ try { return JSON.parse(localStorage.getItem(EVENT_QUEUE_KEY) || '[]'); } catch(e){ return []; } }
-function writeEvtQ(q){ try { localStorage.setItem(EVENT_QUEUE_KEY, JSON.stringify(q)); } catch(e){} }
-async function flushEventQueue(){
-    const q = readEvtQ();
-    if (!q.length) return;
-    const { error } = await sb.from(EVENT_LOG_COL).insert(q);
-    if (!error) writeEvtQ([]);
-}
-window.apiLogEvent = async function(event, data){
-    const { date, datetime } = nowParts();
-    const row = {
-        event: event, scanner: data.scanner || '', dept: data.dept || '',
-        scan_date: date, closed_at: datetime,
-        total: (data.total === undefined ? null : data.total), checked: (data.checked === undefined ? null : data.checked), remaining: (data.remaining === undefined ? null : data.remaining)
-    };
-    try {
-        const { error } = await sb.from(EVENT_LOG_COL).insert(row);
-        if (error) throw error;
-        flushEventQueue();
-        return true;
-    } catch(e) {
-        console.error('시작/마감 기록 저장 실패 - 큐에 보관', e);
-        writeEvtQ([...readEvtQ(), row]);
-        return false;
-    }
-};
-window.addEventListener('online', flushEventQueue);
-flushEventQueue();
-
-if (window.refreshStartBtn) window.refreshStartBtn();
-</script>
-
-<script>
-const scannerInput = document.getElementById("scannerInput");
-const deptSelect = document.getElementById("deptSelect");
-const startDataBtn = document.getElementById("startDataBtn");
-const resultInput = document.getElementById("result");
-const status = document.getElementById("status");
-const captureBtn = document.getElementById("captureBtn");
-const lotInfoBox = document.getElementById("lotInfo");
-const recheckBtn = document.getElementById("recheckBtn");
-const video = document.getElementById("video");
-const camWrap = document.getElementById("camWrap");
-const zoomInBtn = document.getElementById("zoomIn");
-const zoomOutBtn = document.getElementById("zoomOut");
-const zoomLabel = document.getElementById("zoomLabel");
-const torchBtn = document.getElementById("torchBtn");
-
-const qtyModalOverlay = document.getElementById("qtyModalOverlay");
-const modalLotNo = document.getElementById("modalLotNo");
-const modalItemNo = document.getElementById("modalItemNo");
-const modalItemName = document.getElementById("modalItemName");
-const modalSysQty = document.getElementById("modalSysQty");
-const modalQtyInput = document.getElementById("modalQtyInput");
-const modalWarn = document.getElementById("modalWarn");
-const modalItemStatus = document.getElementById("modalItemStatus");
-const itemModalOverlay = document.getElementById("itemModalOverlay");
-const itemModalHead = document.getElementById("itemModalHead");
-const itemModalList = document.getElementById("itemModalList");
-document.getElementById("itemModalCloseBtn").onclick = () => { itemModalOverlay.style.display = "none"; };
-const modalSaveBtn = document.getElementById("modalSaveBtn");
-const modalCloseBtn = document.getElementById("modalCloseBtn");
-const modalMsg = document.getElementById("modalMsg");
-
-let currentZoom = 1;
-let videoTrack = null;
-let torchOn = false;
-let currentLookupResult = null;
-
-(function restoreSavedInfo() {
-    const savedScanner = localStorage.getItem("lot_scanner_name");
-    const savedDept = localStorage.getItem("lot_scanner_dept");
-    if (savedScanner) scannerInput.value = savedScanner;
-    if (savedDept) deptSelect.value = savedDept;
-})();
-
-scannerInput.addEventListener("input", () => localStorage.setItem("lot_scanner_name", scannerInput.value.trim()));
-deptSelect.addEventListener("change", () => { localStorage.setItem("lot_scanner_dept", deptSelect.value); if (window.updateProgressBar) window.updateProgressBar(); });
-
-const START_LABEL = "🚀 시작 (최근 10일 재고 데이터 다운로드)";
-const CLOSE_LABEL = "🏁 마감 (남은 LOT 확인)";
-const NEW_LABEL = "🔄 시작 (새 재고가 있습니다)";
-
-const closeProgress = document.getElementById("closeProgress");
-const closeProgressFill = document.getElementById("closeProgressFill");
-const closeProgressText = document.getElementById("closeProgressText");
-
-// 진행바: 캐시의 최신 업로드분 중 선택 부서(미선택 시 전체)의 확인 건수
-window.updateProgressBar = function(){
-    const has = window.cachedStockMap && window.cachedStockMap.size > 0;
-    closeProgress.style.display = has ? "flex" : "none";
-    if (!has) return;
-    const rows = Array.from(window.cachedStockMap.values());
-    const dept = deptSelect.value;
-    const target = window.auditTargetsOf(rows).filter(r => (!dept || r.department === dept));
-    const set = window.scannedTodaySet || new Set();
-    const checked = target.filter(r => set.has(r.lot_no)).length;
-    const pct = target.length ? Math.round(checked / target.length * 100) : 0;
-    closeProgressFill.style.width = pct + "%";
-    closeProgressText.innerHTML = `${dept || "전체"} <b>${checked}</b>/${target.length}건`;
-};
-
-window.syncProgress = async function(){
-    if (!window.cachedStockMap || window.cachedStockMap.size === 0) return;
-    try { await window.syncScannedToday(); } catch(e) { console.error(e); }
-    window.updateProgressBar();
-};
-
-// 캐시가 있으면 [마감] 버튼, 없으면 [시작] 버튼
-window.refreshStartBtn = function(){
-    const has = window.cachedStockMap && window.cachedStockMap.size > 0;
-    const newer = has && !!window.serverNewerRun;
-    startDataBtn.textContent = !has ? START_LABEL : (newer ? NEW_LABEL : CLOSE_LABEL);
-    startDataBtn.classList.toggle("closeMode", has && !newer);
-    captureBtn.disabled = !has;
-    if (has && !status.textContent.trim()) status.innerHTML = `✅ 재고 캐시 ${window.cachedStockMap.size}건 사용 중`;
-    window.updateProgressBar();
-    if (has) window.syncProgress();
-};
-
-// 다른 사람의 스캔도 반영되도록 2분마다 서버와 동기화
-setInterval(() => { if (!document.hidden){ window.syncProgress(); window.checkNewStock(); } }, 120000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) window.checkNewStock(); });
-setTimeout(() => window.checkNewStock(), 3000);
-
-const closeModalOverlay = document.getElementById("closeModalOverlay");
-const closeSummary = document.getElementById("closeSummary");
-const closeList = document.getElementById("closeList");
-const closeSearch = document.getElementById("closeSearch");
-const closeFilterInfo = document.getElementById("closeFilterInfo");
-let closeItems = [];
-let closeStateFilter = 'all';
-let closeStatusFilter = 'all';
-let closeSmallOnly = false;
-const SMALL_QTY = 10;   // '수량 N 이하' 보기 기준: 같은 창고 안에서 같은 품번의 수량 합계
-const closeStatusChips = document.getElementById("closeStatusChips");
-const closeStateChips = document.getElementById("closeStateChips");
-const closeConfirmBtn = document.getElementById("closeConfirmBtn");
-const closeCancelBtn = document.getElementById("closeCancelBtn");
-let closeLoadFailed = false;
-let closeRemainingCount = 0;
-let closeInfo = null;      // 마감 모달을 연 시점의 집계 (기록용)
-let closeWho = { scanner: "", dept: "" };
-
-function esc(v){ return String(v == null ? "" : v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-
-// 남은 LOT 목록: 검색어로 거르고 창고별로 묶어서 표시
-function closeStateOf(it){
-    return window.remainState(it.qty, window.originCache ? window.originCache.get(it.lot_no) : null);
-}
-function fmtNum(v){
-    const n = Number(v);
-    return Number.isFinite(n) ? (Math.round(n * 1000) / 1000).toLocaleString("ko-KR") : String(v == null ? "" : v);
-}
-function fmtSigned(d){ return (d > 0 ? "+" : d < 0 ? "−" : "") + fmtNum(Math.abs(d)); }
-function buildCloseListHtml(items, query, stateFilter, statusFilter, smallOnly){
-    const q = String(query || "").trim().toLowerCase();
-    const byQuery = q ? items.filter(it => [it.lot_no, it.item_no, it.item_name, it.warehouse].some(v => String(v == null ? "" : v).toLowerCase().includes(q))) : items;
-    const counts = { all: byQuery.length, remain: 0, full: 0, increase: 0, nodata: 0 };
-    const withState = byQuery.map(it => { const st = closeStateOf(it); counts[st.state]++; return { it, st }; });
-    const statusCounts = {};
-    withState.forEach(x => { const k = x.it.lot_status || '(없음)'; statusCounts[k] = (statusCounts[k] || 0) + 1; });
-    let list = (stateFilter && stateFilter !== "all") ? withState.filter(x => x.st.state === stateFilter) : withState;
-    if (statusFilter && statusFilter !== 'all') list = list.filter(x => (x.it.lot_status || '(없음)') === statusFilter);
-    const totals = window.itemWhTotals();
-    const totalOf = x => { const t = totals.get(window.itemWhKey(x.it)); return Math.round((t === undefined ? (Number(x.it.qty) || 0) : t) * 1000) / 1000; };
-    counts.small = list.filter(x => totalOf(x) <= SMALL_QTY).length;
-    if (smallOnly) list = list.filter(x => totalOf(x) <= SMALL_QTY);
-    const groups = new Map();
-    list.forEach(x => {
-        const wh = x.it.warehouse || "창고 미지정";
-        if (!groups.has(wh)) groups.set(wh, []);
-        groups.get(wh).push(x);
-    });
-    const order = Array.from(groups.keys()).sort((a, b) => window.whRank(a) - window.whRank(b) || a.localeCompare(b));   // 창고 고정 순서
-    const tagLabel = { remain: "🟡 잔량", full: "✅ 온전", increase: "📈 증가", nodata: "❔ 데이터없음" };
-    const html = order.map(wh => {
-        const arr = groups.get(wh);
-        const sum = arr.reduce((t, x) => t + (Number(x.it.qty) || 0), 0);
-        const unit = ((arr.find(x => x.it.unit) || {}).it || {}).unit || "";
-        return `<div class="close-wh">🏭 ${esc(wh)}<small>${arr.length}건 · ${fmtNum(sum)}${esc(unit)}</small></div>` +
-            arr.map(x => {
-                const info = (x.st.state === "remain" || x.st.state === "increase")
-                    ? `<span class="qi ${x.st.state}">처음 ${fmtNum(x.st.origin)} → 현재 ${fmtNum(x.it.qty)} (${fmtSigned(x.st.diff)})</span>` : "";
-                return `<div class="close-item"><div class="lot">${esc(x.it.lot_no)}<span class="rm-tag rm-${x.st.state}">${tagLabel[x.st.state]}</span>${x.it.lot_status ? `<span class="st-tag ${statusIsBad(x.it) ? 'st-bad' : ''}">${esc(x.it.lot_status)}</span>` : ''}</div>` +
-                    `<div class="sub txt">${esc(x.it.item_no)} · ${esc(x.it.item_name)}</div>` +
-                    `<div class="sub qty"><span class="qn">${fmtNum(x.it.qty)}</span><span class="qu">${esc(x.it.unit || "")}</span>${info}${smallOnly ? `<span class="qi">창고 합계 ${fmtNum(totalOf(x))}${esc(x.it.unit || "")}</span>` : ""}</div></div>`;
-            }).join("");
-    }).join("");
-    return { html: html || `<div class="close-item"><div class="sub" style="text-align:center;">검색 결과가 없습니다.</div></div>`, count: list.length, counts, statusCounts };
-}
-function renderCloseList(){
-    const r = buildCloseListHtml(closeItems, closeSearch.value, closeStateFilter, closeStatusFilter, closeSmallOnly);
-    closeList.innerHTML = r.html;
-    const c = r.counts;
-    closeStateChips.innerHTML = [["all", `전체 ${c.all}`], ["remain", `🟡 잔량 ${c.remain}`], ["full", `✅ 온전 ${c.full}`], ["increase", `📈 증가 ${c.increase}`], ["nodata", `❔ 데이터없음 ${c.nodata}`]]
-        .map(([k, label]) => `<button data-st="${k}" class="${closeStateFilter === k ? "on" : ""}">${label}</button>`).join("");
-    if (c.small > 0 || closeSmallOnly) closeStateChips.innerHTML += `<button data-sm="1" class="${closeSmallOnly ? "on" : ""}">📦 수량 ${SMALL_QTY} 이하 ${c.small}</button>`;
-    // LOT 상태별 보기 (재고에 상태 값이 하나라도 있을 때만 표시)
-    const keys = Object.keys(r.statusCounts).filter(k => k !== '(없음)').sort((a, b) => r.statusCounts[b] - r.statusCounts[a]);
-    if (keys.length){
-        const chips = [['all', `상태 전체`]].concat(keys.map(k => [k, `${k} ${r.statusCounts[k]}`]));
-        closeStatusChips.innerHTML = chips.map(([k, label]) => `<button data-ss="${encodeURIComponent(k)}" class="${closeStatusFilter === k ? 'on' : ''}">${esc(label)}</button>`).join('');
-    } else { closeStatusChips.innerHTML = ''; }
-    closeFilterInfo.textContent = closeSearch.value.trim() ? `검색 결과 ${r.counts.all} / ${closeItems.length}건` : `남은 LOT ${closeItems.length}건 (창고별) · 글을 누르면 전체가 펼쳐집니다`;
-}
-// 목록의 LOT 을 누르면 품번·품명 전체가 펼쳐지고, 다시 누르면 한 줄로 접힘
-closeList.addEventListener("click", ev => { const it = ev.target.closest(".close-item"); if (it) it.classList.toggle("open"); });
-closeStateChips.addEventListener("click", ev => {
-    const b = ev.target.closest("button[data-st]");
-    if (!b) return;
-    closeStateFilter = b.dataset.st;
-    renderCloseList();
-});
-closeStateChips.addEventListener("click", ev => {
-    const b = ev.target.closest("button[data-sm]");
-    if (!b) return;
-    closeSmallOnly = !closeSmallOnly;
-    renderCloseList();
-});
-closeStatusChips.addEventListener("click", ev => {
-    const b = ev.target.closest("button[data-ss]");
-    if (!b) return;
-    closeStatusFilter = decodeURIComponent(b.dataset.ss);
-    renderCloseList();
-});
-closeSearch.addEventListener("input", renderCloseList);
-
-// 마감 창: 키보드가 올라와도 목록·버튼이 보이도록 보이는 화면 높이에 맞춤
-function fitCloseModal(){
-    if (closeModalOverlay.style.display !== "flex") return;
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const box = document.getElementById("closeModalBox");
-    closeModalOverlay.style.top = vv.offsetTop + "px";
-    closeModalOverlay.style.bottom = "auto";
-    closeModalOverlay.style.height = vv.height + "px";
-    box.style.maxHeight = Math.max(220, vv.height - 24) + "px";
-    closeList.style.maxHeight = Math.max(80, Math.min(vv.height * 0.45, vv.height - 260)) + "px";
-}
-if (window.visualViewport){
-    window.visualViewport.addEventListener("resize", fitCloseModal);
-    window.visualViewport.addEventListener("scroll", fitCloseModal);
-}
-closeSearch.addEventListener("focus", () => { setTimeout(fitCloseModal, 50); setTimeout(fitCloseModal, 350); });
-
-async function openCloseModal(){
-    if (!deptSelect.value) { alert("실사 부서를 선택해주세요."); deptSelect.focus(); return; }
-    const dept = deptSelect.value;
-    closeWho = { scanner: scannerInput.value.trim(), dept: dept };
-    closeInfo = null;
-    closeModalOverlay.style.display = "flex";
-    closeSummary.textContent = "불러오는 중...";
-    closeList.innerHTML = "";
-    closeItems = []; closeSearch.value = ""; closeFilterInfo.textContent = ""; closeStateFilter = 'all'; closeStateChips.innerHTML = ""; closeStatusFilter = 'all'; closeStatusChips.innerHTML = ""; closeSmallOnly = false;
-    fitCloseModal();
-    closeConfirmBtn.disabled = true;
-    closeLoadFailed = false; closeRemainingCount = 0;
-
-    try {
-        const r = await window.apiRemaining(dept);
-        window.updateProgressBar();
-        closeInfo = { total: r.total, checked: r.checked, remaining: r.remaining };
-        closeRemainingCount = r.remaining;
-        closeSummary.innerHTML =
-            `기준: ${esc(r.master_date)} 업로드분 · <b>${esc(dept)}</b><br>` +
-            `확인 완료 <b class="ok">${r.checked}</b> / ${r.total}건 · 남음 <b class="ng">${r.remaining}</b>건`;
-        if (r.total === 0) {
-            closeList.innerHTML = `<div class="close-item"><div class="sub" style="color:#ffb84d;">이 부서로 분류된 LOT이 없습니다.<br>재고 데이터의 부서값: ${esc(r.deptValues.join(", "))}</div></div>`;
-        } else if (r.remaining === 0) {
-            closeList.innerHTML = `<div class="close-item" style="color:#00e676;font-weight:bold;text-align:center;">🎉 남은 LOT이 없습니다!</div>`;
-        } else {
-            closeItems = r.items;
-            renderCloseList();
-            // 처음 수량은 따로 가져와서 도착하면 잔량 표시를 갱신 (목록은 먼저 보여줌)
-            window.fetchOrigins(r.items.map(it => it.lot_no)).then(() => { if (closeItems === r.items) renderCloseList(); });
-        }
-    } catch(e) {
-        console.error(e);
-        closeLoadFailed = true;
-        closeSummary.innerHTML = `<span style="color:#ff8a8a;">❌ 남은 LOT 조회 실패 - 네트워크를 확인하세요.</span>`;
-    }
-    closeConfirmBtn.disabled = false;
-}
-
-closeCancelBtn.onclick = () => { closeModalOverlay.style.display = "none"; };
-
-closeConfirmBtn.onclick = () => {
-    let msg;
-    if (closeLoadFailed) msg = "남은 LOT을 확인하지 못했습니다.\n그래도 마감하고 저장된 재고 캐시를 삭제할까요?";
-    else if (closeRemainingCount > 0) msg = `남은 LOT이 ${closeRemainingCount}건 있습니다.\n그래도 마감하고 저장된 재고 캐시를 삭제할까요?`;
-    else msg = "마감하고 저장된 재고 캐시를 삭제할까요?";
-    if (!confirm(msg)) return;
-
-    // 마감 기록 (누가/언제/부서/확인 현황) - 캐시 삭제 전에 남김
-    window.apiLogEvent('close', {
-        scanner: closeWho.scanner, dept: closeWho.dept,
-        total: closeInfo ? closeInfo.total : null,
-        checked: closeInfo ? closeInfo.checked : null,
-        remaining: closeInfo ? closeInfo.remaining : null
-    });
-
-    window.clearStockCache();
-    closeModalOverlay.style.display = "none";
-    lotInfoBox.style.display = "none"; lotInfoBox.className = "";
-    resultInput.value = "";
-    status.innerHTML = "🏁 마감 완료. 다음 실사는 [시작] 버튼으로 데이터를 다시 받아주세요.";
-    window.refreshStartBtn();
-};
-
-startDataBtn.onclick = async () => {
-    if (!scannerInput.value.trim()) { alert("작성자 이름을 입력해주세요."); scannerInput.focus(); return; }
-    if (!deptSelect.value) { alert("실사 부서를 선택해주세요."); deptSelect.focus(); return; }
-
-    if (window.cachedStockMap.size > 0 && !window.serverNewerRun) { await openCloseModal(); return; }
-    if (window.cachedStockMap.size > 0) {
-        // 새 재고가 올라온 경우: 현재 진행 상황을 '자동 마감'으로 기록한 뒤 새 재고를 받음 (수량 저장한 LOT은 그대로 확인 상태 유지)
-        try {
-            const r0 = await window.apiRemaining(deptSelect.value);
-            window.apiLogEvent('auto_close', { scanner: scannerInput.value.trim(), dept: deptSelect.value, total: r0.total, checked: r0.checked, remaining: r0.remaining });
         } catch(e){ console.error(e); }
     }
-
-    const r = await window.download10DaysStock();
-    if (r && r.success) {
-        window.refreshStartBtn();
-        window.apiLogEvent('start', { scanner: scannerInput.value.trim(), dept: deptSelect.value, total: r.count });
-    }
 };
 
-// ===== 매일 자동 마감 (한국시간 06:30 / 18:30) =====
-// 마지막 마감 시각 이전에 받은 재고 캐시가 남아 있으면 '자동 마감'으로 기록하고 캐시를 삭제함.
-const AUTO_CLOSE_TIMES = ["06:55"];   // 하루 1회: 회차(07:00~06:59)가 끝나기 직전
-const AUTO_CLOSE_KEY = "lot_auto_close_slot";
-function kstNowParts(){
-    const f = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
-    const m = {}; f.formatToParts(new Date()).forEach(p => m[p.type] = p.value);
-    return { date: `${m.year}-${m.month}-${m.day}`, hm: `${m.hour === "24" ? "00" : m.hour}:${m.minute}` };
-}
-function lastCloseSlot(date, hm){
-    let slotDate = date, slotTime = null;
-    for (const t of AUTO_CLOSE_TIMES) if (t <= hm) slotTime = t;
-    if (!slotTime){   // 오늘 첫 마감 시각 전 -> 어제의 마지막 마감 시각
-        slotTime = AUTO_CLOSE_TIMES[AUTO_CLOSE_TIMES.length - 1];
-        slotDate = new Date(Date.parse(date + "T00:00:00Z") - 86400000).toISOString().slice(0, 10);
-    }
-    return { key: slotDate + " " + slotTime, time: slotTime, epoch: Date.parse(slotDate + "T" + slotTime + ":00+09:00") };
-}
-function cacheSavedAtMs(){
-    try { const o = JSON.parse(localStorage.getItem("lot_stock_cache_v1") || "null"); return (o && o.saved_at) ? Date.parse(o.saved_at) : 0; }
-    catch(e){ return 0; }
-}
-let autoClosing = false;
-async function runAutoClose(){
-    if (autoClosing) return;
-    const now = kstNowParts();
-    const slot = lastCloseSlot(now.date, now.hm);
-    let done = ""; try { done = localStorage.getItem(AUTO_CLOSE_KEY) || ""; } catch(e){}
-    if (done === slot.key) return;                                   // 이 마감 시각은 이미 처리함
-    if (!window.cachedStockMap || window.cachedStockMap.size === 0 || cacheSavedAtMs() >= slot.epoch){
-        try { localStorage.setItem(AUTO_CLOSE_KEY, slot.key); } catch(e){}   // 캐시가 없거나 마감 이후에 받은 것이면 건너뜀
-        return;
-    }
-    // 입력/마감 창을 쓰는 중이면 닫힌 뒤 다음 확인 때 처리
-    if (qtyModalOverlay.style.display === "flex" || closeModalOverlay.style.display === "flex" || calcOverlay.style.display === "flex") return;
-    autoClosing = true;
-    try {
-        const dept = deptSelect.value;
-        let info = {};
-        if (dept){ try { const r = await window.apiRemaining(dept); info = { total: r.total, checked: r.checked, remaining: r.remaining }; } catch(e){ console.error(e); } }
-        await window.apiLogEvent("auto_close", Object.assign({ scanner: scannerInput.value.trim(), dept: dept }, info));
-        window.clearStockCache();
-        try { localStorage.setItem(AUTO_CLOSE_KEY, slot.key); } catch(e){}
-        lotInfoBox.style.display = "none"; lotInfoBox.className = "";
-        resultInput.value = "";
-        status.innerHTML = `🕘 ${slot.time} 자동 마감 완료. 다음 실사는 [시작] 버튼으로 데이터를 다시 받아주세요.`;
-        window.refreshStartBtn();
-    } finally { autoClosing = false; }
-}
-setInterval(runAutoClose, 30000);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) runAutoClose(); });
-setTimeout(runAutoClose, 2500);
+// 키보드 올라올 때 모달 최적화 자동 적용 이벤트 스크립트
+const modalQtyInput = document.getElementById("modalQtyInput");
+const qtyModalBox = document.getElementById("qtyModalBox");
 
-resultInput.addEventListener("input", function() {
-    let raw = resultInput.value.replace(/[^0-9-]/g, '');
-    let nums = raw.replace(/-/g, '');
-    if (nums.length > 13) nums = nums.slice(0, 13);
-    
-    if (nums.length > 10) {
-        resultInput.value = nums.slice(0, 10) + '-' + nums.slice(10);
-    } else {
-        resultInput.value = nums;
-    }
-});
-
-let zoomCaps = null;
-
-function updateZoomLabel(){ zoomLabel.innerText = currentZoom.toFixed(1) + "x"; }
-
-function setupZoom(track){
-    var caps = (track.getCapabilities && track.getCapabilities()) || {};
-    if (caps.zoom){
-        zoomCaps = caps.zoom;
-        currentZoom = (track.getSettings && track.getSettings().zoom) || zoomCaps.min || 1;
-    } else {
-        zoomCaps = null;
-        currentZoom = 1;
-    }
-    updateZoomLabel();
-}
-
-function setupTorch(track){
-    var caps = (track.getCapabilities && track.getCapabilities()) || {};
-    torchBtn.style.display = caps.torch ? "block" : "none";
-}
-
-function setupFocus(track){
-    try {
-        var caps = (track.getCapabilities && track.getCapabilities()) || {};
-        if (caps.focusMode && caps.focusMode.indexOf("continuous") >= 0){
-            var p = track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
-            if (p && p.catch) p.catch(function(){});
-        }
-    } catch(e) {}
-}
-
-// ---- 카메라 자동 절전: 일정 시간 아무 조작이 없으면 카메라를 완전히 끔 (화면 자동 꺼짐 + 배터리 절약) ----
-const CAM_IDLE_MS = 90000;      // 마지막 조작 후 이 시간(ms)이 지나면 카메라 종료 (90초)
-let currentStream = null;
-let camStarting = false;
-let camIdleTimer = null;
-let stoppedByHide = false;
-const camOff = document.getElementById("camOff");
-
-function touchCamActivity(){
-    if (!currentStream) return;
-    if (camIdleTimer) clearTimeout(camIdleTimer);
-    camIdleTimer = setTimeout(onCamIdle, CAM_IDLE_MS);
-}
-function onCamIdle(){
-    // 촬영/인식 중이거나 수량 입력창이 열려 있으면 끄지 않고 다시 대기
-    if (capturing || qtyModalOverlay.style.display === "flex" || itemModalOverlay.style.display === "flex"){ touchCamActivity(); return; }
-    stopCamera();
-}
-function stopCamera(){
-    if (camIdleTimer){ clearTimeout(camIdleTimer); camIdleTimer = null; }
-    if (currentStream){
-        currentStream.getTracks().forEach(function(t){ try { t.stop(); } catch(e){} });
-        currentStream = null;
-    }
-    try { video.pause(); } catch(e){}
-    video.srcObject = null;
-    videoTrack = null;
-    torchOn = false; torchBtn.classList.remove("on");
-    currentZoom = 1; video.style.transform = "none"; updateZoomLabel();
-    camOff.innerHTML = CAM_OFF_HTML;
-    camOff.style.display = "flex";
-}
-
-const CAM_OFF_HTML = '📷 카메라가 꺼졌습니다<small>화면을 터치하면 다시 켜집니다</small>';
-const CAM_FAIL_HTML = '⚠️ 카메라를 켜지 못했습니다<small>화면을 터치하면 다시 시도합니다<br>(다른 앱이 카메라를 쓰고 있지 않은지, 카메라 권한이 허용인지 확인)</small>';
-
-// 카메라를 한 번 켜 봄. 성공 true / 실패 false / 화면이 가려져 중단 "hidden" / 미지원 "fatal"
-async function startCameraOnce(){
-    var camStatus = document.getElementById("camStatus");
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-        camStatus.style.display = "";
-        camStatus.innerText = "⚠️ 카메라 미지원 (Chrome 최신 버전 사용)";
-        return "fatal";
-    }
-    // 폰이 지원하지 않는 해상도 요청이면 단계적으로 낮춰서 재시도 (구형 폰 대응)
-    var attempts = [
-        { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
-        { video: { facingMode: "environment" }, audio: false },
-        { video: true, audio: false }
-    ];
-    var stream = null;
-    for (var i = 0; i < attempts.length && !stream; i++){
-        try { stream = await navigator.mediaDevices.getUserMedia(attempts[i]); } catch(e) { console.error(e); }
-    }
-    if (!stream) return false;
-    // 연결되는 사이 화면이 가려졌으면(앱 전환/화면 꺼짐) 바로 끄고, 돌아오면 다시 켬
-    if (document.hidden){
-        stream.getTracks().forEach(function(t){ try { t.stop(); } catch(e){} });
-        return "hidden";
-    }
-    currentStream = stream;
-    video.srcObject = stream;
-    try { await video.play(); } catch(e) {}
-    videoTrack = stream.getVideoTracks()[0];
-    setupZoom(videoTrack); setupTorch(videoTrack); setupFocus(videoTrack);
-    return true;
-}
-
-// 켜기에 실패하면 자동으로 한 번 더 시도하고, 그래도 안 되면 "터치해서 다시 시도" 안내를 보여줌
-async function initCamera(){
-    if (camStarting || currentStream) return;
-    camStarting = true;
-    try {
-        var camStatus = document.getElementById("camStatus");
-        camOff.innerHTML = CAM_OFF_HTML;
-        camOff.style.display = "none";
-        camStatus.style.display = "";
-        camStatus.innerText = "카메라 연결 중...";
-        var r = await startCameraOnce();
-        if (r === false){
-            camStatus.innerText = "카메라 다시 연결 중...";
-            await new Promise(function(res){ setTimeout(res, 1200); });
-            r = await startCameraOnce();
-        }
-        if (r === true){
-            camStatus.style.display = "none";
-            touchCamActivity();
-            // 숫자 인식 엔진은 미리 준비해 두면 첫 촬영이 빨라짐
-            setTimeout(function(){ getOcrWorker().catch(function(){}); }, 2500);
-        } else if (r === "hidden"){
-            stoppedByHide = true;
-            camOff.style.display = "flex";
-        } else if (r === false){
-            camStatus.style.display = "none";
-            camOff.innerHTML = CAM_FAIL_HTML;
-            camOff.style.display = "flex";
-        }
-    } finally {
-        camStarting = false;
-    }
-}
-initCamera();
-
-// 조작이 있을 때마다 절전 타이머를 처음부터 다시 셈
-['touchstart', 'click', 'keydown', 'input'].forEach(function(evt){ document.addEventListener(evt, touchCamActivity, true); });
-// 꺼진 카메라 화면을 터치하면 다시 켬
-camOff.addEventListener("click", function(){ initCamera(); });
-// 다른 앱으로 전환하거나 화면이 잠기면(3초 이상 가려져 있으면) 끄고, 돌아오면 다시 켬
-// - 안내창(alert) 같은 잠깐의 가려짐은 무시하고, 돌아왔을 때 카메라가 죽어 있으면 되살림
-var hideTimer = null;
-function recoverCamera(){
-    if (!currentStream) return;
-    if (!videoTrack || videoTrack.readyState !== "live"){ stopCamera(); initCamera(); return; }
-    try { var pr = video.play(); if (pr && pr.catch) pr.catch(function(){}); } catch(e){}
-    touchCamActivity();
-}
-document.addEventListener("visibilitychange", function(){
-    if (document.hidden){
-        if (hideTimer) clearTimeout(hideTimer);
-        hideTimer = setTimeout(function(){
-            hideTimer = null;
-            if (document.hidden && currentStream){ stoppedByHide = true; stopCamera(); }
-        }, 3000);
-    } else {
-        if (hideTimer){ clearTimeout(hideTimer); hideTimer = null; }
-        if (stoppedByHide){ stoppedByHide = false; initCamera(); }
-        else recoverCamera();
-    }
-});
-window.addEventListener("focus", recoverCamera);
-window.addEventListener("pagehide", stopCamera);
-
-function setZoom(val){
-    if (zoomCaps){
-        var maxZ = Math.min(zoomCaps.max || 1, 10);
-        currentZoom = Math.max(zoomCaps.min || 1, Math.min(maxZ, val));
-        try {
-            var p = videoTrack.applyConstraints({ advanced: [{ zoom: currentZoom }] });
-            if (p && p.catch) p.catch(function(){});
-        } catch(e) {}
-    } else {
-        // 하드웨어 줌 미지원 폰: 화면 확대(디지털 줌) - 인식할 때도 같은 비율로 잘라냄
-        currentZoom = Math.max(1, Math.min(3, val));
-        video.style.transform = currentZoom > 1 ? "scale(" + currentZoom + ")" : "none";
-    }
-    updateZoomLabel();
-}
-
-zoomInBtn.onclick = () => setZoom(currentZoom + 0.5);
-zoomOutBtn.onclick = () => setZoom(currentZoom - 0.5);
-
-let initialPinchDist = null;
-let initialZoomOnPinch = 1;
-
-camWrap.addEventListener("touchstart", (e) => {
-    if (e.touches.length === 2) {
-        initialPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        initialZoomOnPinch = currentZoom;
-    }
-}, { passive: true });
-
-camWrap.addEventListener("touchmove", (e) => {
-    if (e.touches.length === 2 && initialPinchDist) {
-        const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        setZoom(initialZoomOnPinch * (dist / initialPinchDist));
-    }
-}, { passive: true });
-
-camWrap.addEventListener("touchend", (e) => {
-    if (e.touches.length < 2) initialPinchDist = null;
-});
-
-torchBtn.onclick = async () => {
-    if (!videoTrack) return;
-    torchOn = !torchOn;
-    try {
-        await videoTrack.applyConstraints({ advanced: [{ torch: torchOn }] });
-        torchBtn.classList.toggle("on", torchOn);
-    } catch(e) { alert("이 기기에서는 플래시를 지원하지 않습니다."); }
-};
-
-const guideBox = document.getElementById("guideBox");
-
-// ==PURE-START== (화면과 무관한 순수 함수: 테스트 대상)
-function lotPlausible(lot){
-    var mm = parseInt(lot.substr(2, 2), 10), dd = parseInt(lot.substr(4, 2), 10);
-    return mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31;   // LOT 앞 6자리는 yymmdd
-}
-
-// 텍스트에서 LOT 후보(10자리-3자리) 전부 추출 (줄 단위 + 전체 이어붙인 것)
-function extractLots(text){
-    var out = [];
-    if (!text) return out;
-    var raw = String(text);
-    var chunks = raw.split(/\r?\n/).concat([raw]);
-    for (var i = 0; i < chunks.length; i++){
-        var t = chunks[i].replace(/\s+/g, "");
-        var re = /(\d{10})-?(\d{3})/g, m;
-        while ((m = re.exec(t)) !== null){
-            var lot = m[1] + "-" + m[2];
-            if (out.indexOf(lot) < 0) out.push(lot);
-            re.lastIndex = m.index + 1;
-        }
-    }
-    return out;
-}
-
-function getGray(canvas){
-    var w = canvas.width, h = canvas.height;
-    var d = canvas.getContext("2d").getImageData(0, 0, w, h).data;
-    var g = new Uint8ClampedArray(w * h);
-    for (var i = 0, j = 0; i < d.length; i += 4, j++){
-        g[j] = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
-    }
-    return { g: g, w: w, h: h };
-}
-
-// 명암 늘리기: 색 바랜 종이/어두운 조명에서 글자와 배경 차이를 키움
-function stretchGray(g){
-    var hist = new Array(256).fill(0), n = g.length, i;
-    for (i = 0; i < n; i++) hist[g[i]]++;
-    var lo = 0, hi = 255, acc = 0;
-    for (i = 0; i < 256; i++){ acc += hist[i]; if (acc >= n * 0.02){ lo = i; break; } }
-    acc = 0;
-    for (i = 255; i >= 0; i--){ acc += hist[i]; if (acc >= n * 0.02){ hi = i; break; } }
-    if (hi - lo < 30) hi = Math.min(255, lo + 30);
-    var out = new Uint8ClampedArray(n), scale = 255 / (hi - lo);
-    for (i = 0; i < n; i++) out[i] = (g[i] - lo) * scale;
-    return out;
-}
-
-// 주변 밝기 기준 이진화: 그늘/구겨진 자국/얼룩이 있어도 글자만 남김
-function adaptiveBinarize(g, w, h){
-    var W = w + 1, integral = new Float64Array(W * (h + 1)), x, y;
-    for (y = 0; y < h; y++){
-        var rowSum = 0;
-        for (x = 0; x < w; x++){
-            rowSum += g[y * w + x];
-            integral[(y + 1) * W + (x + 1)] = integral[y * W + (x + 1)] + rowSum;
-        }
-    }
-    var r = Math.max(8, Math.round(h / 8)), out = new Uint8ClampedArray(w * h);
-    for (y = 0; y < h; y++){
-        var y0 = Math.max(0, y - r), y1 = Math.min(h - 1, y + r);
-        for (x = 0; x < w; x++){
-            var x0 = Math.max(0, x - r), x1 = Math.min(w - 1, x + r);
-            var sum = integral[(y1 + 1) * W + (x1 + 1)] - integral[y0 * W + (x1 + 1)]
-                    - integral[(y1 + 1) * W + x0] + integral[y0 * W + x0];
-            var mean = sum / ((x1 - x0 + 1) * (y1 - y0 + 1));
-            out[y * w + x] = g[y * w + x] < mean * 0.88 ? 0 : 255;
-        }
-    }
-    return out;
-}
-// ==PURE-END==
-
-function grayToCanvas(g, w, h){
-    var c = document.createElement("canvas"); c.width = w; c.height = h;
-    var ctx = c.getContext("2d"), id = ctx.createImageData(w, h);
-    for (var i = 0, j = 0; j < g.length; i += 4, j++){
-        id.data[i] = id.data[i + 1] = id.data[i + 2] = g[j]; id.data[i + 3] = 255;
-    }
-    ctx.putImageData(id, 0, 0);
-    return c;
-}
-
-function lotInCache(lot){ return !!(window.cachedStockMap && window.cachedStockMap.has(lot)); }
-function nextTick(){ return new Promise(function(r){ setTimeout(r, 0); }); }
-function withTimeout(p, ms){
-    return new Promise(function(resolve, reject){
-        var t = setTimeout(function(){ reject(new Error("timeout")); }, ms);
-        p.then(function(v){ clearTimeout(t); resolve(v); }, function(e){ clearTimeout(t); reject(e); });
+if (modalQtyInput && qtyModalBox) {
+    modalQtyInput.addEventListener("focus", () => {
+        qtyModalBox.classList.add("kb");
+    });
+    modalQtyInput.addEventListener("blur", () => {
+        setTimeout(() => {
+            if (document.activeElement !== modalQtyInput) {
+                qtyModalBox.classList.remove("kb");
+            }
+        }, 200);
     });
 }
-
-// 초록 박스 위치를 카메라 원본 픽셀 좌표로 변환 (object-fit: cover + 디지털 줌 보정)
-function guideBoxToVideoCoords(){
-    var wrapRect = camWrap.getBoundingClientRect(), boxRect = guideBox.getBoundingClientRect();
-    var vw = video.videoWidth, vh = video.videoHeight;
-    var scale = Math.max(wrapRect.width / vw, wrapRect.height / vh);
-    var relLeft = boxRect.left - wrapRect.left, relTop = boxRect.top - wrapRect.top;
-    var relW = boxRect.width, relH = boxRect.height;
-    if (!zoomCaps && currentZoom > 1){
-        var cx = wrapRect.width / 2, cy = wrapRect.height / 2;
-        relLeft = cx + (relLeft - cx) / currentZoom; relTop = cy + (relTop - cy) / currentZoom;
-        relW = relW / currentZoom; relH = relH / currentZoom;
-    }
-    return {
-        srcX: (relLeft + (vw * scale - wrapRect.width) / 2) / scale,
-        srcY: (relTop + (vh * scale - wrapRect.height) / 2) / scale,
-        srcW: relW / scale, srcH: relH / scale
-    };
-}
-
-// 초록 박스 영역만 잘라냄 (손 떨림 대비 여유 조금). 구형 폰 메모리를 위해 크기 제한
-function makeCrop(){
-    if (!video.videoWidth) return null;
-    var c = guideBoxToVideoCoords();
-    var padX = c.srcW * 0.06, padY = c.srcH * 0.10;
-    var sx = Math.max(0, c.srcX - padX), sy = Math.max(0, c.srcY - padY);
-    var sw = Math.min(video.videoWidth - sx, c.srcW + padX * 2), sh = Math.min(video.videoHeight - sy, c.srcH + padY * 2);
-    if (sw < 20 || sh < 10) return null;
-    var scale = Math.min(2, 1100 / sw);
-    if (sw * sh * scale * scale > 1500000) scale = Math.sqrt(1500000 / (sw * sh));
-    var canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(sw * scale)); canvas.height = Math.max(1, Math.round(sh * scale));
-    canvas.getContext("2d").drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-    return canvas;
-}
-
-function makeFullFrame(){
-    if (!video.videoWidth) return null;
-    var s = Math.min(1, 1280 / video.videoWidth);
-    var canvas = document.createElement("canvas");
-    canvas.width = Math.round(video.videoWidth * s); canvas.height = Math.round(video.videoHeight * s);
-    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
-    return canvas;
-}
-
-// ---- 바코드 ----
-var zxReader = null, zxImgReader = null;
-function zxHints(){
-    var hints = new Map();
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39]);
-    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-    return hints;
-}
-async function decodeBarcode(canvas){
-    if (typeof ZXing === "undefined") return null;
-    if (ZXing.HTMLCanvasElementLuminanceSource && ZXing.MultiFormatReader && ZXing.BinaryBitmap && ZXing.HybridBinarizer){
-        try {
-            if (!zxReader){ zxReader = new ZXing.MultiFormatReader(); zxReader.setHints(zxHints()); }
-            var bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(canvas)));
-            return zxReader.decode(bmp).getText();
-        } catch(e) { return null; }
-    }
-    try {   // 라이브러리 구성이 다른 경우의 대체 경로
-        var img = new Image(); img.src = canvas.toDataURL();
-        await new Promise(function(r){ img.onload = r; img.onerror = r; });
-        if (!zxImgReader) zxImgReader = new ZXing.BrowserMultiFormatReader(zxHints());
-        return (await zxImgReader.decodeFromImageElement(img)).getText();
-    } catch(e) { return null; }
-}
-
-// ---- 숫자(OCR): 엔진 1개를 만들어 계속 재사용 ----
-var ocrWorkerPromise = null;
-function getOcrWorker(){
-    if (typeof Tesseract === "undefined") return Promise.reject(new Error("Tesseract 없음"));
-    if (!ocrWorkerPromise){
-        ocrWorkerPromise = Tesseract.createWorker("eng").then(async function(w){
-            await w.setParameters({ tessedit_char_whitelist: "0123456789-", user_defined_dpi: "300" });
-            return w;
-        }).catch(function(e){ ocrWorkerPromise = null; throw e; });
-    }
-    return ocrWorkerPromise;
-}
-
-// 바코드 → 숫자 OCR(보정 방식 여러 가지) 순서로 시도. 재고 목록(캐시)에 있는 LOT이 나오면 바로 확정
-async function recognizeLot(){
-    var frame = makeCrop();
-    if (!frame) return null;
-    var votes = {};
-
-    function consider(text, trusted){
-        var lots = extractLots(text);
-        for (var i = 0; i < lots.length; i++){
-            var l = lots[i];
-            if (lotInCache(l)) return l;
-            if (lotPlausible(l)){
-                if (trusted) return l;
-                votes[l] = (votes[l] || 0) + 1;
-            }
-        }
-        return null;
-    }
-    function bestVote(){
-        var best = null, n = 0;
-        for (var k in votes){ if (votes[k] > n){ n = votes[k]; best = k; } }
-        return best;
-    }
-
-    status.innerHTML = "🔍 바코드 확인 중...";
-    await nextTick();
-    var lot = consider(await decodeBarcode(frame), true);
-    if (lot) return lot;
-
-    var gi = getGray(frame);
-    var stretched = stretchGray(gi.g);
-    var stretchedCanvas = grayToCanvas(stretched, gi.w, gi.h);
-    lot = consider(await decodeBarcode(stretchedCanvas), true);
-    if (lot) return lot;
-
-    var full = makeFullFrame();
-    if (full){
-        lot = consider(await decodeBarcode(full), true);
-        if (lot) return lot;
-    }
-
-    if (typeof Tesseract !== "undefined"){
-        var bin = grayToCanvas(adaptiveBinarize(stretched, gi.w, gi.h), gi.w, gi.h);
-        var passes = [ { c: stretchedCanvas, psm: "6" }, { c: bin, psm: "6" }, { c: bin, psm: "11" } ];
-        for (var i = 0; i < passes.length; i++){
-            status.innerHTML = "🔍 숫자 인식 중 (" + (i + 1) + "/" + passes.length + ")...";
-            await nextTick();
-            try {
-                var w = await withTimeout(getOcrWorker(), 60000);
-                await w.setParameters({ tessedit_pageseg_mode: passes[i].psm });
-                var res = await withTimeout(w.recognize(passes[i].c), 15000);
-                lot = consider(res && res.data ? res.data.text : "", false);
-                if (lot) return lot;
-            } catch(e) {
-                console.error("숫자 인식 오류:", e);
-                if (e && e.message === "timeout") ocrWorkerPromise = null;
-            }
-        }
-    }
-    return bestVote();
-}
-
-// ---- 연속 실패 처리: 3번 실패하면 직접 입력칸으로 커서 이동 ----
-var recogFailCount = 0;
-var capturing = false;
-
-// ---- 직접 입력 시 키보드에 가리지 않도록 화면을 위로 올림 ----
-var typingMode = false, scrolledForTyping = false;
-function alignTyping(){
-    if (!typingMode) return;
-    var nav = document.querySelector(".navbar");
-    var navH = nav ? nav.offsetHeight : 0;
-    var y = status.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0) - navH - 6;
-    window.scrollTo(0, Math.max(0, y));    // [상태 문구 + LOT 입력칸 + 조회 버튼]이 화면 맨 위에 오도록
-    scrolledForTyping = true;
-}
-function bringTypingIntoView(){
-    typingMode = true;
-    document.body.classList.add("kb-open");   // 스크롤할 여백 확보 (페이지가 짧아도 올라갈 수 있게)
-    alignTyping();
-    setTimeout(alignTyping, 300);             // 키보드가 완전히 올라온 뒤 다시 맞춤
-    setTimeout(alignTyping, 700);
-}
-resultInput.addEventListener("focus", bringTypingIntoView);
-resultInput.addEventListener("blur", () => {
-    typingMode = false;
-    setTimeout(() => { if (!typingMode) document.body.classList.remove("kb-open"); }, 300);
-});
-if (window.visualViewport) window.visualViewport.addEventListener("resize", alignTyping);   // 키보드 크기 변화 시
-
-// 직접 입력 후 수량 창이 닫히면 카메라 화면으로 복귀
-// ---- 같은 품번 창고별 현황 (확인 = 수량 입력 완료) ----
-function renderItemStatus(el, res){
-    if (!el) return;
-    const groups = (res && res.item_no && window.apiItemStatus) ? window.apiItemStatus(res.item_no) : [];
-    if (!groups.length){ el.style.display = 'none'; el.innerHTML = ''; return; }
-    el.style.display = 'block';
-    el.innerHTML = '<div class="wh-title">📦 같은 품번 창고별 현황 (누르면 상세)</div>' +
-        groups.map(g => `<div class="wh-row ${g.done === g.total ? 'all-done' : ''}"><span>${esc(g.warehouse)}</span><span>확인 <b>${g.done}</b>/${g.total} · 남음 <b>${g.total - g.done}</b>건<br><small style="color:#aaa;">보유 ${Math.round(g.qtyTotal * 1000) / 1000} ${esc(g.unit)} · 미확인 수량 ${Math.round((g.qtyTotal - g.qtyDone) * 1000) / 1000} ${esc(g.unit)}</small></span></div>`).join('');
-    el.querySelectorAll('.wh-row').forEach(row => { row.onclick = () => openItemModal(res); });
-}
-function renderItemModal(res){
-    const groups = window.apiItemStatus(res.item_no);
-    itemModalHead.innerHTML = `<b>${esc(res.item_no)}</b><br>${esc(res.item_name || '')}`;
-    itemModalList.innerHTML = groups.map(g => `
-        <div class="wh-group-head">${esc(g.warehouse)} · 확인 ${g.done}/${g.total} (남음 ${g.total - g.done})
-            <small>수량 확인 ${Math.round(g.qtyDone * 1000) / 1000} / 전체 ${Math.round(g.qtyTotal * 1000) / 1000} ${esc(g.unit)} · 미확인 ${Math.round((g.qtyTotal - g.qtyDone) * 1000) / 1000} ${esc(g.unit)}</small></div>
-        ${g.lots.map(l => `<div class="wh-lot ${l.lot_no === res.lot_no ? 'cur' : ''}">
-            <span>${l.done ? '<span class="ok">✅</span>' : '<span class="ng">⬜</span>'} ${esc(l.lot_no)}${l.lot_no === res.lot_no ? ' 👈' : ''}<br><span class="sub">${esc(l.department)}</span></span>
-            <span>${l.qty} ${esc(l.unit)}</span></div>`).join('')}`).join('') || '<div class="wh-lot">최근 실행분에 이 품번 재고가 없습니다.</div>';
-}
-function openItemModal(res){ renderItemModal(res); itemModalOverlay.style.display = 'flex'; }
-function refreshItemStatus(){
-    if (!currentLookupResult) return;
-    renderItemStatus(document.getElementById('itemStatusCard'), currentLookupResult);
-    renderItemStatus(modalItemStatus, currentLookupResult);
-    if (itemModalOverlay.style.display === 'flex') renderItemModal(currentLookupResult);
-}
-
-// ---- 계산기 (수량 칸 옆 🧮) ----
-const calcOverlay = document.getElementById("calcOverlay");
-const calcExpr = document.getElementById("calcExpr");
-const calcResult = document.getElementById("calcResult");
-let calcStr = "";
-const OPS = { "+": "+", "-": "−", "*": "×", "/": "÷" };
-
-// 안전한 사칙연산 계산 (eval 미사용): × ÷ 를 먼저, + − 를 나중에
-function calcEvaluate(str){
-    const toks = str.match(/\d*\.?\d+|\d+\.|[+\-*\/]/g) || [];
-    if (!toks.length) return null;
-    if (toks[0] === "-") toks.unshift("0");
-    if (/[+\-*\/]/.test(toks[toks.length - 1])) toks.pop();      // 끝에 연산자가 남아 있으면 무시
-    let out = [], i = 0;
-    out.push(parseFloat(toks[0]));
-    for (i = 1; i < toks.length; i += 2){
-        const op = toks[i], v = parseFloat(toks[i + 1]);
-        if (isNaN(v)) return null;
-        if (op === "*") out[out.length - 1] *= v;
-        else if (op === "/"){ if (v === 0) return null; out[out.length - 1] /= v; }
-        else { out.push(op); out.push(v); }
-    }
-    let total = out[0];
-    for (i = 1; i < out.length; i += 2) total = out[i] === "+" ? total + out[i + 1] : total - out[i + 1];
-    return isFinite(total) ? total : null;
-}
-function calcRender(){
-    calcExpr.textContent = calcStr.replace(/[+\-*\/]/g, c => " " + OPS[c] + " ");
-    const v = calcEvaluate(calcStr);
-    calcResult.textContent = v === null ? "0" : String(Math.round(v * 1000) / 1000);
-}
-function calcPress(k){
-    if (k === "C") calcStr = "";
-    else if (k === "B") calcStr = calcStr.slice(0, -1);
-    else if (k === "=") { const v = calcEvaluate(calcStr); if (v !== null) calcStr = String(Math.round(v * 1000) / 1000); }
-    else if (/[+\-*\/]/.test(k)){
-        if (!calcStr && k !== "-") return;
-        if (/[+\-*\/]$/.test(calcStr)) calcStr = calcStr.slice(0, -1);   // 연산자 연속 입력 시 교체
-        calcStr += k;
-    } else {
-        if (k === "." && /\d*\.\d*$/.test(calcStr.split(/[+\-*\/]/).pop())) return;   // 한 숫자에 소수점 한 번만
-        calcStr += k;
-    }
-    calcRender();
-}
-document.querySelectorAll("#calcPad button").forEach(b => { b.onclick = () => calcPress(b.dataset.k); });
-document.getElementById("calcOpenBtn").onclick = () => { calcStr = modalQtyInput.value ? String(modalQtyInput.value) : ""; calcRender(); calcOverlay.style.display = "flex"; };
-document.getElementById("calcCancelBtn").onclick = () => { calcOverlay.style.display = "none"; };
-document.getElementById("calcApplyBtn").onclick = () => {
-    const v = calcEvaluate(calcStr);
-    if (v === null) return alert("계산 결과가 올바르지 않습니다.");
-    if (v < 0) return alert("수량은 0 이상이어야 합니다.");
-    modalQtyInput.value = String(Math.round(v));     // 수량은 정수로 반올림
-    calcOverlay.style.display = "none";
-};
-
-// ---- 수량 모달: 키보드가 올라와도 전체가 보이도록 보이는 화면 높이에 맞춤 ----
-function fitQtyModal(){
-    if (qtyModalOverlay.style.display !== "flex") return;
-    var vv = window.visualViewport;
-    if (!vv) return;
-    qtyModalOverlay.style.top = vv.offsetTop + "px";
-    qtyModalOverlay.style.bottom = "auto";
-    qtyModalOverlay.style.height = vv.height + "px";
-    var box = document.getElementById("qtyModalBox");
-    box.style.maxHeight = Math.max(200, vv.height - 24) + "px";
-    box.style.overflowY = "auto";
-    box.classList.toggle("kb", vv.height < window.innerHeight * 0.8);   // 키보드가 올라온 상태면 간략 모드
-    if (document.activeElement === modalQtyInput) modalQtyInput.scrollIntoView({ block: "nearest" });
-}
-function resetQtyModalFit(){
-    var box = document.getElementById("qtyModalBox");
-    qtyModalOverlay.style.top = "0"; qtyModalOverlay.style.bottom = "0"; qtyModalOverlay.style.height = "";
-    box.style.maxHeight = ""; box.style.overflowY = ""; box.classList.remove("kb");
-}
-if (window.visualViewport){
-    window.visualViewport.addEventListener("resize", fitQtyModal);
-    window.visualViewport.addEventListener("scroll", fitQtyModal);
-}
-modalQtyInput.addEventListener("focus", () => { setTimeout(fitQtyModal, 50); setTimeout(fitQtyModal, 350); });
-
-function closeQtyModal(){
-    qtyModalOverlay.style.display = "none";
-    resetQtyModalFit();
-    resultInput.value = "";      // 닫히면 LOT 번호 입력칸만 비움 (결과 카드는 유지)
-    exitManualMode();
-    if (!document.body.classList.contains("manual-mode") && !document.hidden) initCamera();   // 수량 입력 끝 → 카메라 다시 켬
-    if (scrolledForTyping){ scrolledForTyping = false; window.scrollTo(0, 0); }
-}
-
-// ---- 직접 입력 모드: 카메라 숨김 ↔ 복귀 ----
-function enterManualMode(){
-    document.body.classList.add("manual-mode");
-    lotInfoBox.style.display = "none";   // 이전 LOT의 조회 결과가 남아 있으면 헷갈리므로 숨김
-    lotInfoBox.innerHTML = "";
-}
-function exitManualMode(){
-    if (!document.body.classList.contains("manual-mode")) return;
-    document.body.classList.remove("manual-mode");
-    if (currentStream){ try { var pr = video.play(); if (pr && pr.catch) pr.catch(function(){}); } catch(e){} }
-    else initCamera();   // 절전으로 꺼져 있었다면 다시 켬
-    window.scrollTo(0, 0);
-}
-document.getElementById("backToCamBtn").onclick = function(){
-    recogFailCount = 0;
-    resultInput.blur();
-    exitManualMode();
-    status.innerHTML = "📸 카메라로 다시 촬영해주세요.";
-};
-
-function handleRecognitionFail(){
-    recogFailCount++;
-    if (navigator.vibrate) navigator.vibrate(recogFailCount >= 3 ? [120, 80, 120] : 120);
-    if (recogFailCount >= 3){
-        recogFailCount = 0;
-        status.innerHTML = "⌨️ 3회 연속 인식 실패 - LOT 번호를 직접 입력해주세요.";
-        resultInput.value = "";
-        enterManualMode();
-        resultInput.classList.add("attention");
-        setTimeout(function(){ resultInput.classList.remove("attention"); }, 4000);
-        resultInput.focus();
-        bringTypingIntoView();
-    } else {
-        status.innerHTML = "❌ 인식 실패 (" + recogFailCount + "/3) - 초록 박스에 맞춰 다시 촬영해주세요.";
-    }
-}
-
-captureBtn.onclick = async () => {
-    if (capturing) return;
-    if (!currentStream){ status.innerHTML = "📷 카메라를 켭니다. 준비되면 다시 촬영 버튼을 눌러주세요."; initCamera(); return; }
-    if (!scannerInput.value.trim()) { alert("작성자 이름을 입력해주세요."); scannerInput.focus(); return; }
-    if (!deptSelect.value) { alert("실사 부서를 선택해주세요."); deptSelect.focus(); return; }
-    if (!video.videoWidth) { status.innerHTML = "⚠️ 카메라 준비 중입니다."; return; }
-
-    capturing = true; captureBtn.disabled = true;
-    status.innerHTML = "🔍 인식 중...";
-    try {
-        var lot = null;
-        try { lot = await recognizeLot(); } catch(e) { console.error(e); }
-        if (lot) {
-            recogFailCount = 0;
-            resultInput.value = lot;
-            await doLookup(lot);
-        } else {
-            handleRecognitionFail();
-        }
-    } finally {
-        capturing = false;
-        captureBtn.disabled = !(window.cachedStockMap && window.cachedStockMap.size > 0);
-    }
-};
-
-resultInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.keyCode === 13) { e.preventDefault(); recheckBtn.click(); }
-});
-
-recheckBtn.onclick = async () => {
-    recogFailCount = 0;
-    const lot = resultInput.value.trim();
-    if (!lot){ status.innerHTML = "⚠️ LOT 번호를 입력하세요."; resultInput.focus(); return; }
-    await doLookup(lot);
-};
-
-// LOT 상태 표시: 투입취소 / 실사불가는 빨간색으로 강조
-function statusIsBad(o){
-    return /투입취소/.test(String((o && o.lot_status) || '') + String((o && o.lot_substatus) || '')) || (!!o && o.chk_type === '실사불가 상태');
-}
-function statusText(o){
-    const parts = [];
-    if (o.lot_status) parts.push(o.lot_status);
-    if (o.lot_substatus && o.lot_substatus !== o.lot_status) parts.push(o.lot_substatus);
-    return parts.join(' / ');
-}
-function lotStatusHtml(o){
-    if (!o || (!o.lot_status && !o.lot_substatus && o.chk_type !== '실사불가 상태')) return '';
-    return `<div class="info-label">LOT 상태</div><div class="info-value ${statusIsBad(o) ? 'st-bad' : ''}">${esc(statusText(o))}${o.chk_type === '실사불가 상태' ? ' · 실사불가' : ''}</div>`;
-}
-
-async function doLookup(lot){
-    status.innerHTML = "🔎 조회 중...";
-    let res;
-    try { res = await window.apiLookup(lot); }
-    catch(e){ console.error(e); status.innerHTML = "❌ 조회 실패 - 네트워크를 확인하고 다시 시도하세요."; return; }
-    currentLookupResult = res;
-    if (window.updateProgressBar) window.updateProgressBar();
-    lotInfoBox.style.display = "block";
-
-    const pastInfo = (res.days_ago !== null && res.days_ago !== undefined) ? `${res.upload_date} (${res.days_ago}일 전)` : res.upload_date;
-    if (res.kind === 'none') {
-        lotInfoBox.className = "notfound";
-        lotInfoBox.innerHTML = `
-            <div class="status-tag no">⚠️ 재고 없음 (보관 이력에 없음)</div>
-            <div class="info-grid">
-                <div class="info-label">LOT</div><div class="info-value big" style="color:#ff8a8a;">${esc(lot)}</div>
-            </div>
-            <div style="margin-top:8px;color:#ff8a8a;font-size:12px;">LOT 번호가 맞는지 확인하고, 실물이 있으면 실수량을 입력하세요.</div>
-            <button id="openQtyModalBtn">📝 실수량 입력하기</button>
-        `;
-        status.innerHTML = "⚠️ 재고 데이터 없음 - LOT 번호 확인 후 실수량 입력";
-        document.getElementById("openQtyModalBtn").onclick = () => openQtyModal(res);
-        openQtyModal(res);
-        return;
-    }
-
-    let statusBadge;
-    if (res.kind === 'normal') statusBadge = `<div class="status-tag yes">✅ 최근 실행분 재고 데이터 존재</div>`;
-    else if (res.kind === 'lot_ref') statusBadge = `<div class="status-tag warn" style="color:#4fc3ff;border-color:#4fc3ff;">ℹ️ 재고 데이터 없음 · MES ${esc(res.ref_source || '실적')} 기록(${pastInfo}) 기준 품번/품명 → 전산수량 없음</div>`;
-    else if (res.kind === 'recent_past') statusBadge = `<div class="status-tag warn">⚠️ 당일 재고 미반영 · 10일 내 과거자료 ${pastInfo} → 수량 0</div>`;
-    else statusBadge = `<div class="status-tag warn" style="color:#c792ea;border-color:#c792ea;">⚠️ 장기 과거자료 ${pastInfo} → 수량 0</div>`;
-
-    lotInfoBox.className = "found";
-    lotInfoBox.innerHTML = `
-        ${statusBadge}
-        <div class="info-grid">
-            <div class="info-label">품번</div><div class="info-value">${esc(res.item_no)}</div>
-            <div class="info-label">품명</div><div class="info-value">${esc(res.item_name)}</div>
-            <div class="info-label">전산수량</div><div class="info-value big">${res.qty === null ? '- (없음)' : res.qty + ' ' + esc(res.unit)}</div>
-            ${lotStatusHtml(res)}
-            ${res.kind === 'normal' ? `<div class="info-label">잔량</div><div class="info-value rm-${window.remainState(res.qty, res.origin_qty).state}">${esc(window.remainState(res.qty, res.origin_qty).text)}</div>` : ''}
-        </div>
-        <div id="itemStatusCard" class="wh-box"></div>
-        <button id="openQtyModalBtn">📝 실수량 입력하기</button>
-    `;
-    renderItemStatus(document.getElementById('itemStatusCard'), res);
-    status.innerHTML = "✅ 조회 완료. 실수량을 입력하세요.";
-
-    document.getElementById("openQtyModalBtn").onclick = () => openQtyModal(res);
-    openQtyModal(res);
-}
-
-function openQtyModal(res) {
-    modalLotNo.innerText = res.lot_no || '-';
-    modalItemNo.innerText = res.item_no || '-';
-    modalItemName.innerText = res.item_name || '-';
-    const isNone = res.kind === 'none';
-    const isRef = res.kind === 'lot_ref';
-    modalSysQty.innerText = isNone ? '- (재고 없음)' : (isRef ? '- (전산수량 없음)' : `${res.qty} ${res.unit || ''}`);
-    modalLotNo.classList.toggle('big', isNone);
-    if (isNone){
-        modalWarn.style.display = 'block'; modalWarn.style.background = 'rgba(255,138,138,0.15)'; modalWarn.style.color = '#ff8a8a';
-        modalWarn.innerText = '⚠️ 재고 이력에 없는 LOT입니다. 위 LOT 번호가 맞는지 확인하세요.';
-    } else if (isRef){
-        modalWarn.style.display = 'block'; modalWarn.style.background = 'rgba(79,195,255,0.15)'; modalWarn.style.color = '#4fc3ff';
-        modalWarn.innerText = `ℹ️ 재고엔 없고 MES ${res.ref_source || '실적'} 기록(${res.upload_date})에서 찾은 품번/품명입니다. 전산수량은 없습니다.`;
-    } else if (res.kind === 'recent_past' || res.kind === 'old_past'){
-        modalWarn.style.display = 'block'; modalWarn.style.background = 'rgba(255,184,77,0.15)'; modalWarn.style.color = res.kind === 'old_past' ? '#c792ea' : '#ffb84d';
-        modalWarn.innerText = `⚠️ ${res.upload_date} 과거자료 기준 · 전산수량 0 처리`;
-    } else if (res.kind === 'normal') {
-        const rs = window.remainState(res.qty, res.origin_qty);
-        const tone = { remain: ['rgba(255,184,77,0.15)', '#ffb84d', '🟡'], full: ['rgba(0,230,118,0.12)', '#00e676', '✅'], nodata: ['rgba(160,160,160,0.15)', '#aaa', '❔'], increase: ['rgba(110,193,255,0.15)', '#6ec1ff', '📈'] }[rs.state];
-        modalWarn.style.display = 'block'; modalWarn.style.background = tone[0]; modalWarn.style.color = tone[1];
-        modalWarn.innerText = `${tone[2]} ${rs.text}`;
-    } else { modalWarn.style.display = 'none'; }
-    
-    renderItemStatus(modalItemStatus, res);
-    modalQtyInput.value = "";
-    modalMsg.innerText = "";
-    const stEl = document.getElementById("modalStatus");
-    if (res.lot_status || res.lot_substatus || res.chk_type === '실사불가 상태'){
-        stEl.className = statusIsBad(res) ? 'st-bad' : '';
-        stEl.textContent = (statusIsBad(res) ? '⚠️ ' : 'LOT 상태: ') + statusText(res) + (res.chk_type === '실사불가 상태' ? ' · 실사불가' : '');
-        stEl.style.display = 'block';
-    } else { stEl.textContent = ''; stEl.style.display = 'none'; }
-    // 처음 수량과 현재 재고가 같은 LOT(온전)이면 수량을 미리 채워 둠. 다르면(잔량/판단 불가) 비워 두고 계산기 또는 직접 입력
-    const autoFill = res.kind === 'normal' && window.remainState(res.qty, res.origin_qty).state === 'full';
-    if (autoFill){
-        modalQtyInput.value = res.qty;
-        modalMsg.innerHTML = "<span style='color:#00e676;'>✅ 처음 수량과 같아 자동 입력했습니다. 실물이 다르면 수정하세요.</span>";
-    }
-    qtyModalOverlay.style.display = "flex";
-    stopCamera();   // 수량 입력 중에는 카메라를 끔 (닫으면 다시 켬)
-    fitQtyModal();
-    setTimeout(() => { modalQtyInput.focus(); if (autoFill) modalQtyInput.select(); }, 100);   // 자동 입력 시 바로 덮어쓸 수 있게 선택 상태로
-}
-
-modalCloseBtn.onclick = () => closeQtyModal();
-
-// 📌 보완된 수량 저장 버튼 클릭 로직
-modalSaveBtn.onclick = async () => {
-    const val = modalQtyInput.value;
-    if (val === "") return alert("실수량을 입력해 주세요.");
-    if (!currentLookupResult) return;
-
-    // 네트워크 끊김 상태 감지 시 사전 예외 처리
-    if (!navigator.onLine) {
-        modalMsg.innerHTML = "<span style='color:#ffb84d;'>⚠️ 현재 오프라인 상태입니다. 신호가 잡히는 곳에서 '저장'을 다시 눌러주세요.</span>";
-        return;
-    }
-
-    modalMsg.innerHTML = "<span style='color:#4fc3ff;'>저장 중...</span>";
-    let saveRes;
-    try { 
-        saveRes = await window.apiSaveQty(currentLookupResult.lot_no, val, currentLookupResult.qty); 
-    } catch(e) { 
-        console.error(e); 
-        // 전송 실패 시 모달 창을 닫지 않고 입력값과 상태 유지
-        modalMsg.innerHTML = "<span style='color:#ff8a8a;'>❌ 통신이 불안정합니다. 창을 닫지 말고 잠시 후 '저장'을 다시 눌러주세요.</span>"; 
-        return; 
-    }
-    
-    modalMsg.innerHTML = `<span style="color:#00e676;">✅ 저장 완료 ${saveRes.diff === null ? '(전산수량 없음)' : '(차이: ' + saveRes.diff + ')'}</span>`;
-    if (window.updateProgressBar) window.updateProgressBar();
-    refreshItemStatus();
-    setTimeout(() => { closeQtyModal(); }, 600);   // 닫히면서 LOT 번호만 비움 (결과 카드는 유지)
-};
-
-// 📌 네트워크 상태 실시간 표시 및 UI 업데이트
-function updateNetworkUI() {
-    const statusDiv = document.getElementById('networkStatus');
-    if (!statusDiv) return;
-    
-    if (navigator.onLine) {
-        statusDiv.innerHTML = "🟢 온라인 (데이터 저장 가능)";
-        statusDiv.style.color = "#00e676";
-    } else {
-        statusDiv.innerHTML = "🔴 오프라인 (신호 미약 - 인터넷 이동 필요)";
-        statusDiv.style.color = "#ff8a8a";
-    }
-}
-
-window.addEventListener('online', updateNetworkUI);
-window.addEventListener('offline', updateNetworkUI);
-updateNetworkUI();
-
-// 앱 핵심 스크립트(모듈)가 못 뜨는 구형 브라우저/네트워크 문제를 화면에 알림
-setTimeout(function(){
-    if (!window.cachedStockMap){
-        status.innerHTML = "⚠️ 앱 로딩 실패 - 네트워크 확인 또는 브라우저(Chrome) 업데이트가 필요합니다.";
-    }
-}, 10000);
 </script>
+
 </body>
 </html>
