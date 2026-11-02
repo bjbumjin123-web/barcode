@@ -100,8 +100,12 @@ function nowDateTimeStr(){
     return `${map.year}-${map.month}-${map.day} ${map.hour}:${map.minute}:${map.second}`;
 }
 
+// 부서 분류 - lot_daily_snapshot_scheduler.py 의 classify_department() 와 같은 규칙 (한쪽을 고치면 다른 쪽도 고칠 것)
+// 비고(ref)에 2F/주조/사상/1F 가 있으면 그쪽이 먼저.
+// 반제품창고: 품명에 '주조' -> 주조 (단 품명에 '창고'도 같이 있으면 1F) / 1F 로 분류된 것 중 비고에 '청우' -> 청우 부서
 function classifyDepartment(ref, warehouse, itemName){
     ref = ref || ''; warehouse = warehouse || ''; itemName = itemName || '';
+    const wh = warehouse.replace(/\s+/g, '');          // 공백 무시 ('반제품 창고' = '반제품창고')
     const isCheongwoo = ref.indexOf('청우') !== -1;
 
     if (warehouse === '원자재창고') return { department:'자재', subcontractType:null };
@@ -110,16 +114,18 @@ function classifyDepartment(ref, warehouse, itemName){
 
     if (ref.indexOf('2F') !== -1) return { department:'2F(검사/포장)', subcontractType:null };
     if (ref.indexOf('주조') !== -1 || ref.indexOf('사상') !== -1) return { department:'주조', subcontractType:null };
-    if (ref.indexOf('1F') !== -1) return { department:'1F(가공생산)', subcontractType: isCheongwoo ? '청우' : '자체' };
 
-    // 반제품 관련 조건 처리
-    if (warehouse.indexOf('반제품') !== -1) {
-        if (itemName.indexOf('주조') !== -1 && !warehouse.endsWith('창고') && warehouse !== '반제품창고') {
-            return { department: '주조', subcontractType: null };
-        }
-        return { department: '1F(가공생산)', subcontractType: isCheongwoo ? '청우' : '자체' };
+    let dept = null;
+    if (ref.indexOf('1F') !== -1) {
+        dept = '1F(가공생산)';
+    } else if (warehouse.indexOf('반제품') !== -1) {
+        if (itemName.indexOf('주조') !== -1 && itemName.indexOf('창고') === -1) return { department:'주조', subcontractType:null };
+        dept = '1F(가공생산)';
     }
-
+    if (dept) {
+        if (wh === '반제품창고' && isCheongwoo) return { department:'청우', subcontractType:null };
+        return { department: dept, subcontractType: isCheongwoo ? '청우' : '자체' };
+    }
     return { department:'미분류', subcontractType:null };
 }
 

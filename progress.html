@@ -53,7 +53,7 @@ th{background:#222;color:#aaa;font-size:12px;}
 <div id="content"><div class="empty">불러오는 중...</div></div>
 
 <script type="module">
-import { sb, wrap, fetchAll, renderNavbar } from "./common.js?v=1";
+import { sb, wrap, fetchAll, renderNavbar } from "./common.js?v=2";
 renderNavbar("progress");
 
 
@@ -86,7 +86,7 @@ function esc(s){
 
 // 성능 개선: 부서는 lot_daily_snapshot.py의 classify_department()가 만드는 고정된 값들이라
 // 매번 전체 컬렉션을 긁어서 알아낼 필요 없이 목록을 그대로 씀
-const DEPARTMENTS = ["1F(가공생산)", "2F(검사/포장)", "미분류", "영업", "외주", "자재", "주조"];
+const DEPARTMENTS = ["1F(가공생산)", "2F(검사/포장)", "미분류", "영업", "외주", "자재", "주조", "청우"];
 function loadDepartments(){
     DEPARTMENTS.forEach(d => {
         const opt = document.createElement("option");

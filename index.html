@@ -207,6 +207,23 @@ body.manual-mode #backToCamBtn{ display:block; }
 #qtyModalBox.kb .wh-box{ display:none !important; }
 #qtyModalBox.kb .modal-info-group{ padding:6px 8px; margin-bottom:6px; font-size:12px; }
 #qtyModalBox.kb #modalWarn{ padding:5px 8px; margin-bottom:6px; font-size:12px; }
+/* 작은 폰: 키보드 때문에 간략 모드로도 저장/취소가 안 들어갈 때만 켜짐 -> LOT·전산수량 한 줄 + 입력칸 + 버튼만 */
+#qtyModalBox.tiny{ padding:6px 10px; display:flex; flex-direction:column; }
+#qtyModalBox.tiny h3{ display:none; }
+#qtyModalBox.tiny .modal-info-group{ display:flex; flex-wrap:wrap; justify-content:space-between; column-gap:10px; padding:3px 8px; margin-bottom:5px; font-size:12px; }
+#qtyModalBox.tiny .modal-info-item{ flex:0 1 auto; align-items:baseline; padding:1px 0; border-bottom:none; min-width:0; }
+#qtyModalBox.tiny .modal-info-item:nth-child(2), #qtyModalBox.tiny .modal-info-item:nth-child(3){ display:none; }
+#qtyModalBox.tiny .modal-info-label{ margin-right:4px; font-size:11px; }
+#qtyModalBox.tiny #modalLotNo{ font-size:12px; }
+#qtyModalBox.tiny .modal-info-val.highlight{ font-size:13px; }
+#qtyModalBox.tiny #modalStatus{ margin:0 0 3px; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#qtyModalBox.tiny #modalWarn{ margin:0 0 4px; padding:4px 8px; font-size:11px; line-height:1.25; }
+#qtyModalBox.tiny #modalMsg{ order:5; margin-top:0 !important; font-size:11px; }
+#qtyModalBox.tiny .qty-row{ order:6; margin-bottom:6px; }
+#qtyModalBox.tiny #modalQtyInput{ height:40px; font-size:20px; }
+#qtyModalBox.tiny #calcOpenBtn{ height:40px; }
+#qtyModalBox.tiny .modal-btn-group{ order:7; }
+#qtyModalBox.tiny .modal-btn-group button{ height:38px; }
 
 /* 모달 내부 정보 표시 그룹 */
 .modal-info-group {
@@ -290,6 +307,7 @@ body.manual-mode #backToCamBtn{ display:block; }
 <option value="주조">주조</option><option value="자재">자재</option>
 <option value="1F(가공생산)">1F(가공생산)</option><option value="2F(검사/포장)">2F(검사/포장)</option>
 <option value="영업">영업</option><option value="외주">외주</option>
+<option value="청우">청우</option>
 </select>
 </div>
 
@@ -378,7 +396,7 @@ body.manual-mode #backToCamBtn{ display:block; }
 </div>
 
 <script type="module">
-import { renderNavbar } from "./common.js?v=1";
+import { renderNavbar } from "./common.js?v=2";
 renderNavbar("index");
 </script>
 <script type="module">
@@ -1735,13 +1753,16 @@ function fitQtyModal(){
     var box = document.getElementById("qtyModalBox");
     box.style.maxHeight = Math.max(200, vv.height - 24) + "px";
     box.style.overflowY = "auto";
-    box.classList.toggle("kb", vv.height < window.innerHeight * 0.8);   // 키보드가 올라온 상태면 간략 모드
+    var kbOn = vv.height < window.innerHeight * 0.8;
+    box.classList.toggle("kb", kbOn);   // 키보드가 올라온 상태면 간략 모드
+    box.classList.remove("tiny");       // 작은 폰: 간략 모드로도 내용이 넘쳐 버튼이 가려지면 한 단계 더 줄임
+    if (kbOn && box.scrollHeight > box.clientHeight + 1) box.classList.add("tiny");
     if (document.activeElement === modalQtyInput) modalQtyInput.scrollIntoView({ block: "nearest" });
 }
 function resetQtyModalFit(){
     var box = document.getElementById("qtyModalBox");
     qtyModalOverlay.style.top = "0"; qtyModalOverlay.style.bottom = "0"; qtyModalOverlay.style.height = "";
-    box.style.maxHeight = ""; box.style.overflowY = ""; box.classList.remove("kb");
+    box.style.maxHeight = ""; box.style.overflowY = ""; box.classList.remove("kb"); box.classList.remove("tiny");
 }
 if (window.visualViewport){
     window.visualViewport.addEventListener("resize", fitQtyModal);

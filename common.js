@@ -21,7 +21,7 @@ export function renderNavbar(currentId, selector = ".navbar") {
     el.innerHTML = MENU.filter(m => m.id !== currentId).map(m => `<a href="${m.href}">${m.label}</a>`).join("");
 }
 
-export const DEPARTMENTS = ["1F(가공생산)", "2F(검사/포장)", "미분류", "영업", "외주", "자재", "주조"];
+export const DEPARTMENTS = ["1F(가공생산)", "2F(검사/포장)", "미분류", "영업", "외주", "자재", "주조", "청우"];
 
 // d.data() 형태로 읽을 수 있게 감싸는 도우미 (기존 코드 호환용)
 export const wrap = r => ({ id: r.id, data: () => r });

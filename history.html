@@ -41,7 +41,7 @@ th{background:#222;color:#aaa;font-size:12px;}
 <div id="content"><div class="empty">날짜를 선택해주세요.</div></div>
 
 <script type="module">
-import { sb, wrap, fetchAll, renderNavbar } from "./common.js?v=1";
+import { sb, wrap, fetchAll, renderNavbar } from "./common.js?v=2";
 renderNavbar("history");
 
 
@@ -66,7 +66,7 @@ function esc(s){
 }
 
 // 성능 개선: 부서는 고정된 값들이라 전체 스캔 결과에서 굳이 다시 뽑아낼 필요 없음
-const DEPARTMENTS = ["1F(가공생산)", "2F(검사/포장)", "미분류", "영업", "외주", "자재", "주조"];
+const DEPARTMENTS = ["1F(가공생산)", "2F(검사/포장)", "미분류", "영업", "외주", "자재", "주조", "청우"];
 
 function daysAgoKST(days){
     const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year:"numeric", month:"2-digit", day:"2-digit" });
