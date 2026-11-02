@@ -109,11 +109,12 @@ function classifyDepartment(ref, warehouse, itemName){
 
     if (ref.indexOf('2F') !== -1) return { department:'2F(검사/포장)', subcontractType:null };
 
-    // 사용자님 요청 조건 적용:
-    // 품명에 '주조'가 들어가고, 그 품명에 '창고'라는 단어가 없어야만 주조 부서로 보냄
-    if (itemName.indexOf('주조') !== -1 && itemName.indexOf('창고') === -1) {
+    // [요청하신 정확한 규칙 적용]
+    // 1. 창고가 반제품창고이고, 품명에 '주조'가 들어가며, '창고'라는 단어가 없으면 -> 주조 부서
+    if (warehouse.indexOf('반제품') !== -1 && itemName.indexOf('주조') !== -1 && itemName.indexOf('창고') === -1) {
         return { department: '주조', subcontractType: null };
     }
+
     if (ref.indexOf('주조') !== -1 || ref.indexOf('사상') !== -1) {
         return { department: '주조', subcontractType: null };
     }
@@ -145,7 +146,6 @@ const TYPE_INFO = { mat:{ label:'자재실적', source:'수동(자재)' }, prod:
 let lastUploadedRows = [];
 let lastUploadedDate = '';
 let lastUploadedType = 'stock';
-
 let existingCountForDate = 0;
 
 dateInput.value = todayKST();
@@ -215,7 +215,7 @@ async function loadLotSummary(){
         lotSummaryBox.innerHTML = `LOT 조회용 자료(최근 60일): <b>${all.count || 0}</b>건 (자재 <b>${mat.count || 0}</b> / 생산 <b>${prod.count || 0}</b>)<br>가장 최근 날짜: <b>${latestDate}</b>`;
     }catch(e){
         console.error(e);
-        lotSummaryBox.textContent = 'LOT 조회용 자료를 불러오지 못했습니다. (lot_master 테이블 생성 여부 확인)';
+        lotSummaryBox.textContent = 'LOT 조회용 자료를 불러오지 못했습니다.';
     }
 }
 
@@ -270,10 +270,8 @@ function parseLotExcel(file, defaultDate){
                 const idx = { lot_no: lotIdx, item_no: header.indexOf('품번'), item_name: header.indexOf('품명') };
                 const dateIdx = header.indexOf('날짜');
                 const missing = Object.keys(idx).filter(k => idx[k] === -1);
-                if (missing.length){
-                    reject('❌ 엑셀에서 다음 컬럼을 찾을 수 없습니다.');
-                    return;
-                }
+                if (missing.length){ reject('❌ 엑셀에서 필수 컬럼을 찾을 수 없습니다.'); return; }
+
                 const parsed = [];
                 for (let i = 1; i < rows.length; i++){
                     const row = rows[i];
@@ -303,22 +301,15 @@ async function uploadLotMaster(type, rows){
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateInput.value)) return { success:false, message:'❌ 기본 날짜 형식이 올바르지 않습니다.' };
     if (!rows || !rows.length) return { success:false, message:'❌ 엑셀에 데이터가 없습니다.' };
 
-    const byLot = {}, dupCount = {};
-    const noItem = [], badFormat = [], badDate = [];
-    const lotFormatRe = /^\d{10}-\d{3}$/;
+    const byLot = {};
     rows.forEach(r => {
-        dupCount[r.lot_no] = (dupCount[r.lot_no] || 0) + 1;
-        if (!r.item_no && !r.item_name){ noItem.push(r.lot_no); return; }      
-        if (!lotFormatRe.test(r.lot_no)) badFormat.push(r.lot_no);
-        if (!r.date_ok) badDate.push(r.lot_no);
+        if (!r.item_no && !r.item_name) return;
         const old = byLot[r.lot_no];
         if (!old || r.work_date >= old.work_date){                               
             byLot[r.lot_no] = { lot_no: r.lot_no, item_no: r.item_no, item_name: r.item_name, work_date: r.work_date, source: info.source };
         }
     });
     const savedRows = Object.values(byLot);
-    if (!savedRows.length) return { success:false, message:'❌ 저장할 행이 없습니다.' };
-
     for (let i = 0; i < savedRows.length; i += 500){
         const { error } = await sb.from(LOT_TABLE).upsert(savedRows.slice(i, i + 500), { onConflict: 'lot_no' });
         if (error) throw error;
@@ -358,12 +349,8 @@ function parseExcelFile(file){
                     warehouse: header.indexOf('창고'),
                 };
                 const refIdx = header.indexOf('참조');
-
                 const missing = Object.keys(colIndex).filter(k => colIndex[k] === -1);
-                if (missing.length){
-                    reject('❌ 엑셀에서 다음 컬럼을 찾을 수 없습니다: ' + missing.join(', '));
-                    return;
-                }
+                if (missing.length){ reject('❌ 필수 컬럼 누락: ' + missing.join(', ')); return; }
 
                 const parsed = [];
                 for (let i = 1; i < rows.length; i++){
@@ -401,7 +388,6 @@ async function uploadMaster(uploadDate, rows){
 
     const { count: existingCount, error: cntErr } = await sb.from(STOCK_COL).select('id', { count:'exact', head:true }).eq('upload_date', uploadDate);
     if (cntErr) throw cntErr;
-    const existingCountBefore = existingCount || 0;
 
     const uploadedAt = nowDateTimeStr();
     const byLot = {};   
