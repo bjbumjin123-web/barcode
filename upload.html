@@ -75,6 +75,12 @@ const sb = createClient("https://siwaynipvwtwuoobyarp.supabase.co", "sb_publisha
         detectSessionInUrl: false
     }
 });
+    auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+    }
+});
 
 const wrap = r => ({ id: r.id, data: () => r });
 
