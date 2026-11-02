@@ -177,6 +177,17 @@ function buildTimeline(){
         r.seq_no = seqCounter[r.lot_no];
     });
 
+    // 같은 LOT 에 여러 번 입력된 수량(분할 작업)은 시간 순서대로 누적해서 보여줌
+    const runSum = {}, entryCnt = {};
+    sorted.forEach(r => {
+        if (r.actual_qty !== null && r.actual_qty !== undefined){
+            runSum[r.lot_no] = (runSum[r.lot_no] || 0) + Number(r.actual_qty);
+            entryCnt[r.lot_no] = (entryCnt[r.lot_no] || 0) + 1;
+            r.cum_qty = runSum[r.lot_no];
+        }
+    });
+    sorted.forEach(r => { r.entry_total = entryCnt[r.lot_no] || 0; });
+
     let scanRows = sorted.map(r => {
         const item = resolveItem(r);
         const note = noteOf(r);
@@ -189,6 +200,7 @@ function buildTimeline(){
             actual_qty: (r.actual_qty === null || r.actual_qty === undefined) ? null : Number(r.actual_qty),
             diff: (r.diff === null || r.diff === undefined) ? null : Number(r.diff),
             scanned_by:r.scanned_by,
+            cum_qty: (r.cum_qty === undefined ? null : r.cum_qty), entry_total: r.entry_total || 0,
             note
         };
     });
@@ -266,7 +278,7 @@ function render(){
             <td>${esc(r.item_name)}</td>
             <td>${esc(statusText(r))}</td>
             <td>${r.qty !== null ? esc(r.qty)+' '+esc(r.unit) : '-'}</td>
-            <td>${r.actual_qty !== null ? esc(r.actual_qty) : '-'}</td>
+            <td>${r.actual_qty !== null ? esc(r.actual_qty) + (r.entry_total > 1 ? ' <span style="color:#888;font-size:11px;">· 누적 '+esc(r.cum_qty)+'</span>' : '') : '-'}</td>
             <td class="${diffClass}">${diffText}</td>
             <td>${esc(r.warehouse||'-')}</td>
             <td>${seqText}</td>
@@ -317,7 +329,7 @@ resetIdleTimer();
 
 exportBtn.onclick = () => {
     const timeline = buildTimeline();
-    const rows = [['#','확인시각','확인자','확인부서','LOT NO','부서','외주구분','품번','품명','LOT상태','시스템수량','실제수량','차이','단위','창고','확인횟수','비고']];
+    const rows = [['#','확인시각','확인자','확인부서','LOT NO','부서','외주구분','품번','품명','LOT상태','시스템수량','실제수량','차이','단위','창고','확인횟수','비고','누적수량']];
     timeline.forEach((r,i) => {
         if (r.type === 'close'){
             const note = r.event === 'start'
@@ -325,7 +337,7 @@ exportBtn.onclick = () => {
                 : (r.checked !== null && r.checked !== undefined ? `${r.event === 'auto_close' ? '자동 마감' : '마감'} · 확인 ${r.checked}/${r.total}건 · 남음 ${r.remaining}건` : '마감');
             rows.push([
                 i+1, r.time, r.scanner, r.dept, '', '', '', '', '', '', '', '', '', '', '',
-                '', note
+                '', note, ''
             ]);
             return;
         }
@@ -333,7 +345,8 @@ exportBtn.onclick = () => {
             i+1, r.scanned_at, r.scanned_by, r.scan_dept, r.lot_no, r.department, r.subcontract_type,
             r.item_no, r.item_name, statusText(r), r.qty, r.actual_qty, r.diff, r.unit, r.warehouse,
             r.seq_no > 1 ? r.seq_no + '번째 (중복)' : '1번째',
-            r.note.text
+            r.note.text,
+            (r.actual_qty !== null && r.entry_total > 1) ? r.cum_qty : ''
         ]);
     });
 

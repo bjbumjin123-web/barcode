@@ -94,6 +94,40 @@ h2{ text-align:center; margin:0 0 6px; font-size:16px; color:#fff; flex:0 0 auto
 .close-item .qu{ font-size:11px; color:#999; }
 .close-item .qi{ margin-left:8px; font-size:12px; }
 .close-item .qi.remain{ color:#ffb84d; } .close-item .qi.increase{ color:#6ec1ff; }
+.close-item .qi.split{ color:#c792ea; }
+/* 같은 LOT 재스캔 확인 팝업 */
+#dupModalOverlay{ display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:3200; align-items:center; justify-content:center; padding:12px; }
+#dupModalBox{ background:#1c1c1c; border:2px solid #ffb84d; border-radius:14px; padding:14px; width:100%; max-width:420px; max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px); display:flex; flex-direction:column; box-shadow:0 8px 30px rgba(0,0,0,0.9); box-sizing:border-box; }
+#dupTitle{ flex:0 0 auto; text-align:center; color:#ffb84d; font-size:17px; font-weight:bold; margin-bottom:10px; }
+#dupInfo{ flex:0 0 auto; background:#111; border:1px solid #333; border-radius:8px; padding:6px 10px; font-size:12px; margin-bottom:10px; }
+.dup-info-row{ display:flex; justify-content:space-between; gap:8px; padding:3px 0; }
+.dup-info-row span:first-child{ color:#888; white-space:nowrap; }
+.dup-info-row span:last-child{ color:#fff; font-weight:bold; text-align:right; word-break:break-all; }
+#dupListTitle{ flex:0 0 auto; font-size:11px; color:#888; margin-bottom:4px; }
+#dupList{ flex:1 1 auto; min-height:44px; overflow-y:auto; background:#111; border:1px solid #333; border-radius:8px; padding:2px 10px; margin-bottom:10px; }
+.dup-row{ display:flex; justify-content:space-between; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid #2a2a2a; font-size:13px; }
+.dup-row:last-child{ border-bottom:none; }
+.dup-idx, .dup-time{ color:#888; }
+.dup-time{ font-size:12px; }
+.dup-q{ color:#fff; font-weight:bold; white-space:nowrap; }
+#dupTotal{ flex:0 0 auto; background:rgba(255,184,77,0.15); border-radius:8px; padding:8px 10px; margin-bottom:10px; }
+#dupTotal.reached{ background:rgba(255,138,138,0.18); }
+#dupTotalText{ display:flex; justify-content:space-between; gap:8px; color:#ffb84d; font-size:13px; font-weight:bold; margin-bottom:6px; }
+#dupTotal.reached #dupTotalText{ color:#ff8a8a; }
+#dupBar{ height:6px; background:#2a2a2a; border-radius:3px; overflow:hidden; }
+#dupBarFill{ height:100%; width:0; background:#ffb84d; }
+#dupTotal.reached #dupBarFill{ background:#ff8a8a; }
+#dupReached{ display:none; flex:0 0 auto; margin-bottom:10px; padding:8px 10px; border-radius:8px; background:rgba(255,138,138,0.18); color:#ff8a8a; font-size:13px; font-weight:bold; text-align:center; line-height:1.4; }
+#dupBtns{ flex:0 0 auto; display:flex; gap:6px; }
+#dupBtns button{ flex:1; height:46px; padding:0; font-size:14px; font-weight:bold; border:none; border-radius:8px; cursor:pointer; }
+#dupAddBtn{ background:#00e676; color:#111; }
+#dupOverBtn{ background:#ffb84d; color:#111; }
+#dupCancelBtn{ background:#444; color:#eee; }
+#dupCancelBtn.emph{ background:#ff8a8a; color:#111; }
+#dupNote{ flex:0 0 auto; font-size:11px; color:#888; text-align:center; margin-top:8px; line-height:1.5; }
+/* 분할 추가 / 덮어쓰기 입력창의 안내 줄 */
+#modalCtx{ display:none; margin:0 0 8px; padding:6px 8px; border-radius:8px; background:rgba(199,146,234,0.12); color:#c792ea; font-size:12px; line-height:1.4; }
+#qtyModalBox.kb #modalCtx{ padding:4px 8px; margin-bottom:6px; font-size:11px; }
 #closeSearch{ width:100%; box-sizing:border-box; height:40px; margin-bottom:6px; padding:0 12px; font-size:14px; color:#fff; background:#111; border:1px solid #444; border-radius:8px; outline:none; }
 #closeSearch:focus{ border-color:#ffb84d; }
 #closeFilterInfo{ font-size:12px; color:#888; margin-bottom:6px; text-align:center; min-height:14px; }
@@ -359,7 +393,7 @@ body.manual-mode #backToCamBtn{ display:block; }
 <!-- 모달 팝업: LOT, 품번, 품명, 전산수량 정렬 구조 -->
 <div id="qtyModalOverlay">
 <div id="qtyModalBox">
-<h3>📝 실수량 입력</h3>
+<h3 id="modalTitle">📝 실수량 입력</h3>
 <div class="modal-info-group">
     <div class="modal-info-item"><span class="modal-info-label">1. LOT</span><span id="modalLotNo" class="modal-info-val">-</span></div>
     <div class="modal-info-item"><span class="modal-info-label">2. 품번</span><span id="modalItemNo" class="modal-info-val">-</span></div>
@@ -369,12 +403,31 @@ body.manual-mode #backToCamBtn{ display:block; }
 <div id="modalItemStatus" class="wh-box"></div>
 <div id="modalStatus"></div>
 <div id="modalWarn"></div>
+<div id="modalCtx"></div>
 <div class="qty-row"><input id="modalQtyInput" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="실사수량 입력"><button id="calcOpenBtn" type="button" title="계산기">🧮</button></div>
 <div class="modal-btn-group">
 <button id="modalSaveBtn">저장</button>
 <button id="modalCloseBtn">취소</button>
 </div>
 <div id="modalMsg" style="margin-top:8px;font-size:12px;font-weight:bold;"></div>
+</div>
+</div>
+
+<!-- 같은 LOT 을 다시 스캔했을 때: 이미 입력된 수량을 보여주고 분할 추가 / 덮어쓰기 / 취소 선택 -->
+<div id="dupModalOverlay">
+<div id="dupModalBox">
+<div id="dupTitle"><i></i><span id="dupTitleText"></span></div>
+<div id="dupInfo">
+<div class="dup-info-row"><span>LOT</span><span id="dupLot"></span></div>
+<div class="dup-info-row"><span>품번</span><span id="dupItemNo"></span></div>
+<div class="dup-info-row"><span>품명</span><span id="dupItemName"></span></div>
+</div>
+<div id="dupListTitle">지금까지 입력 (최근 순)</div>
+<div id="dupList"></div>
+<div id="dupTotal"><div id="dupTotalText"><span id="dupTotalL"></span><span id="dupTotalR"></span></div><div id="dupBar"><div id="dupBarFill"></div></div></div>
+<div id="dupReached"></div>
+<div id="dupBtns"><button id="dupAddBtn">분할 추가</button><button id="dupOverBtn">덮어쓰기</button><button id="dupCancelBtn">취소</button></div>
+<div id="dupNote"></div>
 </div>
 </div>
 
@@ -444,14 +497,33 @@ window.cachedStockMap = new Map();
 const CACHE_KEY = 'lot_stock_cache_v1';
 // 오늘 스캔된 LOT 집합 (진행바/마감 공용) - 서버 기록 + 미전송 오프라인 큐
 window.scannedTodaySet = new Set();
+window.scannedQtyMap = new Map();   // lot_no -> { sum: 오늘 입력한 수량 합계, n: 입력 횟수 }
+// 한 LOT 을 여러 작업자가 나눠 작업하는 부서: 누적 수량이 전산수량 이상이 되어야 '확인 완료'. 그 밖의 부서는 수량을 한 번 입력하면 확인 완료.
+const SPLIT_DEPTS = ['1F(가공생산)', '청우'];
+window.isLotDone = function(lot){
+    const s = window.scannedQtyMap.get(lot);
+    if (!s || !s.n) return false;
+    const r = window.cachedStockMap.get(lot);
+    if (!r || SPLIT_DEPTS.indexOf(r.department) < 0) return true;
+    const q = Number(r.qty);
+    if (!isFinite(q) || q <= 0) return true;
+    return s.sum >= q;
+};
+window.rebuildScannedSet = function(){
+    const set = new Set();
+    window.scannedQtyMap.forEach((s, lot) => { if (window.isLotDone(lot)) set.add(lot); });
+    window.scannedTodaySet = set;
+    return set;
+};
 window.syncScannedToday = async function(){
     const { date: today } = nowParts();
     const logs = await fetchAll(() => sb.from(LOG_COL).select('lot_no,actual_qty').eq('scan_date', today));
-    const set = new Set();   // 수량 입력까지 끝낸 LOT만 '확인'으로 인정
-    logs.forEach(d => { const r = d.data(); if (r.actual_qty !== null && r.actual_qty !== undefined) set.add(r.lot_no); });
-    readQueue().forEach(q => { if (q.scan_date === today && q.actual_qty !== null && q.actual_qty !== undefined) set.add(q.lot_no); });
-    window.scannedTodaySet = set;
-    return set;
+    const m = new Map();   // 수량 입력까지 끝낸 스캔만 집계 (같은 LOT 은 입력한 수량을 모두 더함)
+    const add = (lot, q) => { if (q === null || q === undefined) return; const s = m.get(lot) || { sum: 0, n: 0 }; s.sum += Number(q); s.n++; m.set(lot, s); };
+    logs.forEach(d => { const r = d.data(); add(r.lot_no, r.actual_qty); });
+    readQueue().forEach(q => { if (q.scan_date === today) add(q.lot_no, q.actual_qty); });
+    window.scannedQtyMap = m;
+    return window.rebuildScannedSet();
 };
 
 window.saveStockCache = function(){
@@ -746,6 +818,7 @@ window.apiRemaining = async function(dept){
     const scanned = await window.syncScannedToday();   // 미전송 오프라인 스캔 포함
 
     const items = deptRows.filter(r => !scanned.has(r.lot_no))
+        .map(r => { const s = window.scannedQtyMap.get(r.lot_no); return Object.assign({}, r, { _cum: s ? s.sum : 0, _n: s ? s.n : 0 }); })
         .sort((a,b) => String(a.item_name||'').localeCompare(String(b.item_name||'')) || String(a.item_no||'').localeCompare(String(b.item_no||'')) || String(a.lot_no).localeCompare(String(b.lot_no)));   // 품명 -> 품번 -> LOT 번호
 
     const deptValues = Array.from(new Set(masterRows.map(r => r.department || '(없음)'))).sort();
@@ -756,9 +829,22 @@ window.apiRemaining = async function(dept){
     };
 };
 
-window.apiSaveQty = async function(lot, actualQtyRaw, systemQty){
+// 오늘 이 LOT 에 입력된 수량 기록 (오래된 순). 수량 입력까지 끝낸 스캔만 - 서버 기록 + 미전송 오프라인 큐
+window.apiLotEntries = async function(lot){
+    const { date: today } = nowParts();
+    const { data, error } = await sb.from(LOG_COL).select('id,lot_no,scanned_at,scanned_by,scan_dept,actual_qty')
+        .eq('lot_no', lot).eq('scan_date', today).not('actual_qty', 'is', null).order('scanned_at', { ascending: true });
+    if (error) throw error;
+    const rows = (data || []).map(r => ({ id: r.id, scanned_at: r.scanned_at || '', scanned_by: r.scanned_by || '', scan_dept: r.scan_dept || '', qty: Number(r.actual_qty) }));
+    readQueue().forEach(q => { if (q.lot_no === lot && q.scan_date === today && q.actual_qty !== null && q.actual_qty !== undefined) rows.push({ id: null, scanned_at: q.scanned_at || '', scanned_by: q.scanned_by || '', scan_dept: q.scan_dept || '', qty: Number(q.actual_qty) }); });
+    rows.sort((a, b) => (a.scanned_at < b.scanned_at ? -1 : (a.scanned_at > b.scanned_at ? 1 : 0)));
+    return rows;
+};
+
+// mode: 'normal'(처음 입력) / 'add'(분할 추가: 새 입력으로 누적에 더함) / 'overwrite'(덮어쓰기: 가장 최근 입력 한 건을 대체)
+window.apiSaveQty = async function(lot, actualQtyRaw, systemQty, mode){
+    mode = mode || 'normal';
     const actualQty = Math.round(Number(actualQtyRaw));
-    const diff = (systemQty === null || systemQty === undefined) ? null : actualQty - systemQty;
     try { if (window.lastLogInsert) await window.lastLogInsert; } catch(e) {}
     const { date: today, datetime: now } = nowParts();
 
@@ -766,19 +852,32 @@ window.apiSaveQty = async function(lot, actualQtyRaw, systemQty){
     let logRows = [];
     logSnap.forEach(d => logRows.push({ id: d.id, ...d.data() }));
     logRows.sort((a,b) => (a.scanned_at > b.scanned_at ? -1 : 1));
-    const target = logRows[0];
+    const hasQty = r => r.actual_qty !== null && r.actual_qty !== undefined;
+    const saved = logRows.filter(hasQty);
+
+    let target = null;
+    if (mode === 'overwrite' && saved.length) target = saved[0];           // 가장 최근에 입력한 수량 한 건을 대체
+    else if (logRows.length && !hasQty(logRows[0])) target = logRows[0];   // 방금 스캔한 기록(수량 칸이 비어 있음)에 입력
+
+    const othersSum = saved.filter(r => !target || r.id !== target.id).reduce((s, r) => s + Number(r.actual_qty), 0);
+    const cum = othersSum + actualQty;   // 오늘 이 LOT 에 입력된 수량 합계
+    const diff = (systemQty === null || systemQty === undefined) ? null : cum - systemQty;   // 누적 합계 - 전산수량
 
     if (target){
         const { error: updErr } = await sb.from(LOG_COL).update({ actual_qty: actualQty, diff: diff }).eq('id', target.id);
         if (updErr) throw updErr;
     } else {
         await insertScanLog({
-            lot_no: lot, scan_date: today, scanned_at: now, actual_qty: actualQty, diff: diff
+            lot_no: lot, scan_date: today, scanned_at: now,
+            scanned_by: document.getElementById("scannerInput").value.trim(), scan_dept: document.getElementById("deptSelect").value,
+            actual_qty: actualQty, diff: diff
         });
     }
 
-    window.scannedTodaySet.add(lot);   // 수량 저장 완료 → 확인 처리 (진행바 즉시 반영)
-    return { success: true, actual_qty: actualQty, diff };
+    const n = (target && hasQty(target)) ? saved.length : saved.length + 1;
+    window.scannedQtyMap.set(lot, { sum: cum, n: n });   // 진행바/마감 목록에 즉시 반영
+    window.rebuildScannedSet();
+    return { success: true, actual_qty: actualQty, diff, cum, n, mode };
 };
 
 // 시작/마감 이벤트 기록 (close_log 테이블). 전송 실패 시 큐에 보관했다가 재전송
@@ -841,6 +940,7 @@ const modalQtyInput = document.getElementById("modalQtyInput");
 const modalWarn = document.getElementById("modalWarn");
 const modalItemStatus = document.getElementById("modalItemStatus");
 const itemModalOverlay = document.getElementById("itemModalOverlay");
+const dupModalOverlay = document.getElementById("dupModalOverlay");
 const itemModalHead = document.getElementById("itemModalHead");
 const itemModalList = document.getElementById("itemModalList");
 document.getElementById("itemModalCloseBtn").onclick = () => { itemModalOverlay.style.display = "none"; };
@@ -852,6 +952,7 @@ let currentZoom = 1;
 let videoTrack = null;
 let torchOn = false;
 let currentLookupResult = null;
+let qtyCtx = { mode: 'normal' };   // 수량 입력창이 열린 방식 (normal / add / overwrite)
 
 (function restoreSavedInfo() {
     const savedScanner = localStorage.getItem("lot_scanner_name");
@@ -968,9 +1069,10 @@ function buildCloseListHtml(items, query, stateFilter, statusFilter, smallOnly){
             arr.map(x => {
                 const info = (x.st.state === "remain" || x.st.state === "increase")
                     ? `<span class="qi ${x.st.state}">처음 ${fmtNum(x.st.origin)} → 현재 ${fmtNum(x.it.qty)} (${fmtSigned(x.st.diff)})</span>` : "";
+                const split = x.it._n > 0 ? `<span class="qi split">🧩 누적 ${fmtNum(x.it._cum)} / 전산 ${fmtNum(x.it.qty)} (남음 ${fmtNum(Math.max(0, Number(x.it.qty) - x.it._cum))})</span>` : "";
                 return `<div class="close-item"><div class="lot">${esc(x.it.lot_no)}<span class="rm-tag rm-${x.st.state}">${tagLabel[x.st.state]}</span>${x.it.lot_status ? `<span class="st-tag ${statusIsBad(x.it) ? 'st-bad' : ''}">${esc(x.it.lot_status)}</span>` : ''}</div>` +
                     `<div class="sub txt">${esc(x.it.item_no)} · ${esc(x.it.item_name)}</div>` +
-                    `<div class="sub qty"><span class="qn">${fmtNum(x.it.qty)}</span><span class="qu">${esc(x.it.unit || "")}</span>${info}${smallOnly ? `<span class="qi">창고 합계 ${fmtNum(totalOf(x))}${esc(x.it.unit || "")}</span>` : ""}</div></div>`;
+                    `<div class="sub qty"><span class="qn">${fmtNum(x.it.qty)}</span><span class="qu">${esc(x.it.unit || "")}</span>${info}${split}${smallOnly ? `<span class="qi">창고 합계 ${fmtNum(totalOf(x))}${esc(x.it.unit || "")}</span>` : ""}</div></div>`;
             }).join("");
     }).join("");
     return { html: html || `<div class="close-item"><div class="sub" style="text-align:center;">검색 결과가 없습니다.</div></div>`, count: list.length, counts, statusCounts };
@@ -1148,7 +1250,7 @@ async function runAutoClose(){
         return;
     }
     // 입력/마감 창을 쓰는 중이면 닫힌 뒤 다음 확인 때 처리
-    if (qtyModalOverlay.style.display === "flex" || closeModalOverlay.style.display === "flex" || calcOverlay.style.display === "flex") return;
+    if (qtyModalOverlay.style.display === "flex" || closeModalOverlay.style.display === "flex" || calcOverlay.style.display === "flex" || dupModalOverlay.style.display === "flex") return;
     autoClosing = true;
     try {
         const dept = deptSelect.value;
@@ -1225,7 +1327,7 @@ function touchCamActivity(){
 }
 function onCamIdle(){
     // 촬영/인식 중이거나 수량 입력창이 열려 있으면 끄지 않고 다시 대기
-    if (capturing || qtyModalOverlay.style.display === "flex" || itemModalOverlay.style.display === "flex"){ touchCamActivity(); return; }
+    if (capturing || qtyModalOverlay.style.display === "flex" || itemModalOverlay.style.display === "flex" || dupModalOverlay.style.display === "flex"){ touchCamActivity(); return; }
     stopCamera();
 }
 function stopCamera(){
@@ -1869,6 +1971,8 @@ function lotStatusHtml(o){
 
 async function doLookup(lot){
     status.innerHTML = "🔎 조회 중...";
+    // 오늘 이미 입력된 수량이 있는지 함께 조회 (조회와 동시에 진행)
+    const entriesP = (window.apiLotEntries ? window.apiLotEntries(lot) : Promise.resolve([])).catch(e => { console.error(e); return []; });
     let res;
     try { res = await window.apiLookup(lot); }
     catch(e){ console.error(e); status.innerHTML = "❌ 조회 실패 - 네트워크를 확인하고 다시 시도하세요."; return; }
@@ -1888,8 +1992,8 @@ async function doLookup(lot){
             <button id="openQtyModalBtn">📝 실수량 입력하기</button>
         `;
         status.innerHTML = "⚠️ 재고 데이터 없음 - LOT 번호 확인 후 실수량 입력";
-        document.getElementById("openQtyModalBtn").onclick = () => openQtyModal(res);
-        openQtyModal(res);
+        document.getElementById("openQtyModalBtn").onclick = () => startQtyFlow(res);
+        startQtyFlow(res, entriesP);
         return;
     }
 
@@ -1915,11 +2019,83 @@ async function doLookup(lot){
     renderItemStatus(document.getElementById('itemStatusCard'), res);
     status.innerHTML = "✅ 조회 완료. 실수량을 입력하세요.";
 
-    document.getElementById("openQtyModalBtn").onclick = () => openQtyModal(res);
-    openQtyModal(res);
+    document.getElementById("openQtyModalBtn").onclick = () => startQtyFlow(res);
+    startQtyFlow(res, entriesP);
 }
 
-function openQtyModal(res) {
+// ---- 같은 LOT 재스캔 확인 팝업 ----
+function hhmm(s){ return String(s || "").slice(11, 16); }
+let dupState = null;
+function showDupModal(res, entries){
+    const unit = res.unit || "";
+    const n = entries.length;
+    const sum = entries.reduce((t, e) => t + e.qty, 0);
+    const sys = (res.qty === null || res.qty === undefined) ? null : Number(res.qty);
+    const hasSys = sys !== null && isFinite(sys) && sys > 0;
+    const reached = hasSys && sum >= sys;
+    const last = entries[n - 1];
+
+    document.getElementById("dupTitleText").textContent = "⚠️ 이미 " + n + "회 확인된 LOT";
+    document.getElementById("dupLot").textContent = res.lot_no || "-";
+    document.getElementById("dupItemNo").textContent = res.item_no || "-";
+    document.getElementById("dupItemName").textContent = res.item_name || "-";
+    document.getElementById("dupList").innerHTML = entries.slice().reverse().map((e, i) =>
+        `<div class="dup-row"><span><span class="dup-idx">${n - i}.</span> ${esc(e.scanned_by || "-")} <span class="dup-time">${esc(hhmm(e.scanned_at))}</span></span><span class="dup-q">${fmtNum(e.qty)} ${esc(unit)}</span></div>`).join("");
+
+    document.getElementById("dupTotalL").textContent = hasSys ? `누적 ${fmtNum(sum)} / 전산 ${fmtNum(sys)}` : `누적 ${fmtNum(sum)} ${unit}${sys === null ? " (전산수량 없음)" : ""}`;
+    document.getElementById("dupTotalR").textContent = hasSys ? (sum > sys ? `초과 +${fmtNum(sum - sys)}` : (sum === sys ? "전부 확인" : `남음 ${fmtNum(sys - sum)}`)) : "";
+    document.getElementById("dupBar").style.display = hasSys ? "" : "none";
+    document.getElementById("dupBarFill").style.width = hasSys ? Math.min(100, Math.round(sum / sys * 100)) + "%" : "0";
+    document.getElementById("dupTotal").classList.toggle("reached", reached);
+    const rb = document.getElementById("dupReached");
+    rb.style.display = reached ? "block" : "none";
+    rb.textContent = reached ? `이미 전산수량만큼 확인됨 (누적 ${fmtNum(sum)} / 전산 ${fmtNum(sys)}). 같은 LOT 을 또 찍은 것은 아닌지 확인하세요.` : "";
+    document.getElementById("dupCancelBtn").classList.toggle("emph", reached);
+    document.getElementById("dupNote").textContent = `덮어쓰기는 마지막 입력(${last.scanned_by || "-"} ${fmtNum(last.qty)}${unit ? " " + unit : ""}) 한 건만 바꿉니다`;
+
+    dupState = { res: res, entries: entries, sum: sum, last: last };
+    dupModalOverlay.style.display = "flex";
+    stopCamera();
+    status.innerHTML = "⚠️ 이미 확인된 LOT입니다. 선택해주세요.";
+}
+function hideDupModal(){ dupModalOverlay.style.display = "none"; }
+document.getElementById("dupAddBtn").onclick = () => { const s = dupState; if (!s) return; hideDupModal(); openQtyModal(s.res, { mode: "add", sum: s.sum, entries: s.entries }); };
+document.getElementById("dupOverBtn").onclick = () => { const s = dupState; if (!s) return; hideDupModal(); openQtyModal(s.res, { mode: "overwrite", sum: s.sum, entries: s.entries, last: s.last }); };
+document.getElementById("dupCancelBtn").onclick = () => { hideDupModal(); dupState = null; status.innerHTML = "↩️ 취소했습니다. 다시 촬영해주세요."; closeQtyModal(); };
+
+// 조회 후 흐름: 오늘 처음 확인하는 LOT 은 바로 수량 입력창, 이미 입력된 수량이 있으면 확인 팝업을 먼저 보여줌
+async function startQtyFlow(res, entriesP){
+    if (dupModalOverlay.style.display === "flex") return;
+    let entries = [];
+    try { entries = (entriesP ? await entriesP : (window.apiLotEntries ? await window.apiLotEntries(res.lot_no) : [])) || []; } catch(e){ console.error(e); }
+    if (entries.length) showDupModal(res, entries);
+    else openQtyModal(res, { mode: "normal" });
+}
+
+// 분할 추가 / 덮어쓰기일 때 수량 입력창 위쪽 안내 줄 (입력값에 따라 누적이 바뀌는 것을 바로 보여줌)
+const modalCtx = document.getElementById("modalCtx");
+function updateCtxLine(){
+    const c = qtyCtx, res = c.res || currentLookupResult;
+    if (!res || (c.mode !== "add" && c.mode !== "overwrite")){ modalCtx.style.display = "none"; modalCtx.textContent = ""; return; }
+    const unit = res.unit || "";
+    const sys = (res.qty === null || res.qty === undefined) ? null : Number(res.qty);
+    const v = modalQtyInput.value === "" ? 0 : (Math.round(Number(modalQtyInput.value)) || 0);
+    const sum = Number(c.sum) || 0;
+    let text;
+    if (c.mode === "add"){
+        const after = sum + v;
+        text = `이미 확인 ${fmtNum(sum)}${unit} → 입력 후 누적 ${fmtNum(after)}` + (sys > 0 ? ` / 전산 ${fmtNum(sys)} (남음 ${fmtNum(Math.max(0, sys - after))})` : "");
+    } else {
+        const lastQty = c.last ? c.last.qty : 0, after = sum - lastQty + v;
+        text = `덮어쓸 입력: ${(c.last && c.last.scanned_by) || "-"} ${hhmm(c.last && c.last.scanned_at)} ${fmtNum(lastQty)}${unit} → 누적 ${fmtNum(after)}` + (sys > 0 ? ` / 전산 ${fmtNum(sys)}` : "");
+    }
+    modalCtx.textContent = text;
+    modalCtx.style.display = "block";
+}
+modalQtyInput.addEventListener("input", updateCtxLine);
+
+function openQtyModal(res, ctx) {
+    qtyCtx = Object.assign({ mode: 'normal' }, ctx || {}, { res: res });
     modalLotNo.innerText = res.lot_no || '-';
     modalItemNo.innerText = res.item_no || '-';
     modalItemName.innerText = res.item_name || '-';
@@ -1953,15 +2129,19 @@ function openQtyModal(res) {
         stEl.style.display = 'block';
     } else { stEl.textContent = ''; stEl.style.display = 'none'; }
     // 처음 수량과 현재 재고가 같은 LOT(온전)이면 수량을 미리 채워 둠. 다르면(잔량/판단 불가) 비워 두고 계산기 또는 직접 입력
-    const autoFill = res.kind === 'normal' && window.remainState(res.qty, res.origin_qty).state === 'full';
+    const autoFill = qtyCtx.mode === 'normal' && res.kind === 'normal' && window.remainState(res.qty, res.origin_qty).state === 'full';
     if (autoFill){
         modalQtyInput.value = res.qty;
         modalMsg.innerHTML = "<span style='color:#00e676;'>✅ 처음 수량과 같아 자동 입력했습니다. 실물이 다르면 수정하세요.</span>";
     }
+    // 같은 LOT 의 두 번째 이후 입력이면 제목/안내 줄을 바꿈 (덮어쓰기는 마지막 입력값을 미리 채워 둠)
+    document.getElementById("modalTitle").textContent = qtyCtx.mode === "add" ? "➕ 분할 추가 입력" : (qtyCtx.mode === "overwrite" ? "✏️ 덮어쓰기" : "📝 실수량 입력");
+    if (qtyCtx.mode === "overwrite" && qtyCtx.last) modalQtyInput.value = qtyCtx.last.qty;
+    updateCtxLine();
     qtyModalOverlay.style.display = "flex";
     stopCamera();   // 수량 입력 중에는 카메라를 끔 (닫으면 다시 켬)
     fitQtyModal();
-    setTimeout(() => { modalQtyInput.focus(); if (autoFill) modalQtyInput.select(); }, 100);   // 자동 입력 시 바로 덮어쓸 수 있게 선택 상태로
+    setTimeout(() => { modalQtyInput.focus(); if (autoFill || (qtyCtx.mode === "overwrite" && modalQtyInput.value !== "")) modalQtyInput.select(); }, 100);   // 자동 입력 시 바로 덮어쓸 수 있게 선택 상태로
 }
 
 modalCloseBtn.onclick = () => closeQtyModal();
@@ -1981,7 +2161,7 @@ modalSaveBtn.onclick = async () => {
     modalMsg.innerHTML = "<span style='color:#4fc3ff;'>저장 중...</span>";
     let saveRes;
     try { 
-        saveRes = await window.apiSaveQty(currentLookupResult.lot_no, val, currentLookupResult.qty); 
+        saveRes = await window.apiSaveQty(currentLookupResult.lot_no, val, currentLookupResult.qty, qtyCtx.mode); 
     } catch(e) { 
         console.error(e); 
         // 전송 실패 시 모달 창을 닫지 않고 입력값과 상태 유지
@@ -1989,7 +2169,7 @@ modalSaveBtn.onclick = async () => {
         return; 
     }
     
-    modalMsg.innerHTML = `<span style="color:#00e676;">✅ 저장 완료 ${saveRes.diff === null ? '(전산수량 없음)' : '(차이: ' + saveRes.diff + ')'}</span>`;
+    modalMsg.innerHTML = `<span style="color:#00e676;">✅ 저장 완료 ${saveRes.diff === null ? '(전산수량 없음)' : '(' + (saveRes.n > 1 ? '누적 ' + saveRes.cum + ' · ' : '') + '차이: ' + saveRes.diff + ')'}</span>`;
     if (window.updateProgressBar) window.updateProgressBar();
     refreshItemStatus();
     setTimeout(() => { closeQtyModal(); }, 600);   // 닫히면서 LOT 번호만 비움 (결과 카드는 유지)

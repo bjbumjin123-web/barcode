@@ -173,29 +173,50 @@ function resetIdleTimer(){
 ['click','touchstart','keydown'].forEach(evt => document.addEventListener(evt, resetIdleTimer));
 resetIdleTimer();
 
+// 같은 LOT 에 여러 번 입력된 수량(분할 작업)은 합산함.
+// 1F/청우는 누적 수량이 전산수량 이상이어야 '확인 완료', 그 밖의 부서는 수량을 한 번 입력하면 확인 완료 (스캔 화면과 같은 기준)
+const SPLIT_DEPTS = ["1F(가공생산)", "청우"];
+function aggregateLogs(){
+    const latestByLot = {}, sumByLot = {}, countByLot = {};
+    dateLogs.forEach(r => {
+        sumByLot[r.lot_no] = (sumByLot[r.lot_no] || 0) + Number(r.actual_qty);
+        countByLot[r.lot_no] = (countByLot[r.lot_no] || 0) + 1;
+        if (!latestByLot[r.lot_no] || r.scanned_at > latestByLot[r.lot_no].scanned_at) latestByLot[r.lot_no] = r;
+    });
+    return { latestByLot, sumByLot, countByLot };
+}
+function isDone(r, agg){
+    if (!agg.latestByLot[r.lot_no]) return false;
+    if (SPLIT_DEPTS.indexOf(r.department) < 0) return true;
+    const q = Number(r.qty);
+    if (!isFinite(q) || q <= 0) return true;
+    return agg.sumByLot[r.lot_no] >= q;
+}
+// 차이: 한 번만 입력한 LOT 은 저장된 값 그대로, 여러 번 입력한 LOT 은 누적 합계 - 전산수량
+function diffOf(r, agg){
+    const latest = agg.latestByLot[r.lot_no];
+    if (!latest) return null;
+    const q = Number(r.qty);
+    if (agg.countByLot[r.lot_no] > 1 && r.qty !== null && r.qty !== undefined && isFinite(q)) return agg.sumByLot[r.lot_no] - q;
+    return (latest.diff === null || latest.diff === undefined) ? null : latest.diff;
+}
+
 function render(){
     const dept = deptSelect.value;
     const filteredMaster = masterRows.filter(r => !dept || r.department === dept);
 
-    const scannedLotSet = {};
-    dateLogs.forEach(r => { scannedLotSet[r.lot_no] = true; });
-
-    const unchecked = filteredMaster.filter(r => !scannedLotSet[r.lot_no]);
-
-    const latestByLot = {};
-    dateLogs.forEach(r => {
-        if (!latestByLot[r.lot_no] || r.scanned_at > latestByLot[r.lot_no].scanned_at) latestByLot[r.lot_no] = r;
-    });
+    const agg = aggregateLogs();
+    const unchecked = filteredMaster.filter(r => !isDone(r, agg));
 
     const checkedList = [];
     filteredMaster.forEach(r => {
-        const latest = latestByLot[r.lot_no];
-        if (latest){
+        if (isDone(r, agg)){
+            const latest = agg.latestByLot[r.lot_no];
             checkedList.push({
                 lot_no:r.lot_no, item_no:r.item_no, item_name:r.item_name, lot_status:r.lot_status, lot_substatus:r.lot_substatus, qty:r.qty, unit:r.unit,
                 warehouse:r.warehouse, department:r.department, subcontract_type:r.subcontract_type,
                 scanned_at: latest.scanned_at, scanned_by: latest.scanned_by, scan_dept: latest.scan_dept,
-                actual_qty: latest.actual_qty, diff: latest.diff
+                actual_qty: agg.sumByLot[r.lot_no], entries: agg.countByLot[r.lot_no], diff: diffOf(r, agg)
             });
         }
     });
@@ -210,7 +231,7 @@ function render(){
         <div class="progress-numbers">확인 완료: <b>${checked}</b> / ${total}건</div>
         <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${percent}%;"></div></div>
         <div class="percent-label">${percent}%</div>
-        <div class="master-note">기준 데이터: ${esc(masterDate)} 업로드분 / 확인: ${esc(dateInput.value)} 수량 입력 기준</div>
+        <div class="master-note">기준 데이터: ${esc(masterDate)} 업로드분 / 확인: ${esc(dateInput.value)} 수량 입력 기준<br>1F·청우는 같은 LOT 을 나눠 입력한 수량을 합산하고, 누적이 전산수량 이상일 때 확인 완료로 봅니다.</div>
     </div>
     <div class="tabs">
         <div class="tab ${currentView==='unchecked'?'active':''}" data-view="unchecked">🔲 미확인 (${unchecked.length})</div>
@@ -222,9 +243,9 @@ function render(){
         if (!unchecked.length){
             html += '<div class="empty">🎉 이 날짜 기준으로 모든 LOT 확인이 완료됐습니다.</div>';
         } else {
-            html += '<div class="scroll-wrap"><table><thead><tr><th>#</th><th>LOT NO</th><th>부서</th><th>품번</th><th>품명</th><th>LOT상태</th><th>수량</th><th>창고</th></tr></thead><tbody>';
+            html += '<div class="scroll-wrap"><table><thead><tr><th>#</th><th>LOT NO</th><th>부서</th><th>품번</th><th>품명</th><th>LOT상태</th><th>수량</th><th>누적 확인</th><th>창고</th></tr></thead><tbody>';
             unchecked.forEach((r,i) => {
-                html += `<tr><td>${i+1}</td><td>${esc(r.lot_no)}</td><td>${esc(r.department||'-')}${r.subcontract_type?' ('+esc(r.subcontract_type)+')':''}</td><td>${esc(r.item_no)}</td><td>${esc(r.item_name)}</td><td>${esc(statusText(r))}</td><td>${esc(r.qty)} ${esc(r.unit)}</td><td>${esc(r.warehouse||'-')}</td></tr>`;
+                html += `<tr><td>${i+1}</td><td>${esc(r.lot_no)}</td><td>${esc(r.department||'-')}${r.subcontract_type?' ('+esc(r.subcontract_type)+')':''}</td><td>${esc(r.item_no)}</td><td>${esc(r.item_name)}</td><td>${esc(statusText(r))}</td><td>${esc(r.qty)} ${esc(r.unit)}</td><td>${agg.countByLot[r.lot_no] ? '<b style="color:#c792ea;">'+esc(agg.sumByLot[r.lot_no])+'</b> / '+esc(r.qty)+' ('+agg.countByLot[r.lot_no]+'회)' : '-'}</td><td>${esc(r.warehouse||'-')}</td></tr>`;
             });
             html += '</tbody></table></div>';
         }
@@ -249,7 +270,7 @@ function render(){
                     <td>${esc(r.item_name)}</td>
                     <td>${esc(statusText(r))}</td>
                     <td>${r.qty !== null ? esc(r.qty)+' '+esc(r.unit) : '-'}</td>
-                    <td>${r.actual_qty !== null && r.actual_qty !== undefined ? esc(r.actual_qty) : '-'}</td>
+                    <td>${r.actual_qty !== null && r.actual_qty !== undefined ? esc(r.actual_qty) + (r.entries > 1 ? ' <span style="color:#888;font-size:11px;">('+r.entries+'회 합계)</span>' : '') : '-'}</td>
                     <td class="${diffClass}">${diffText}</td>
                     <td>${esc(r.warehouse||'-')}</td>
                 </tr>`;
@@ -268,26 +289,24 @@ function render(){
 function buildExportRows(){
     const dept = deptSelect.value;
     const filteredMaster = masterRows.filter(r => !dept || r.department === dept);
+    const agg = aggregateLogs();
 
-    const latestByLot = {};
-    dateLogs.forEach(r => {
-        if (!latestByLot[r.lot_no] || r.scanned_at > latestByLot[r.lot_no].scanned_at) latestByLot[r.lot_no] = r;
-    });
-
-    const rows = [['#','확인여부','LOT NO','부서','외주구분','품번','품명','LOT상태','시스템수량','단위','창고','확인시각','확인자','확인부서','실제수량','차이']];
+    const rows = [['#','확인여부','LOT NO','부서','외주구분','품번','품명','LOT상태','시스템수량','단위','창고','확인시각','확인자','확인부서','실제수량','차이','입력횟수']];
 
     filteredMaster.forEach((r, i) => {
-        const latest = latestByLot[r.lot_no];
+        const latest = agg.latestByLot[r.lot_no];
+        const d = latest ? diffOf(r, agg) : null;
         rows.push([
             i + 1,
-            latest ? '확인완료' : '미확인',
+            isDone(r, agg) ? '확인완료' : (latest ? '일부확인' : '미확인'),
             r.lot_no, r.department || '', r.subcontract_type || '',
             r.item_no, r.item_name, statusText(r), r.qty, r.unit, r.warehouse || '',
             latest ? latest.scanned_at : '',
             latest ? latest.scanned_by : '',
             latest ? latest.scan_dept : '',
-            latest && latest.actual_qty !== null && latest.actual_qty !== undefined ? latest.actual_qty : '',
-            latest && latest.diff !== null && latest.diff !== undefined ? latest.diff : ''
+            latest ? agg.sumByLot[r.lot_no] : '',
+            d !== null && d !== undefined ? d : '',
+            latest ? agg.countByLot[r.lot_no] : ''
         ]);
     });
 
