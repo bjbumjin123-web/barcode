@@ -109,8 +109,7 @@ function classifyDepartment(ref, warehouse, itemName){
 
     if (ref.indexOf('2F') !== -1) return { department:'2F(검사/포장)', subcontractType:null };
 
-    // [요청하신 정확한 규칙 적용]
-    // 1. 창고가 반제품창고이고, 품명에 '주조'가 들어가며, '창고'라는 단어가 없으면 -> 주조 부서
+    // [규칙 반영] 반제품창고이고 품명에 '주조'가 들어가며 '창고'라는 단어가 없으면 -> 주조 부서
     if (warehouse.indexOf('반제품') !== -1 && itemName.indexOf('주조') !== -1 && itemName.indexOf('창고') === -1) {
         return { department: '주조', subcontractType: null };
     }
@@ -120,7 +119,8 @@ function classifyDepartment(ref, warehouse, itemName){
     }
 
     if (warehouse.indexOf('반제품') !== -1 || ref.indexOf('1F') !== -1) {
-        return { department: '1F(가공생산)', subcontractType: isCheongwoo ? '청우' : '자체' };
+        // 청우인 경우 하위구분 또는 부서로 활용 가능하도록 처리
+        return { department: isCheongwoo ? '청우' : '1F(가공생산)', subcontractType: isCheongwoo ? '청우' : '자체' };
     }
 
     return { department:'미분류', subcontractType:null };
