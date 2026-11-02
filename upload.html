@@ -67,7 +67,14 @@ button:disabled{background:#555;color:#999;}
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-const sb = createClient("https://siwaynipvwtwuoobyarp.supabase.co", "sb_publishable_lEKhT8TYzo368Hxfd0E8-Q_D9JEyO9Z");
+// 인증 세션 중복 충돌 방지 설정 추가 (auth: { persistSession: false, autoRefreshToken: false })
+const sb = createClient("https://siwaynipvwtwuoobyarp.supabase.co", "sb_publishable_lEKhT8TYzo368Hxfd0E8-Q_D9JEyO9Z", {
+    auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+    }
+});
 
 const wrap = r => ({ id: r.id, data: () => r });
 
@@ -245,7 +252,7 @@ function normalizeDate(v, fallback){
     if (v === null || v === undefined || v === '') return fallback;
     if (v instanceof Date && !isNaN(v)) return v.toISOString().slice(0, 10);
     if (typeof v === 'number'){
-        if (v > 20000 && v < 80000){                       
+        if (v > 20000 && v < 80000){                        
             return new Date(Math.round((v - 25569) * 86400 * 1000)).toISOString().slice(0, 10);
         }
         v = String(Math.trunc(v));
@@ -310,7 +317,7 @@ async function uploadLotMaster(type, rows){
     rows.forEach(r => {
         if (!r.item_no && !r.item_name) return;
         const old = byLot[r.lot_no];
-        if (!old || r.work_date >= old.work_date){                               
+        if (!old || r.work_date >= old.work_date){                                
             byLot[r.lot_no] = { lot_no: r.lot_no, item_no: r.item_no, item_name: r.item_name, work_date: r.work_date, source: info.source };
         }
     });
