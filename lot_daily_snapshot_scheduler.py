@@ -10,6 +10,7 @@ LOT 일일 동기화 스케줄러 (Supabase 버전) - 검은 창 실행용 .py �
 - 실패 시 5분 간격으로 최대 6회 재시도, 결과는 lot_daily_snapshot_log.txt 에 기록
 - 실행 시각이 지났는데 성공 기록이 없으면 시작 직후 한 번 따라잡기 실행 (끄려면 CATCH_UP = False)
 - 5분마다 작동 상태 한 줄을 표시하고, 웹 '갱신현황' 화면에도 '작동 중' 신호를 올립니다.
+- 웹 '갱신현황' 화면의 [지금 바로 갱신] 버튼: 20초 안에 시간표와 상관없이 재고 -> 자재입고 -> 생산실적을 한 번에 실행합니다. (서버 전용 키 + Supabase 'run_requests' 테이블 필요)
 
 사용법(검은 창에서):
   python lot_daily_snapshot_scheduler.py                 그냥 시작 (더블클릭도 가능) - 대기하며 자동 실행
@@ -435,6 +436,17 @@ def rest_insert(table, docs):
     except urllib.error.HTTPError as e:
         raise RuntimeError(f'Supabase HTTP {e.code}: ' + e.read().decode('utf-8', errors='ignore')[:200])
 
+def rest_patch(table, query, doc):
+    """조건에 맞는 행을 수정하고, 실제로 수정된 행 목록을 돌려줌 (권한이 없어 0행이면 빈 목록)"""
+    h = _rest_headers(); h['Content-Type'] = 'application/json'; h['Prefer'] = 'return=representation'
+    body = json.dumps(doc, ensure_ascii=False).encode('utf-8')
+    req = urllib.request.Request(f'{SUPABASE_URL}/rest/v1/{table}?{query}', data=body, headers=h, method='PATCH')
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            return json.loads(resp.read().decode('utf-8') or '[]')
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f'Supabase HTTP {e.code}: ' + e.read().decode('utf-8', errors='ignore')[:200])
+
 def auto_close_previous_round(new_run_at):
     """새 재고를 저장하기 직전에, 직전 회차의 마감 결과(총/확인/남음)를 부서별로 close_log 에 한 번만 자동 기록.
     확인 = 직전 회차(07:00~06:59)에 수량 입력까지 끝낸 LOT"""
@@ -569,6 +581,84 @@ def run_task_with_retry(key, label, fn):
     return False
 
 # ==========================================
+# 웹 '지금 바로 갱신' 버튼 요청 처리 (Supabase 'run_requests' 테이블)
+#  웹이 pending 한 줄을 넣으면 -> 여기서 확인(20초마다) -> running -> 재고/자재입고/생산실적 실행 -> done/failed
+# ==========================================
+REQ_TABLE = 'run_requests'
+REQ_EXPIRE_MIN = 10      # 요청 후 이 시간(분)이 지나도록 처리하지 못했으면 취소 (스케줄러가 꺼져 있다가 켜진 경우 등)
+REQ_COOLDOWN_MIN = 5     # 전부 성공한 실행 직후 이 시간(분) 안의 요청은 건너뜀 (MES 부담 방지)
+LAST_COUNT = {}          # {작업키: 저장 건수}
+_last_ok_run_end = 0
+_req_warned = False
+
+def mark_run_ok():
+    global _last_ok_run_end
+    _last_ok_run_end = time.time()
+
+def _min_ago(s):
+    try:
+        return (datetime.datetime.now() - datetime.datetime.strptime(str(s)[:19], '%Y-%m-%d %H:%M:%S')).total_seconds() / 60
+    except Exception:
+        return 0
+
+def _run_summary():
+    parts = []
+    for key, label, _ in TASKS:
+        r = LAST_RESULT.get(key)
+        if not r:
+            continue
+        parts.append(f'{label} {LAST_COUNT.get(key, 0)}건' if r[1] else f'{label} 실패')
+    return ' · '.join(parts)
+
+def _close_request(req, status, message):
+    """요청을 실행하지 않고 닫음 (아직 pending 인 경우에만)"""
+    return rest_patch(REQ_TABLE, f"id=eq.{req['id']}&status=eq.pending",
+                      {'status': status, 'message': message[:100], 'finished_at': now_str()})
+
+def check_run_request():
+    global _req_warned
+    if not USING_SECRET_KEY:
+        if not _req_warned:
+            _req_warned = True
+            log("서버 전용 키(supabase_secret.txt)가 없어 웹의 [지금 바로 갱신] 요청은 처리하지 않습니다.")
+        return
+    try:
+        rows = rest_get(REQ_TABLE, 'status=eq.pending&order=id.asc&limit=20')
+    except Exception:
+        return                       # 테이블이 아직 없거나 일시적 통신 오류 - 다음 확인 때 다시
+    if not rows:
+        return
+    for extra in rows[1:]:           # 한꺼번에 쌓인 요청은 한 번의 실행으로 합침
+        _close_request(extra, 'ignored', '앞선 요청과 함께 처리됨')
+    req = rows[0]
+    age = _min_ago(req.get('requested_at'))
+    if age > REQ_EXPIRE_MIN:
+        _close_request(req, 'expired', f'요청 후 {int(age)}분 넘게 처리되지 않아 취소됨 (스케줄러가 꺼져 있었음)')
+        log(f"웹 요청 #{req['id']} 취소 - 요청 후 {int(age)}분 경과")
+        return
+    since = (time.time() - _last_ok_run_end) / 60
+    if _last_ok_run_end and since < REQ_COOLDOWN_MIN:
+        ago = f'{int(since)}분 전' if since >= 1 else '방금'
+        _close_request(req, 'ignored', f'{ago} 전부 성공해서 건너뜀 (최근 실행분이 최신입니다)')
+        log(f"웹 요청 #{req['id']} 건너뜀 - {ago} 이미 전부 성공")
+        return
+    got = rest_patch(REQ_TABLE, f"id=eq.{req['id']}&status=eq.pending", {'status': 'running', 'started_at': now_str()})
+    if not got:
+        return                       # 이미 다른 곳에서 처리했거나 수정 권한이 없음
+    who = (req.get('requested_by') or '').strip() or '웹'
+    log(f"웹 요청 #{req['id']} ({who}) - 지금 바로 갱신 시작")
+    print(f"\n▶ 웹 요청({who}): 지금 바로 갱신을 시작합니다. (재고 → 자재입고 → 생산실적)")
+    ok = run_now(None)
+    msg = _run_summary()
+    try:
+        rest_patch(REQ_TABLE, f"id=eq.{req['id']}", {'status': 'done' if ok else 'failed', 'message': msg[:100], 'finished_at': now_str()})
+    except Exception as e:
+        log(f"웹 요청 결과 기록 실패 - {e}")
+    if ok:
+        mark_run_ok()
+    log(f"웹 요청 #{req['id']} 완료 - {msg}")
+
+# ==========================================
 # 다중 스케줄 감지 및 실행 (변경 적용 부분)
 # ==========================================
 def schedule_times(d):
@@ -622,10 +712,19 @@ def schedule_loop(on_tick=None):
                         else:
                             log(f'[{slot}] 스케줄이 지났으나 오늘 성공 기록이 없어 즉시 실행 (따라잡기)')
                         
+                        all_ok = True
                         for key, label, fn in pending:
                             if run_task_with_retry(key, label, fn):
                                 done.add((slot, key))
                                 save_state(done)
+                            else:
+                                all_ok = False
+                        if all_ok:
+                            mark_run_ok()
+            try:
+                check_run_request()      # 웹 [지금 바로 갱신] 요청 확인
+            except Exception as e:
+                log(f'웹 요청 처리 오류: {e}')
             time.sleep(20)
         except Exception as e:
             log(f"스케줄러 에러: {e}")
@@ -715,6 +814,7 @@ def run_now(only=None):
             n = fn()
             log(f'[{label}] 성공 (수동 실행) - {n}건 저장')
             LAST_RESULT[key] = (now_str(), True)
+            LAST_COUNT[key] = n
             report_status(key, True, n, '정상(수동)', success=True)
             # 현재 실행 시각대(슬롯)를 완료로 기록 -> 직후에 '따라잡기'로 또 실행되지 않게 함
             slot = get_current_schedule_slot(datetime.datetime.now())
@@ -844,6 +944,7 @@ def main():
     print(' 🕒 LOT 재고 자동 업데이트 스케줄러 (이 창을 닫으면 종료)')
     print(f' 오늘 실행 시각 : {", ".join(schedule_times(now))}')
     print(f' 저장 키        : {"서버 전용 키" if USING_SECRET_KEY else "기존 키 (supabase_secret.txt 없음)"}')
+    print(f' 웹 [지금 바로 갱신] : {"사용 가능 (20초 안에 반응)" if USING_SECRET_KEY else "사용 불가 (서버 전용 키 필요)"}')
     print('==================================================')
     log('스케줄러 시작 (검은 창) - ' + ('서버 전용 키 사용' if USING_SECRET_KEY else '기존 키 사용'))
 

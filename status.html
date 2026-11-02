@@ -18,12 +18,20 @@ h2{font-size:18px;text-align:center;margin:0 0 12px;}
 .row:last-child{border-bottom:none;}
 button{padding:8px 14px;font-size:13px;font-weight:bold;border-radius:8px;border:none;cursor:pointer;background:#4fc3ff;color:#111;}
 .center{text-align:center;}
+button:disabled{background:#555;color:#999;cursor:default;}
+#runNowBtn{width:100%;padding:12px;font-size:14px;margin-bottom:8px;}
+#runInfo{font-size:13px;line-height:1.6;}
 </style>
 </head>
 <body>
 <h2>📊 갱신현황</h2>
 <div class="navbar"></div>
 <div class="center" style="margin-bottom:12px;"><button id="refreshBtn">🔄 새로고침</button> <span class="dim" id="stamp"></span></div>
+<div class="card">
+<h3>지금 바로 갱신</h3>
+<button id="runNowBtn" disabled>🔄 지금 바로 갱신 (재고 + 자재입고 + 생산실적)</button>
+<div id="runInfo" class="dim">확인 중...</div>
+</div>
 <div id="root"><div class="card">불러오는 중...</div></div>
 
 <script type="module">
@@ -66,6 +74,7 @@ async function load(){
 
     // 1) 스케줄러 작동 여부
     const hb = st.scheduler, hbMin = hb ? agoMin(hb.last_attempt_at) : null;
+    hbStale = (statusRows !== null) && (!hb || hbMin > HEARTBEAT_STALE_MIN);   // 스케줄러가 꺼져 있으면 버튼을 막음
     let hbHtml;
     if (statusRows === null) hbHtml = `<span class="warn">상태 테이블을 읽지 못했습니다 (SQL 설정 필요)</span>`;
     else if (!hb) hbHtml = `<span class="warn">신호 기록 없음</span><div class="dim">스케줄러가 꺼져 있거나 서버 전용 키(supabase_secret.txt)가 없습니다.</div>`;
@@ -109,7 +118,88 @@ async function load(){
 
     root.innerHTML = html;
     document.getElementById("stamp").textContent = "확인 " + kstNow().slice(11, 19);
+    await loadRequest();
 }
+
+
+// ===== 지금 바로 갱신 버튼: Supabase 'run_requests' 에 요청을 남기면 스케줄러가 20초 안에 확인해서 실행함 =====
+const REQ_TABLE = "run_requests";
+const REQ_ACTIVE_MIN = 10;          // 요청/실행 중으로 보는 최대 시간(분) - 넘으면 스케줄러가 못 받은 것으로 봄
+const runBtn = document.getElementById("runNowBtn"), runInfo = document.getElementById("runInfo");
+let hbStale = false, reqTimer = null, reqPollUntil = 0;
+
+function renderRun(r, unreadable){
+    if (unreadable){
+        runInfo.innerHTML = `<span class="warn">요청 테이블을 읽지 못했습니다 (SQL 설정 필요: run_requests)</span>`;
+        runBtn.disabled = true; return false;
+    }
+    const age = r ? agoMin(r.requested_at) : null;
+    const active = !!r && (r.status === "pending" || r.status === "running") && age !== null && age <= REQ_ACTIVE_MIN;
+    const who = r && r.requested_by ? ` · ${esc(r.requested_by)}` : "";
+    let html = "";
+    if (!r) html = `<span class="dim">아직 요청 기록이 없습니다.</span>`;
+    else if (r.status === "pending") html = active
+        ? `<span class="warn">⏳ 요청됨 ${short(r.requested_at)}${who}</span><div class="dim">스케줄러가 20초 안에 시작합니다.</div>`
+        : `<span class="bad">⚠️ 요청 후 ${REQ_ACTIVE_MIN}분 넘게 처리되지 않았습니다</span><div class="dim">스케줄러(검은 창)가 켜져 있는지 확인하세요. (${short(r.requested_at)}${who})</div>`;
+    else if (r.status === "running") html = active
+        ? `<span class="warn">🔄 실행 중 · 시작 ${short(r.started_at)}${who}</span><div class="dim">몇 분 걸릴 수 있습니다. 끝나면 자동으로 갱신됩니다.</div>`
+        : `<span class="bad">⚠️ 실행 중으로 남아 있습니다 (${short(r.started_at)})</span><div class="dim">스케줄러 창이 중간에 꺼졌을 수 있습니다.</div>`;
+    else if (r.status === "done") html = `<span class="ok">✅ 완료 ${short(r.finished_at)}${who}</span><div class="dim">${esc(r.message || "")}</div>`;
+    else if (r.status === "failed") html = `<span class="bad">❌ 일부 실패 ${short(r.finished_at)}${who}</span><div class="dim">${esc(r.message || "")} · 다시 눌러보거나 로그(lot_daily_snapshot_log.txt)를 확인하세요.</div>`;
+    else html = `<span class="warn">ℹ️ ${esc(r.message || r.status)}</span><div class="dim">${short(r.finished_at || r.requested_at)}${who}</div>`;
+    if (hbStale) html = `<div class="bad">🔴 스케줄러 신호가 없어 지금은 요청할 수 없습니다. 검은 창이 켜져 있는지 확인하세요.</div>` + html;
+    runInfo.innerHTML = html;
+    runBtn.disabled = active || hbStale;
+    return active;
+}
+
+async function loadRequest(){
+    let r = null, unreadable = false;
+    try {
+        const { data, error } = await sb.from(REQ_TABLE).select("*").order("id", { ascending: false }).limit(1);
+        if (error) throw error;
+        r = data && data.length ? data[0] : null;
+    } catch(e){ console.error(e); unreadable = true; }
+    const active = renderRun(r, unreadable);
+    if (active) startRequestPoll();
+    return { r, active };
+}
+
+// 요청 직후에는 5초마다 상태를 확인하고, 끝나면 화면 전체를 한 번 새로 고침
+function startRequestPoll(){
+    reqPollUntil = Date.now() + 15 * 60 * 1000;
+    if (reqTimer) return;
+    reqTimer = setInterval(async () => {
+        if (Date.now() > reqPollUntil){ clearInterval(reqTimer); reqTimer = null; return; }
+        let res;
+        try { res = await loadRequestQuiet(); } catch(e){ return; }
+        if (res && !res.active){ clearInterval(reqTimer); reqTimer = null; load(); }
+    }, 5000);
+}
+async function loadRequestQuiet(){
+    const { data, error } = await sb.from(REQ_TABLE).select("*").order("id", { ascending: false }).limit(1);
+    if (error) throw error;
+    const r = data && data.length ? data[0] : null;
+    return { r, active: renderRun(r, false) };
+}
+
+runBtn.onclick = async () => {
+    if (!confirm("지금 바로 재고 · 자재입고 · 생산실적을 갱신합니다.\n\n실사 중이라면 폰 화면에 '새 재고가 있습니다'가 표시됩니다.\n계속할까요?")) return;
+    runBtn.disabled = true;
+    let name = "";
+    try { name = (localStorage.getItem("lot_scanner_name") || "").trim(); } catch(e){}
+    try {
+        const { error } = await sb.from(REQ_TABLE).insert({ requested_at: kstNow(), requested_by: name, status: "pending" });
+        if (error) throw error;
+    } catch(e){
+        console.error(e);
+        alert("요청을 보내지 못했습니다. 네트워크 또는 Supabase 설정(SQL: run_requests)을 확인하세요.");
+        await loadRequest();
+        return;
+    }
+    await loadRequest();
+    startRequestPoll();
+};
 
 document.getElementById("refreshBtn").onclick = load;
 load();
