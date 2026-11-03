@@ -192,13 +192,15 @@ function isDone(r, agg){
     if (!isFinite(q) || q <= 0) return true;
     return agg.sumByLot[r.lot_no] >= q;
 }
-// 차이: 한 번만 입력한 LOT 은 저장된 값 그대로, 여러 번 입력한 LOT 은 누적 합계 - 전산수량
+// 차이: 여러 번 입력했거나 저장된 차이가 없는 LOT(스캔 당시 전산수량이 없었던 기록)은 누적 합계 - 현재 전산수량, 그 밖에는 저장된 값 그대로
 function diffOf(r, agg){
     const latest = agg.latestByLot[r.lot_no];
     if (!latest) return null;
     const q = Number(r.qty);
-    if (agg.countByLot[r.lot_no] > 1 && r.qty !== null && r.qty !== undefined && isFinite(q)) return agg.sumByLot[r.lot_no] - q;
-    return (latest.diff === null || latest.diff === undefined) ? null : latest.diff;
+    const qKnown = r.qty !== null && r.qty !== undefined && isFinite(q);
+    const noStored = latest.diff === null || latest.diff === undefined;
+    if (qKnown && (agg.countByLot[r.lot_no] > 1 || noStored)) return agg.sumByLot[r.lot_no] - q;
+    return noStored ? null : latest.diff;
 }
 
 function render(){
