@@ -36,6 +36,7 @@ tr.dup{background:rgba(255,184,77,0.10);}
 .note-none{color:#ff8a8a;border-color:#ff8a8a;}
 .note-ref{color:#4fc3ff;border-color:#4fc3ff;}
 .note-ok{color:#00e676;border-color:#00e676;}
+.note-late{color:#7fdbca;border-color:#7fdbca;}
 .start-row td{background:rgba(79,195,255,0.13);color:#4fc3ff;font-weight:bold;}
 </style>
 </head>
@@ -51,7 +52,7 @@ tr.dup{background:rgba(255,184,77,0.10);}
 <input type="text" id="qLot" placeholder="LOT 검색" style="width:100px;">
 <input type="text" id="qItem" placeholder="품번/품명" style="width:90px;">
 <input type="text" id="qWh" placeholder="창고" style="width:70px;">
-<select id="noteSelect"><option value="">전체 비고</option><option value="normal">정상</option><option value="recent">10일 내 과거자료</option><option value="old">장기 과거자료</option><option value="ref">MES 실적 참조</option><option value="none">재고 없음</option></select>
+<select id="noteSelect"><option value="">전체 비고</option><option value="normal">정상</option><option value="recent">10일 내 과거자료</option><option value="old">장기 과거자료</option><option value="ref">MES 실적 참조</option><option value="none">재고 없음</option><option value="late">재고 늦게 반영</option></select>
 <button class="btn-export" id="refreshBtn">🔄 새로고침</button>
 <button class="btn-export" id="exportBtn">📥 다운로드</button>
 </div>
@@ -93,6 +94,7 @@ const content = document.getElementById("content");
 dateInput.value = roundDateKST();
 
 let stockByLot = {};
+let fallbackByLot = {};   // 최신 재고에는 없지만 최근 10일 재고(stock_latest)에는 있는 LOT - 빈칸 보충용
 let dateLogs = [];
 
 function esc(s){
@@ -139,6 +141,19 @@ function daysBetween(a, b){
     return Math.round((t(y) - t(x)) / 86400000);
 }
 const statusText = r => { const a = (r.lot_status||'').toString().trim(), b = (r.lot_substatus||'').toString().trim(); return a ? (b && b !== a ? a + ' / ' + b : a) : (b || '-'); };
+// 최신 재고에 없는 LOT 은 최근 10일 재고에서 한 번 더 찾아 품번/품명 등 빈칸을 채움 (찾지 못하면 그대로 비워 둠)
+async function loadFallbackStock(){
+    fallbackByLot = {};
+    const need = Array.from(new Set(dateLogs.map(r => r.lot_no))).filter(l => l && !stockByLot[l]);
+    for (let i = 0; i < need.length; i += 100){
+        try {
+            const { data, error } = await sb.from('stock_latest').select('*').in('lot_no', need.slice(i, i + 100));
+            if (error) throw error;
+            (data || []).forEach(r => { if (!fallbackByLot[r.lot_no]) fallbackByLot[r.lot_no] = r; });
+        } catch(e){ console.error('재고 보충 조회 실패(무시하고 계속)', e); break; }
+    }
+}
+const stockOf = lot => stockByLot[lot] || fallbackByLot[lot] || null;
 const NONE_ITEM = { item_no:'', item_name:'(재고 데이터 없음)', qty:null, unit:'', warehouse:'', department:null, subcontract_type:null };
 
 // 스캔 당시 기록(stock_kind)을 기준으로 품목 정보와 비고를 결정 (옛 기록은 기존 방식으로 처리)
@@ -146,10 +161,13 @@ function resolveItem(r){
     const k = r.stock_kind;
     if (k === 'recent_past' || k === 'old_past')
         return { item_no:r.stock_item_no||'', item_name:r.stock_item_name||'', qty:0, unit:r.stock_unit||'', warehouse:r.stock_wh||'', department:r.stock_dept||null, subcontract_type:null };
-    if (k === 'lot_ref')
+    const st = stockOf(r.lot_no);
+    // 스캔 당시에는 재고가 없었는데 그 뒤 재고가 올라왔으면 지금 재고로 빈칸을 채움 (_late 표시)
+    if (k === 'lot_ref'){
+        if (st) return { ...st, _late:true };
         return { item_no:r.stock_item_no||'', item_name:r.stock_item_name||'', qty:null, unit:'', warehouse:'', department:null, subcontract_type:null };
-    if (k === 'none') return NONE_ITEM;
-    const st = stockByLot[r.lot_no];
+    }
+    if (k === 'none') return st ? { ...st, _late:true } : NONE_ITEM;
     if (st) return st;
     return k === 'normal' ? { ...NONE_ITEM, item_name:'-' } : NONE_ITEM;
 }
@@ -157,10 +175,12 @@ function noteOf(r){
     const k = r.stock_kind;
     const days = daysBetween(r.stock_ref_date, r.scan_date);
     const ago = days !== null ? ` (${days}일 전)` : '';
+    if ((k === 'none' || k === 'lot_ref') && stockOf(r.lot_no))
+        return { kind:'late', cls:'note-late', text: k === 'lot_ref' ? '스캔 당시 전산수량 없음 → 재고 반영됨' : '스캔 당시 재고 없음 → 재고 반영됨' };
     if (k === 'recent_past') return { kind:'recent', cls:'note-recent', text:`10일 내 과거자료 ${r.stock_ref_date||''}${ago} · 수량 0 처리` };
     if (k === 'old_past')    return { kind:'old',    cls:'note-old',    text:`장기 과거자료 ${r.stock_ref_date||''}${ago} · 수량 0 처리` };
     if (k === 'lot_ref') return { kind:'ref', cls:'note-ref', text:`재고 없음 · MES 실적 참조 ${r.stock_ref_date||''}${ago} · 전산수량 없음` };
-    if (k === 'none' || (!k && !r.is_historical && !stockByLot[r.lot_no]))
+    if (k === 'none' || (!k && !r.is_historical && !stockOf(r.lot_no)))
         return { kind:'none', cls:'note-none', text:'재고 없음(보관 이력에 없음)' };
     if (!k && r.is_historical) return { kind:'recent', cls:'note-recent', text:`과거자료(${r.historical_date}) 참고` };
     return { kind:'normal', cls:'note-ok', text:'정상' };
@@ -191,14 +211,21 @@ function buildTimeline(){
     let scanRows = sorted.map(r => {
         const item = resolveItem(r);
         const note = noteOf(r);
+        const hasCum = r.cum_qty !== undefined && r.cum_qty !== null;
+        let qty = item.qty;
+        let diff = (r.diff === null || r.diff === undefined) ? null : Number(r.diff);
+        // 시스템수량 칸이 비어 있으면 저장돼 있던 차이로 스캔 당시 전산수량을 역산
+        if ((qty === null || qty === undefined) && hasCum && diff !== null) qty = r.cum_qty - diff;
+        // 스캔 당시 전산수량이 없었던 기록은 재고 반영 후 누적 수량으로 차이를 계산
+        if (item._late && diff === null && qty !== null && qty !== undefined && isFinite(Number(qty)) && hasCum) diff = r.cum_qty - Number(qty);
         return {
             type: 'scan', time: r.scanned_at,
-            lot_no:r.lot_no, item_no:item.item_no, item_name:item.item_name, qty:item.qty, unit:item.unit,
+            lot_no:r.lot_no, item_no:item.item_no, item_name:item.item_name, qty:qty, unit:item.unit,
             warehouse:item.warehouse, department:item.department, subcontract_type:item.subcontract_type,
             lot_status:item.lot_status, lot_substatus:item.lot_substatus,
             scan_dept:r.scan_dept, scanned_at:r.scanned_at, seq_no:r.seq_no,
             actual_qty: (r.actual_qty === null || r.actual_qty === undefined) ? null : Number(r.actual_qty),
-            diff: (r.diff === null || r.diff === undefined) ? null : Number(r.diff),
+            diff: diff,
             scanned_by:r.scanned_by,
             cum_qty: (r.cum_qty === undefined ? null : r.cum_qty), entry_total: r.entry_total || 0,
             note
@@ -306,6 +333,7 @@ async function loadData(){
         const logSnap = await fetchAll(() => sb.from(LOG_COL).select('*').eq('scan_date', dateInput.value));
         dateLogs = [];
         logSnap.forEach(d => dateLogs.push(d.data()));
+        await loadFallbackStock();
 
         const closeSnap = await fetchAll(() => sb.from(CLOSE_LOG_COL).select('*').eq('scan_date', dateInput.value));
         dateCloseLogs = [];
