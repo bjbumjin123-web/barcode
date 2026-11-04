@@ -253,17 +253,37 @@ body.manual-mode #backToCamBtn{ display:block; }
 #qtyModalBox.tiny h3{ display:none; }
 #qtyModalBox.tiny .modal-info-group{ display:flex; flex-wrap:wrap; justify-content:space-between; column-gap:10px; padding:3px 8px; margin-bottom:5px; font-size:12px; }
 #qtyModalBox.tiny .modal-info-item{ flex:0 1 auto; align-items:baseline; padding:1px 0; border-bottom:none; min-width:0; }
-#qtyModalBox.tiny .modal-info-item:nth-child(2), #qtyModalBox.tiny .modal-info-item:nth-child(3){ display:none; }
+/* 1줄: LOT + 전산수량 / 2줄: 품번 · 품명 (품명이 길면 … 으로 줄임) */
+#qtyModalBox.tiny .modal-info-group::before{ content:""; order:2; flex-basis:100%; height:0; }
+#qtyModalBox.tiny .modal-info-item:nth-child(1){ order:0; }
+#qtyModalBox.tiny .modal-info-item:nth-child(4){ order:1; }
+#qtyModalBox.tiny .modal-info-item:nth-child(2){ order:3; flex:0 1 auto; max-width:46%; }
+#qtyModalBox.tiny .modal-info-item:nth-child(3){ order:4; flex:1 1 0; }
+#qtyModalBox.tiny .modal-info-item:nth-child(3)::before{ content:"·"; color:#666; margin:0 5px; }
+#qtyModalBox.tiny .modal-info-item:nth-child(2) .modal-info-label, #qtyModalBox.tiny .modal-info-item:nth-child(3) .modal-info-label{ display:none; }
+#qtyModalBox.tiny .modal-info-item:nth-child(2) .modal-info-val, #qtyModalBox.tiny .modal-info-item:nth-child(3) .modal-info-val{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; font-size:11px; display:block; flex:1 1 auto; }
+#qtyModalBox.tiny #modalCtx{ margin:0 0 4px; padding:3px 8px; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* 좁은 폰: 부서 경고·누적 안내는 짧은 문구로 한 줄, 화면 가장자리 여백도 줄여서 잔량까지 보이게 */
+#modalCtx .short, #modalDept .short{ display:none; }
+#qtyModalBox.tiny #modalCtx .full, #qtyModalBox.tiny #modalDept .full{ display:none; }
+#qtyModalBox.tiny #modalCtx .short, #qtyModalBox.tiny #modalDept .short{ display:inline; }
+#qtyModalBox.tiny #modalDept{ margin:0 0 3px; padding:3px 8px; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#qtyModalOverlay.tinyov{ padding:6px; }
+#qtyModalBox.tiny{ padding:5px 10px; }
+#qtyModalBox.tiny #modalWarn{ padding:3px 8px; margin:0 0 3px; }
+#qtyModalBox.tiny #qtyFooter{ margin-top:2px; }
+#qtyModalBox.tiny .modal-info-group{ margin-bottom:3px; }
+#qtyModalBox.tiny #modalStatus{ margin:0 0 2px; }
 #qtyModalBox.tiny .modal-info-label{ margin-right:4px; font-size:11px; }
 #qtyModalBox.tiny #modalLotNo{ font-size:12px; }
 #qtyModalBox.tiny .modal-info-val.highlight{ font-size:13px; }
 #qtyModalBox.tiny #modalStatus{ margin:0 0 3px; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 #qtyModalBox.tiny #modalWarn{ margin:0 0 4px; padding:4px 8px; font-size:11px; line-height:1.25; }
 #qtyModalBox.tiny #modalMsg{ order:-1; margin:0 0 4px !important; font-size:11px; }
-#qtyModalBox.tiny .qty-row{ margin-bottom:6px; }
-#qtyModalBox.tiny #modalQtyInput{ height:40px; font-size:20px; }
-#qtyModalBox.tiny #calcOpenBtn{ height:40px; }
-#qtyModalBox.tiny .modal-btn-group button{ height:38px; }
+#qtyModalBox.tiny .qty-row{ margin-bottom:5px; }
+#qtyModalBox.tiny #modalQtyInput{ height:38px; font-size:19px; }
+#qtyModalBox.tiny #calcOpenBtn{ height:38px; }
+#qtyModalBox.tiny .modal-btn-group button{ height:36px; }
 
 /* 모달 내부 정보 표시 그룹 */
 .modal-info-group {
@@ -411,9 +431,9 @@ body.manual-mode #backToCamBtn{ display:block; }
 <div id="modalStatus"></div>
 <div id="modalWarn"></div>
 <div id="modalDept"></div>
-<div id="modalCtx"></div>
 </div>
 <div id="qtyFooter">
+<div id="modalCtx"></div>
 <div class="qty-row"><input id="modalQtyInput" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="실사수량 입력"><button id="calcOpenBtn" type="button" title="계산기">🧮</button></div>
 <div class="modal-btn-group">
 <button id="modalSaveBtn">저장</button>
@@ -1872,15 +1892,19 @@ function fitQtyModal(){
     box.style.maxHeight = Math.max(160, vh - 24) + "px";   // 보이는 화면(키보드 위)보다 커지지 않게
     // 입력칸/버튼(#qtyFooter)은 항상 보이고, 위쪽 안내(#qtyScroll)가 넘칠 때만 간략 -> 더 간략 순서로 줄임
     // (카카오톡 등 앱 내 브라우저는 키보드가 올라오면 화면 자체가 줄어서 '키보드 감지' 비율이 안 맞으므로, 실제 넘침으로 판단)
-    box.classList.remove("kb"); box.classList.remove("tiny");
+    box.classList.remove("kb"); box.classList.remove("tiny"); qtyModalOverlay.classList.remove("tinyov");
     var over = function(){ return sc.scrollHeight > sc.clientHeight + 1; };
     if (over()) box.classList.add("kb");
-    if (over()) box.classList.add("tiny");
+    if (over()){
+        box.classList.add("tiny");
+        qtyModalOverlay.classList.add("tinyov");                      // 가장 좁은 경우: 바깥 여백을 줄여 안내 영역을 넓힘
+        box.style.maxHeight = Math.max(160, vh - 12) + "px";
+    }
 }
 function resetQtyModalFit(){
     var box = document.getElementById("qtyModalBox");
     qtyModalOverlay.style.top = "0"; qtyModalOverlay.style.bottom = "0"; qtyModalOverlay.style.height = "";
-    box.style.maxHeight = ""; box.classList.remove("kb"); box.classList.remove("tiny");
+    box.style.maxHeight = ""; box.classList.remove("kb"); box.classList.remove("tiny"); qtyModalOverlay.classList.remove("tinyov");
     document.getElementById("qtyScroll").scrollTop = 0;
 }
 if (window.visualViewport){
@@ -2047,6 +2071,9 @@ function deptMismatchMsg(res){
     if (!sel || !d || d === sel) return "";
     return "⚠️ 이 LOT의 부서는 「" + d + "」입니다 (선택한 실사 부서: " + sel + "). 입력은 가능합니다.";
 }
+function deptMismatchShort(res){
+    return deptMismatchMsg(res) ? "⚠️ 부서 불일치: " + res.department + " ≠ " + deptSelect.value : "";
+}
 function deptMismatchRow(res){
     const m = deptMismatchMsg(res);
     return m ? `<div class="info-label">부서</div><div class="info-value st-bad">${esc(res.department)} <span style="font-size:12px;">(선택: ${esc(deptSelect.value)})</span></div>` : "";
@@ -2125,15 +2152,17 @@ function updateCtxLine(){
     const sys = (res.qty === null || res.qty === undefined) ? null : Number(res.qty);
     const v = modalQtyInput.value === "" ? 0 : (Math.round(Number(modalQtyInput.value)) || 0);
     const sum = Number(c.sum) || 0;
-    let text;
+    let text, shortText;
     if (c.mode === "add"){
         const after = sum + v;
         text = `이미 확인 ${fmtNum(sum)}${unit} → 입력 후 누적 ${fmtNum(after)}` + (sys > 0 ? ` / 전산 ${fmtNum(sys)} (남음 ${fmtNum(Math.max(0, sys - after))})` : "");
+        shortText = `누적 ${fmtNum(sum)} → ${fmtNum(after)}` + (sys > 0 ? ` / 전산 ${fmtNum(sys)} (남음 ${fmtNum(Math.max(0, sys - after))})` : "");
     } else {
         const lastQty = c.last ? c.last.qty : 0, after = sum - lastQty + v;
         text = `덮어쓸 입력: ${(c.last && c.last.scanned_by) || "-"} ${hhmm(c.last && c.last.scanned_at)} ${fmtNum(lastQty)}${unit} → 누적 ${fmtNum(after)}` + (sys > 0 ? ` / 전산 ${fmtNum(sys)}` : "");
+        shortText = `덮어쓰기 ${fmtNum(lastQty)} → ${fmtNum(v)} · 누적 ${fmtNum(after)}` + (sys > 0 ? ` / 전산 ${fmtNum(sys)}` : "");
     }
-    modalCtx.textContent = text;
+    modalCtx.innerHTML = `<span class="full">${esc(text)}</span><span class="short">${esc(shortText)}</span>`;
     modalCtx.style.display = "block";
 }
 modalQtyInput.addEventListener("input", updateCtxLine);
@@ -2183,7 +2212,8 @@ function openQtyModal(res, ctx) {
     if (qtyCtx.mode === "overwrite" && qtyCtx.last) modalQtyInput.value = qtyCtx.last.qty;
     updateCtxLine();
     const dm = deptMismatchMsg(res);
-    modalDept.textContent = dm; modalDept.style.display = dm ? "block" : "none";
+    modalDept.innerHTML = dm ? `<span class="full">${esc(dm)}</span><span class="short">${esc(deptMismatchShort(res))}</span>` : "";
+    modalDept.style.display = dm ? "block" : "none";
     if (dm && qtyCtx.mode === "normal" && navigator.vibrate) navigator.vibrate(200);
     qtyModalOverlay.style.display = "flex";
     stopCamera();   // 수량 입력 중에는 카메라를 끔 (닫으면 다시 켬)
