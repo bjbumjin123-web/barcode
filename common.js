@@ -96,31 +96,59 @@ export async function loadScanDates(days = 365) {
     return list;
 }
 
-// 날짜 선택 목록을 채움. mode: "entry"(수량 입력 건수 기준 - 진행률/차이조회) / "scan"(스캔 횟수 기준 - 기록조회)
-// 기록 없는 날짜는 숨기고(오늘/선택한 날짜는 유지), 년·월별 그룹(optgroup)으로 묶어서 보여줌
+// 날짜 선택: '년·월' 선택창 + '일' 선택창 두 단계로 나눠서 보여줌 (기록이 쌓여도 목록이 길어지지 않게)
+// - 화면들은 기존처럼 sel(일 선택창)의 value / change 이벤트만 쓰면 됨. 년·월 선택창은 이 함수가 sel 바로 앞에 한 번만 만들어 재사용함.
+// - 년·월을 바꾸면 그 달의 가장 최근 날짜가 선택되고 sel 에 change 이벤트가 발생함 (화면이 알아서 다시 조회).
+// - 기록 없는 날짜는 숨김(오늘/선택한 날짜는 유지).
+// mode: "entry"(수량 입력 건수 기준 - 진행률/차이조회) / "scan"(스캔 횟수 기준 - 기록조회)
 export function fillDateSelect(sel, dates, selected, mode = "entry") {
     const today = roundDateKST();
     const list = dates.slice();
     if (selected && !list.some(x => x.date === selected)) list.push({ date: selected, scans: 0, entries: 0, lots: 0, entryLots: 0, lastAt: "" });
     list.sort((a, b) => (a.date < b.date ? 1 : -1));
-    sel.innerHTML = "";
-    const groups = {};
+    const items = [];
     list.forEach(x => {
         const n = mode === "scan" ? x.scans : x.entries, lots = mode === "scan" ? x.lots : x.entryLots;
         if (!n && x.date !== today && x.date !== selected) return;   // 기록 없는 날짜는 숨김
-        const ym = x.date.slice(0, 7);
-        let g = groups[ym];
-        if (!g) {
-            g = groups[ym] = document.createElement("optgroup");
-            g.label = `${ym.slice(0, 4)}년 ${+ym.slice(5, 7)}월`;
-            sel.appendChild(g);
-        }
-        const o = document.createElement("option");
-        o.value = x.date;
-        o.textContent = `${x.date} (${relDayText(x.date, today)}) · ` + (n ? (mode === "scan" ? `스캔 ${n}회` : `입력 ${n}건`) + ` · LOT ${lots}개` : "기록 없음");
-        g.appendChild(o);
+        items.push({ date: x.date, n, lots });
     });
-    sel.value = selected || today;
+    sel._dateItems = { items, mode, today };
+
+    let msel = sel._monthSel;
+    if (!msel) {
+        msel = document.createElement("select");
+        msel.id = (sel.id || "date") + "Month";
+        msel.title = "년·월";
+        sel.parentNode.insertBefore(msel, sel);
+        sel._monthSel = msel;
+        msel.addEventListener("change", () => { fillDayOptions(sel, msel.value); sel.dispatchEvent(new Event("change")); });
+    }
+    msel.innerHTML = "";
+    const seen = new Set();
+    items.forEach(it => {
+        const ym = it.date.slice(0, 7);
+        if (seen.has(ym)) return;
+        seen.add(ym);
+        const o = document.createElement("option");
+        o.value = ym;
+        o.textContent = `${ym.slice(0, 4)}년 ${+ym.slice(5, 7)}월`;
+        msel.appendChild(o);
+    });
+    const target = selected || today, ym = target.slice(0, 7);
+    msel.value = seen.has(ym) ? ym : (msel.options.length ? msel.options[0].value : "");
+    fillDayOptions(sel, msel.value, target);
+}
+function fillDayOptions(sel, ym, pick) {
+    const { items, mode, today } = sel._dateItems;
+    sel.innerHTML = "";
+    items.filter(it => it.date.slice(0, 7) === ym).forEach(it => {
+        const o = document.createElement("option");
+        o.value = it.date;
+        o.textContent = `${it.date.slice(5)} (${relDayText(it.date, today)}) · ` + (it.n ? (mode === "scan" ? `스캔 ${it.n}회` : `입력 ${it.n}건`) + ` · LOT ${it.lots}개` : "기록 없음");
+        sel.appendChild(o);
+    });
+    if (pick && Array.from(sel.options).some(o => o.value === pick)) sel.value = pick;
+    else if (sel.options.length) sel.selectedIndex = 0;
 }
 
 // 선택한 회차에 맞는 재고를 가져옴: 그 날짜(upload_date)의 재고 중 가장 최근 실행분.
