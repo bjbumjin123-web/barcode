@@ -46,7 +46,7 @@ button:disabled{background:#555;color:#999;}
 <option value="mat">🚚 자재실적 (LOT 조회용)</option>
 <option value="prod">🏭 생산실적 (LOT 조회용)</option>
 </select>
-<div class="hint" id="typeHint" style="display:none;">엑셀 컬럼: LOT NO / 품번 / 품명 / 날짜 — 날짜가 비어 있는 행은 아래 기본 날짜로 저장됩니다. 60일 지나면 자동 삭제됩니다.</div>
+<div class="hint" id="typeHint" style="display:none;">엑셀 컬럼: LOT NO / 품번 / 품명 / 날짜 — 날짜가 비어 있는 행은 아래 기본 날짜로 저장됩니다. 365일 지나면 자동 삭제됩니다.</div>
 
 <label id="dateLabel">실사 기준 날짜</label>
 <input type="date" id="uploadDateInput" required>
@@ -217,7 +217,7 @@ async function loadLotSummary(){
         ]);
         [all, mat, prod, latest].forEach(r => { if (r.error) throw r.error; });
         const latestDate = latest.data.length ? latest.data[0].work_date : '없음';
-        lotSummaryBox.innerHTML = `LOT 조회용 자료(최근 60일): <b>${all.count || 0}</b>건 (자재 <b>${mat.count || 0}</b> / 생산 <b>${prod.count || 0}</b>)<br>가장 최근 날짜: <b>${latestDate}</b>`;
+        lotSummaryBox.innerHTML = `LOT 조회용 자료(최근 365일): <b>${all.count || 0}</b>건 (자재 <b>${mat.count || 0}</b> / 생산 <b>${prod.count || 0}</b>)<br>가장 최근 날짜: <b>${latestDate}</b>`;
     }catch(e){
         console.error(e);
         lotSummaryBox.textContent = 'LOT 조회용 자료를 불러오지 못했습니다. (lot_master 테이블 생성 여부 확인)';
@@ -353,7 +353,7 @@ templateBtn.onclick = () => {
         ['1) "' + label + '" 시트의 2행부터 입력하세요. (1행 제목은 바꾸지 마세요)'],
         ['2) LOT NO 형식 예: 1234567890-001 (품번/품명 둘 다 비어 있는 행은 저장되지 않습니다)'],
         ['3) 날짜 형식 예: 2026-09-30 또는 20260930 (비워 두면 업로드 화면의 기본 날짜로 저장)'],
-        ['4) 같은 LOT을 다시 올리면 덮어쓰며, 저장된 지 60일이 지나면 자동 삭제됩니다.']
+        ['4) 같은 LOT을 다시 올리면 덮어쓰며, 저장된 지 365일이 지나면 자동 삭제됩니다.']
     ]);
     guide['!cols'] = [{ wch: 80 }];
     XLSX.utils.book_append_sheet(wb, guide, '안내');

@@ -124,7 +124,7 @@ export function fillDateSelect(sel, dates, selected, mode = "entry") {
 }
 
 // 선택한 회차에 맞는 재고를 가져옴: 그 날짜(upload_date)의 재고 중 가장 최근 실행분.
-// 그 날짜 재고가 없으면 가장 가까운 이전 날짜 재고를 쓰고(exact=false), 아무것도 없으면 uploadDate=null (재고는 60일 지나면 삭제됨)
+// 그 날짜 재고가 없으면 가장 가까운 이전 날짜 재고를 쓰고(exact=false), 아무것도 없으면 uploadDate=null (재고는 100일 지나면 삭제됨)
 export async function loadStockForRound(date) {
     const { data: top, error } = await sb.from("stock").select("upload_date").lte("upload_date", date).order("upload_date", { ascending: false }).limit(1);
     if (error) throw error;
@@ -141,7 +141,7 @@ export async function loadStockForRound(date) {
 
 // 화면 위에 보여줄 '비교한 재고' 안내 문구 (⚠️ 로 시작하면 경고)
 export function stockInfoText(date, st) {
-    if (!st || !st.uploadDate) return "⚠️ 이 날짜에 비교할 재고가 없습니다 (재고는 60일이 지나면 삭제됩니다)";
+    if (!st || !st.uploadDate) return "⚠️ 이 날짜에 비교할 재고가 없습니다 (재고는 100일이 지나면 삭제됩니다)";
     const at = (st.runAt || st.uploadDate).slice(5, 16);
     return st.exact ? `📦 비교한 재고: ${at} 실행분` : `⚠️ ${date} 재고가 없어 ${at} 실행분과 비교합니다`;
 }

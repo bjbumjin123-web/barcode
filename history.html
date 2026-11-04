@@ -41,7 +41,7 @@ th{background:#222;color:#aaa;font-size:12px;}
 <div id="content"><div class="empty">날짜를 선택해주세요.</div></div>
 
 <script type="module">
-import { sb, wrap, fetchAll, renderNavbar } from "./common.js?v=4";
+import { sb, wrap, fetchAll, renderNavbar } from "./common.js?v=6";
 renderNavbar("history");
 
 
@@ -82,10 +82,10 @@ function friendlyErrorMessage(e){
 }
 
 // 존재하는 실사 날짜 목록을 스캔해서 드롭다운 채우기
-// 성능 개선: 전체 기간 대신 최근 30일치만 조회 (컬렉션이 계속 커지고 있어 전체 스캔은 읽기 한도를 통째로 소모할 위험이 큼)
+// 성능 개선: 전체 기간 대신 최근 100일치만 조회 (컬렉션이 계속 커지고 있어 전체 스캔은 읽기 한도를 통째로 소모할 위험이 큼)
 async function loadDateAndDeptOptions(){
     try {
-        const cutoff = daysAgoKST(60);
+        const cutoff = daysAgoKST(100);
         const dateCount = {};   // 날짜 -> 그날 관측된 고유 LOT 건수
         try {
             const { data, error } = await sb.from('stock_date_counts').select('upload_date,n').gte('upload_date', cutoff);
@@ -117,7 +117,7 @@ async function loadDateAndDeptOptions(){
             dateSelect.value = sortedDates[0];
             await loadDate(sortedDates[0]);
         } else {
-            summaryBox.textContent = "최근 60일 내 저장된 재고실사 이력이 없습니다.";
+            summaryBox.textContent = "최근 100일 내 저장된 재고실사 이력이 없습니다.";
             content.innerHTML = '<div class="empty">아직 데이터가 없습니다.</div>';
         }
     } catch(e){
