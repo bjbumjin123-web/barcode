@@ -15,6 +15,8 @@ h2{font-size:16px;text-align:center;margin:0 0 12px;white-space:nowrap;}
 input[type=date], input[type=text], select{padding:6px;background:#1c1c1c;color:#eee;border:1px solid #444;border-radius:6px;font-size:12px;letter-spacing:-0.3px;white-space:nowrap;flex:0 0 auto;}
 button{padding:6px 10px;font-size:12px;letter-spacing:-0.3px;font-weight:bold;border-radius:6px;border:none;cursor:pointer;white-space:nowrap;flex:0 0 auto;}
 .btn-export{background:#4fc3ff;color:#111;}
+.round-info{background:#1c1c1c;border:1px solid #333;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:13px;line-height:1.7;color:#ccc;}
+.round-info b{color:#fff;} .round-info .warn{color:#ffb84d;font-weight:bold;}
 .sum-box{background:#1c1c1c;border:1px solid #333;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;line-height:1.8;}
 .sum-box b{font-size:15px;}
 .c-short{color:#ff8a8a;} .c-over{color:#ffb84d;} .c-partial{color:#c792ea;} .c-none{color:#4fc3ff;} .c-match{color:#00e676;}
@@ -38,7 +40,7 @@ th{background:#222;color:#aaa;font-size:12px;}
 <div class="navbar"></div>
 
 <div class="toolbar">
-<input type="date" id="dateInput">
+<select id="dateInput"></select>
 <select id="deptSelect"><option value="">전체 부서</option></select>
 <input type="text" id="qInput" placeholder="LOT/품번/품명" style="width:110px;">
 <button class="btn-export" id="refreshBtn">🔄 새로고침</button>
@@ -49,15 +51,8 @@ th{background:#222;color:#aaa;font-size:12px;}
 <div id="content"><div class="empty">불러오는 중...</div></div>
 
 <script type="module">
-import { sb, wrap, fetchAll, renderNavbar } from "./common.js?v=3";
+import { sb, wrap, fetchAll, renderNavbar, roundDateKST, relDayText, loadScanDates, fillDateSelect, loadStockForRound, stockInfoText } from "./common.js?v=4";
 renderNavbar("diff");
-
-// 하루(1회) 기준: 한국시간 07:00 ~ 다음날 06:59 를 한 회로 봄 -> 07:00 이전이면 전날 날짜를 '회차 날짜'로 사용
-const ROUND_START_HOUR = 7;
-function roundDateKST(){
-    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year:"numeric", month:"2-digit", day:"2-digit" });
-    return fmt.format(new Date(Date.now() - ROUND_START_HOUR * 3600 * 1000));
-}
 
 const STOCK_COL = "stock";
 const LOG_COL = "scan_log";
@@ -72,11 +67,11 @@ const summary = document.getElementById("summary");
 const content = document.getElementById("content");
 
 let currentView = "short";
+let stockInfo = null;
 let masterRows = [];       // 최신 재고(최근 실행분)
 let dateLogs = [];         // 선택한 회차 날짜의 수량 입력 기록
 let fallbackByLot = {};    // 최신 재고에 없는 LOT 의 품번/품명 보충용(최근 10일 재고)
 
-dateInput.value = roundDateKST();
 DEPARTMENTS.forEach(d => { const o = document.createElement("option"); o.value = d; o.textContent = d; deptSelect.appendChild(o); });
 
 function esc(s){
@@ -96,23 +91,9 @@ async function loadData(){
     content.innerHTML = '<div class="empty">불러오는 중...</div>';
     summary.textContent = "불러오는 중...";
     try {
-        const { data: top, error: topErr } = await sb.from(STOCK_COL).select("upload_date").order("upload_date", { ascending:false }).limit(1);
-        if (topErr) throw topErr;
-        const masterDate = top && top.length ? top[0].upload_date : null;
-        masterRows = [];
-        if (masterDate){
-            const stockSnap = await fetchAll(() => sb.from(STOCK_COL).select("*").eq("upload_date", masterDate));
-            const latestByLot = {};
-            stockSnap.forEach(d => {
-                const r = d.data(), runAt = r.run_at || r.uploaded_at || "", ex = latestByLot[r.lot_no];
-                if (!ex || runAt > (ex.run_at || ex.uploaded_at || "")) latestByLot[r.lot_no] = r;
-            });
-            masterRows = Object.values(latestByLot);
-            let maxRun = "";
-            masterRows.forEach(r => { const k = r.run_at || r.uploaded_at || ""; if (k > maxRun) maxRun = k; });
-            if (maxRun) masterRows = masterRows.filter(r => (r.run_at || r.uploaded_at || "") === maxRun);
-            masterRows = masterRows.filter(r => r.chk_type !== "실사불가 상태");
-        }
+        // 선택한 회차 날짜의 재고(그날 가장 최근 실행분)와 비교
+        stockInfo = await loadStockForRound(dateInput.value);
+        masterRows = stockInfo.rows.filter(r => r.chk_type !== "실사불가 상태");
 
         const logSnap = await fetchAll(() => sb.from(LOG_COL).select("*").eq("scan_date", dateInput.value));
         dateLogs = [];
@@ -214,7 +195,8 @@ function render(){
     const by = {}; CATS.forEach(c => { by[c.key] = all.filter(e => e.cat === c.key).sort(c.sort); });
     const match = all.filter(e => e.cat === "match").length;
 
-    summary.innerHTML = `${esc(dateInput.value)} 회차 · 수량 입력된 LOT <b>${all.length}</b>건<br>` +
+    const st = stockInfoText(dateInput.value, stockInfo);
+    summary.innerHTML = `<div class="round-info" style="margin:0 0 10px;padding:0;border:0;background:none;"><div>📅 <b>실사 회차 ${esc(dateInput.value)}</b> (${esc(relDayText(dateInput.value))}) · 수량 입력된 LOT <b>${all.length}</b>건</div><div class="${st.indexOf("⚠️") === 0 ? "warn" : ""}">${esc(st)}</div></div>` +
         `<span class="c-match">일치 <b>${match}</b></span> · ` + CATS.map(c => `<span class="${c.cls}">${c.label} <b>${by[c.key].length}</b></span>`).join(" · ");
 
     const tabs = '<div class="tabs">' + CATS.map(c => `<div class="tab ${currentView === c.key ? "active" : ""}" data-view="${c.key}">${c.label} ${by[c.key].length}</div>`).join("") + "</div>";
@@ -255,6 +237,10 @@ document.getElementById("exportBtn").onclick = () => {
 };
 
 document.getElementById("refreshBtn").onclick = loadData;
+async function initDates(){
+    try { fillDateSelect(dateInput, await loadScanDates(), roundDateKST(), "entry"); }
+    catch(e){ console.error(e); fillDateSelect(dateInput, [], roundDateKST(), "entry"); }
+}
 dateInput.addEventListener("change", loadData);
 deptSelect.addEventListener("change", render);
 qInput.addEventListener("input", render);
@@ -268,7 +254,7 @@ function resetIdleTimer(){
 ["click", "touchstart", "keydown"].forEach(evt => document.addEventListener(evt, resetIdleTimer));
 resetIdleTimer();
 
-loadData();
+initDates().then(loadData);
 </script>
 
 </body>

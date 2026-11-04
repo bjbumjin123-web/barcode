@@ -9,6 +9,8 @@
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
 body{font-family:-apple-system,"Malgun Gothic",Arial,sans-serif;background:#111;color:#eee;margin:0;padding:16px;}
 h2{font-size:16px;text-align:center;margin:0 0 12px;white-space:nowrap;}
+.round-info{background:#1c1c1c;border:1px solid #333;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:13px;line-height:1.7;color:#ccc;}
+.round-info b{color:#fff;} .round-info .warn{color:#ffb84d;font-weight:bold;}
 .navbar{display:flex;justify-content:center;gap:4px;margin-bottom:12px;flex-wrap:nowrap;overflow-x:auto;}
 .navbar a{color:#4fc3ff;font-size:12px;letter-spacing:-0.3px;text-decoration:none;padding:5px 6px;border:1px solid #2a4a5c;border-radius:10px;white-space:nowrap;}
 .toolbar{display:flex;gap:4px;align-items:center;flex-wrap:nowrap;margin-bottom:12px;overflow-x:auto;padding-bottom:4px;}
@@ -47,7 +49,7 @@ tr.dup{background:rgba(255,184,77,0.10);}
 <div class="navbar"></div>
 
 <div class="toolbar">
-<input type="date" id="dateInput">
+<select id="dateInput"></select>
 <select id="deptSelect"><option value="">전체 부서</option></select>
 <input type="text" id="qLot" placeholder="LOT 검색" style="width:100px;">
 <input type="text" id="qItem" placeholder="품번/품명" style="width:90px;">
@@ -57,21 +59,16 @@ tr.dup{background:rgba(255,184,77,0.10);}
 <button class="btn-export" id="exportBtn">📥 다운로드</button>
 </div>
 
+<div class="round-info" id="roundInfo"></div>
 <div class="summary" id="summaryBox"></div>
 
 <div id="content"><div class="empty">불러오는 중...</div></div>
 
 <script type="module">
-import { sb, wrap, fetchAll, renderNavbar } from "./common.js?v=3";
+import { sb, wrap, fetchAll, renderNavbar, roundDateKST, relDayText, loadScanDates, fillDateSelect, loadStockForRound, stockInfoText } from "./common.js?v=4";
 renderNavbar("scanview");
 
 
-// 하루(1회) 기준: 한국시간 07:00 ~ 다음날 06:59 를 한 회로 봄 -> 07:00 이전이면 전날 날짜를 '회차 날짜'로 사용
-const ROUND_START_HOUR = 7;
-function roundDateKST(){
-    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year:"numeric", month:"2-digit", day:"2-digit" });
-    return fmt.format(new Date(Date.now() - ROUND_START_HOUR * 3600 * 1000));
-}
 
 const STOCK_COL = "stock";
 const LOG_COL = "scan_log";
@@ -91,7 +88,7 @@ const noteSelect = document.getElementById("noteSelect");
 const summaryBox = document.getElementById("summaryBox");
 const content = document.getElementById("content");
 
-dateInput.value = roundDateKST();
+const roundInfo = document.getElementById("roundInfo");
 
 let stockByLot = {};
 let fallbackByLot = {};   // 최신 재고에는 없지만 최근 10일 재고(stock_latest)에는 있는 LOT - 빈칸 보충용
@@ -113,25 +110,11 @@ function loadDepartments(){
     });
 }
 
+let stockInfo = null;
 async function loadStockMap(){
-    // 성능 개선: lot_stock 전체 이력을 다 긁지 않고, 최신(master) 날짜분만 조회
-    const { data: top, error: topErr } = await sb.from(STOCK_COL).select('upload_date').order('upload_date', { ascending:false }).limit(1);
-    if (topErr) throw topErr;
-    const masterSnap = top.map(wrap);
-    let masterDate = null;
-    masterSnap.forEach(d => { masterDate = d.data().upload_date; });
-    if (!masterDate) { stockByLot = {}; return; }
-
-    const snap = await fetchAll(() => sb.from(STOCK_COL).select('*').eq('upload_date', masterDate));
-    stockByLot = {};
-    snap.forEach(d => {
-        const r = d.data();
-        const existing = stockByLot[r.lot_no];
-        if (!existing) { stockByLot[r.lot_no] = r; return; }
-        const runAt = r.run_at || r.uploaded_at || '';
-        const existingRunAt = existing.run_at || existing.uploaded_at || '';
-        if (runAt > existingRunAt) stockByLot[r.lot_no] = r;
-    });
+    // 선택한 회차 날짜의 재고 (LOT 별로 그날 가장 최근 실행값) - 지난 날짜도 그날 재고로 품번/품명/전산수량을 채움
+    stockInfo = await loadStockForRound(dateInput.value);
+    stockByLot = stockInfo.byLot;
 }
 
 function daysBetween(a, b){
@@ -259,6 +242,9 @@ function render(){
     const uniqueLots = new Set(dateLogs.map(r => r.lot_no)).size;
     const dupCount = scanOnly.filter(r => r.seq_no > 1).length;
 
+    const lastScan = dateLogs.reduce((m, r) => ((r.scanned_at || '') > m ? r.scanned_at : m), '');
+    const stTxt = stockInfoText(dateInput.value, stockInfo);
+    roundInfo.innerHTML = `<div>📅 <b>실사 회차 ${esc(dateInput.value)}</b> (${esc(relDayText(dateInput.value))}) · 스캔 <b>${totalScans}</b>회 · LOT <b>${uniqueLots}</b>개${lastScan ? ' · 마지막 스캔 ' + esc(lastScan.slice(5, 16)) : ''}</div><div class="${stTxt.indexOf('⚠️') === 0 ? 'warn' : ''}">${esc(stTxt)}</div>`;
     summaryBox.innerHTML = `<div>총 스캔 횟수: <b>${totalScans}</b>회</div><div>확인된 LOT 종류: <b>${uniqueLots}</b>개</div><div>중복 확인: <b class="dup-badge">${dupCount}</b>건</div>`;
 
     if (!rows.length){
@@ -392,16 +378,22 @@ deptSelect.addEventListener("change", render);
 
 let userPickedDate = false;
 
+async function initDates(selected){
+    try {
+        const dates = await loadScanDates();
+        fillDateSelect(dateInput, dates, selected || roundDateKST(), "scan");   // 스캔 기록이 있는 날짜만 목록으로 보여줌
+    } catch(e){ console.error(e); fillDateSelect(dateInput, [], selected || roundDateKST(), "scan"); }
+}
 loadDepartments();
-loadData();
+initDates().then(loadData);
 
 dateInput.addEventListener("change", () => { userPickedDate = true; });
 
-setInterval(() => {
+setInterval(async () => {
     if (userPickedDate) return;
     const todayNow = roundDateKST();
     if (dateInput.value !== todayNow){
-        dateInput.value = todayNow;
+        await initDates(todayNow);
         loadData();
     }
 }, 60000);
