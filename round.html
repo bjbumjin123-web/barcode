@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>실사 현황</title>
+<script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+body{font-family:-apple-system,"Malgun Gothic",Arial,sans-serif;background:#111;color:#eee;margin:0;padding:16px;}
+h2{font-size:16px;text-align:center;margin:0 0 12px;white-space:nowrap;}
+.navbar{display:flex;justify-content:center;gap:4px;margin-bottom:12px;flex-wrap:nowrap;overflow-x:auto;}
+.navbar a{color:#4fc3ff;font-size:12px;letter-spacing:-0.3px;text-decoration:none;padding:5px 6px;border:1px solid #2a4a5c;border-radius:10px;white-space:nowrap;}
+.toolbar{display:flex;gap:4px;align-items:center;flex-wrap:nowrap;margin-bottom:12px;overflow-x:auto;padding-bottom:4px;}
+input[type=date], input[type=text], select{padding:6px;background:#1c1c1c;color:#eee;border:1px solid #444;border-radius:6px;font-size:12px;letter-spacing:-0.3px;white-space:nowrap;flex:0 0 auto;}
+button{padding:6px 10px;font-size:12px;letter-spacing:-0.3px;font-weight:bold;border-radius:6px;border:none;cursor:pointer;white-space:nowrap;flex:0 0 auto;}
+.btn-export{background:#4fc3ff;color:#111;}
+
+/* 맨 위 요약: 회차 정보 / 미확인·확인됨 / 진행률 막대 / 결과별 건수 (누르면 아래 목록이 바뀜) */
+.sum-box{background:#1c1c1c;border:1px solid #333;border-radius:12px;padding:12px 14px;margin-bottom:12px;}
+.round-info{font-size:13px;line-height:1.7;color:#ccc;margin-bottom:10px;}
+.round-info b{color:#fff;} .round-info .warn{color:#ffb84d;font-weight:bold;}
+.chips{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{padding:7px 12px;border-radius:16px;font-size:13px;font-weight:bold;background:#222;border:1px solid #333;cursor:pointer;white-space:nowrap;}
+.chip b{font-size:15px;margin-left:4px;}
+.chip.zero{opacity:0.55;}
+.chip.active{background:#333;border-color:currentColor;opacity:1;}
+.c-unchecked{color:#eee;} .c-checked{color:#00e676;} .c-match{color:#00e676;} .c-short{color:#ff8a8a;} .c-over{color:#ffb84d;} .c-partial{color:#c792ea;} .c-none{color:#4fc3ff;}
+.progress-bar-bg{width:100%;height:16px;background:#2a2a2a;border-radius:10px;overflow:hidden;margin-top:10px;}
+.progress-bar-fill{height:100%;background:#00e676;transition:width 0.3s;}
+.percent-label{text-align:right;font-size:13px;color:#4fc3ff;margin:4px 0 8px;white-space:nowrap;}
+.master-note{font-size:12px;color:#888;margin-top:8px;line-height:1.5;}
+
+table{width:100%;border-collapse:collapse;font-size:13px;background:#1c1c1c;border-radius:8px;overflow:hidden;}
+th, td{padding:8px 10px;border-bottom:1px solid #2a2a2a;text-align:left;white-space:nowrap;}
+th{background:#222;color:#aaa;font-size:12px;}
+.empty{padding:30px;text-align:center;color:#888;}
+.scroll-wrap{overflow-x:auto;}
+.d-short{color:#ff8a8a;font-weight:bold;} .d-over{color:#ffb84d;font-weight:bold;} .d-partial{color:#c792ea;font-weight:bold;} .d-ok{color:#00e676;}
+.diff-bad{color:#ff8a8a;font-weight:bold;}
+.dim{color:#888;font-size:11px;}
+</style>
+</head>
+<body>
+
+<h2>📋 실사 현황</h2>
+
+<div class="navbar"></div>
+
+<div class="toolbar">
+<select id="dateInput"></select>
+<select id="deptSelect"><option value="">전체 부서</option></select>
+<input type="text" id="qInput" placeholder="LOT/품번/품명" style="width:110px;">
+<button class="btn-export" id="refreshBtn">🔄 새로고침</button>
+<button class="btn-export" id="exportBtn">📥 다운로드</button>
+</div>
+
+<div id="summary" class="sum-box">불러오는 중...</div>
+<div id="content"></div>
+
+<script type="module">
+import { sb, fetchAll, renderNavbar, esc, DEPARTMENTS, roundDateKST, relDayText, loadScanDates, fillDateSelect, loadStockForRound, stockInfoText } from "./common.js?v=8";
+renderNavbar("round");
+
+const LOG_COL = "scan_log";
+// 한 LOT 을 여러 작업자가 나눠 작업하는 부서: 누적 수량이 전산수량에 못 미치면 '분할 진행'(아직 미확인) - 스캔 화면과 같은 기준
+const SPLIT_DEPTS = ["1F(가공생산)", "청우"];
+
+const dateInput = document.getElementById("dateInput");
+const deptSelect = document.getElementById("deptSelect");
+const qInput = document.getElementById("qInput");
+const summary = document.getElementById("summary");
+const content = document.getElementById("content");
+
+let currentView = "unchecked";
+let stockInfo = null;
+let masterRows = [];       // 선택한 회차의 재고(그날 마지막 실행분, 실사불가 상태 제외)
+let dateLogs = [];         // 선택한 회차에 수량 입력까지 끝낸 스캔 기록
+let fallbackByLot = {};    // 재고에 없는 LOT 의 품번/품명 보충용(최근 10일 재고)
+let allItems = [];         // 화면에 쓰는 LOT 목록 (미확인 + 스캔한 LOT)
+
+DEPARTMENTS.forEach(d => { const o = document.createElement("option"); o.value = d; o.textContent = d; deptSelect.appendChild(o); });
+
+const fmt = v => (v === null || v === undefined || !isFinite(Number(v))) ? "-" : (Math.round(Number(v) * 1000) / 1000).toLocaleString("ko-KR");
+const signed = d => (d === null || d === undefined) ? "-" : (d > 0 ? "+" : d < 0 ? "−" : "") + fmt(Math.abs(d));
+const statusText = r => { const a = (r.lot_status || "").toString().trim(), b = (r.lot_substatus || "").toString().trim(); return a ? (b && b !== a ? a + " / " + b : a) : (b || "-"); };
+
+function friendlyErrorMessage(e){
+    const msg = ((e && e.code) || (e && e.message) || "").toString().toLowerCase();
+    if (msg.includes("resource-exhausted") || msg.includes("quota") || msg.includes("429")) return "❗ 오늘 조회 한도 초과 - 잠시 후(리셋 후) 다시 시도해주세요.";
+    return "❌ 불러오기 실패 (콘솔 확인 필요)";
+}
+
+async function loadData(){
+    content.innerHTML = '<div class="empty">불러오는 중...</div>';
+    summary.textContent = "불러오는 중...";
+    try {
+        // 선택한 회차 날짜의 재고(그날 가장 최근 실행분)와 비교 - 지난 날짜도 그날 재고 기준으로 계산됨
+        stockInfo = await loadStockForRound(dateInput.value);
+        // 실사불가 상태(CHK_TYPE) LOT 은 실사 대상에서 제외 (스캔 화면의 진행바/마감 대상과 동일 기준)
+        masterRows = stockInfo.rows.filter(r => r.chk_type !== "실사불가 상태");
+
+        const logSnap = await fetchAll(() => sb.from(LOG_COL).select("*").eq("scan_date", dateInput.value));
+        dateLogs = [];
+        logSnap.forEach(d => { const r = d.data(); if (r.actual_qty !== null && r.actual_qty !== undefined) dateLogs.push(r); });   // 수량 입력까지 끝낸 스캔만 '확인'
+
+        await loadFallback();
+        allItems = computeAll();
+        render();
+    } catch(e){
+        console.error(e);
+        summary.textContent = "";
+        content.innerHTML = `<div class="empty">${friendlyErrorMessage(e)}</div>`;
+    }
+}
+
+// 재고에 없는 LOT 은 최근 10일 재고(stock_latest)에서 품번/품명을 찾아 채움 (못 찾으면 비워 둠)
+async function loadFallback(){
+    fallbackByLot = {};
+    const inMaster = new Set(masterRows.map(r => r.lot_no));
+    const need = Array.from(new Set(dateLogs.map(r => r.lot_no))).filter(l => l && !inMaster.has(l));
+    for (let i = 0; i < need.length; i += 100){
+        try {
+            const { data, error } = await sb.from("stock_latest").select("*").in("lot_no", need.slice(i, i + 100));
+            if (error) throw error;
+            (data || []).forEach(r => { if (!fallbackByLot[r.lot_no]) fallbackByLot[r.lot_no] = r; });
+        } catch(e){ console.error("재고 보충 조회 실패(무시하고 계속)", e); break; }
+    }
+}
+
+function noteOf(L, inMaster){
+    const k = L.stock_kind;
+    if (k === "recent_past") return "10일 내 과거자료 (수량 0 처리)";
+    if (k === "old_past") return "장기 과거자료 (수량 0 처리)";
+    if ((k === "none" || k === "lot_ref") && inMaster) return "재고 늦게 반영";
+    if (k === "lot_ref") return "MES 실적 참조";
+    if (k === "none") return "재고 없음";
+    return "";
+}
+
+// LOT 하나당 상태(st) 하나로 분류:
+//  unchecked 미확인(재고에 있는데 입력 없음) / partial 분할 진행(1F·청우 누적 미달, 미확인에 포함) /
+//  short 부족 / over 초과 / match 일치 / none 전산수량 없음
+function computeAll(){
+    const masterByLot = {};
+    masterRows.forEach(r => { masterByLot[r.lot_no] = r; });
+    const agg = {};
+    dateLogs.forEach(r => {
+        const a = agg[r.lot_no] || (agg[r.lot_no] = { sum: 0, n: 0, latest: null });
+        a.sum += Number(r.actual_qty); a.n++;
+        if (!a.latest || r.scanned_at > a.latest.scanned_at) a.latest = r;
+    });
+    const out = [];
+    Object.keys(agg).forEach(lot => {
+        const a = agg[lot], L = a.latest, m = masterByLot[lot], fb = fallbackByLot[lot];
+        const stored = (L.diff === null || L.diff === undefined) ? null : Number(L.diff);
+        const base = m || fb || {};
+        const e = {
+            lot_no: lot, department: base.department || L.stock_dept || "", subcontract_type: base.subcontract_type || "",
+            item_no: base.item_no || L.stock_item_no || "", item_name: base.item_name || L.stock_item_name || "",
+            lot_status: base.lot_status || "", lot_substatus: base.lot_substatus || "",
+            unit: base.unit || L.stock_unit || "", warehouse: base.warehouse || L.stock_wh || "",
+            cum: a.sum, n: a.n, by: L.scanned_by || "", scanDept: L.scan_dept || "", at: L.scanned_at || "",
+            note: noteOf(L, !!m), qty: null, diff: null, st: "", inMaster: !!m
+        };
+        if (m){
+            const q = Number(m.qty);
+            e.qty = isFinite(q) ? q : null;
+            if (e.qty !== null && e.qty > 0 && SPLIT_DEPTS.indexOf(m.department) >= 0 && a.sum < e.qty){
+                e.st = "partial"; e.diff = a.sum - e.qty;
+            } else {
+                // 한 번만 입력하고 저장된 차이가 있으면 그 값, 여러 번 입력했거나 저장된 차이가 없으면 누적 합계 - 현재 전산수량
+                e.diff = (e.qty !== null && (a.n > 1 || stored === null)) ? a.sum - e.qty : stored;
+            }
+        } else if (stored !== null){
+            e.qty = a.sum - stored;      // 최신 재고에서 빠진 LOT: 저장돼 있던 차이로 스캔 당시 전산수량을 역산
+            e.diff = stored;
+        }
+        if (!e.st){
+            if (e.diff === null) e.st = "none";
+            else e.st = e.diff < 0 ? "short" : (e.diff > 0 ? "over" : "match");
+        }
+        out.push(e);
+    });
+    masterRows.forEach(r => {
+        if (agg[r.lot_no]) return;
+        out.push({
+            lot_no: r.lot_no, department: r.department || "", subcontract_type: r.subcontract_type || "",
+            item_no: r.item_no || "", item_name: r.item_name || "", lot_status: r.lot_status || "", lot_substatus: r.lot_substatus || "",
+            unit: r.unit || "", warehouse: r.warehouse || "", qty: r.qty, cum: 0, n: 0, by: "", scanDept: "", at: "", note: "",
+            diff: null, st: "unchecked", inMaster: true
+        });
+    });
+    return out;
+}
+
+const byAtDesc = (a, b) => (a.at < b.at ? 1 : -1);
+const VIEWS = {
+    unchecked: { label: "미확인",       cls: "c-unchecked", pick: e => e.inMaster && (e.st === "unchecked" || e.st === "partial"), sort: (a, b) => (b.st === "partial") - (a.st === "partial") },
+    checked:   { label: "확인됨",       cls: "c-checked",   pick: e => e.inMaster && e.n > 0 && e.st !== "partial", sort: byAtDesc },
+    match:     { label: "일치",         cls: "c-match",     pick: e => e.st === "match",   sort: byAtDesc },
+    short:     { label: "부족",         cls: "c-short",     pick: e => e.st === "short",   sort: (a, b) => a.diff - b.diff },
+    over:      { label: "초과",         cls: "c-over",      pick: e => e.st === "over",    sort: (a, b) => b.diff - a.diff },
+    partial:   { label: "분할 진행",    cls: "c-partial",   pick: e => e.st === "partial", sort: (a, b) => a.diff - b.diff },
+    none:      { label: "전산수량 없음", cls: "c-none",      pick: e => e.st === "none",    sort: byAtDesc }
+};
+const ST_LABEL = { unchecked: "미확인", partial: "분할 진행", match: "일치", short: "부족", over: "초과", none: "전산수량 없음" };
+
+function filtered(){
+    const dept = deptSelect.value, q = qInput.value.trim().toLowerCase();
+    return allItems.filter(e => {
+        if (dept && e.department !== dept) return false;
+        if (q && (e.lot_no + " " + e.item_no + " " + e.item_name).toLowerCase().indexOf(q) === -1) return false;
+        return true;
+    });
+}
+
+function render(){
+    const hasStock = !!(stockInfo && stockInfo.uploadDate);
+    const all = filtered();
+    const list = {};
+    Object.keys(VIEWS).forEach(k => { list[k] = all.filter(VIEWS[k].pick); });
+
+    // 재고가 없는 날은 미확인/확인됨을 계산할 수 없으므로 결과별 목록(부족)부터 보여줌
+    let view = currentView;
+    if (!hasStock && (view === "unchecked" || view === "checked")) view = "short";
+
+    const unchecked = list.unchecked.length, checked = list.checked.length, total = unchecked + checked;
+    const percent = total > 0 ? Math.round(checked / total * 100) : 0;
+    const st = stockInfoText(dateInput.value, stockInfo);
+    const lots = new Set(dateLogs.map(r => r.lot_no)).size;
+    const last = dateLogs.reduce((m, r) => ((r.scanned_at || "") > m ? r.scanned_at : m), "");
+    const outOfStock = all.filter(e => !e.inMaster && (e.st === "short" || e.st === "over" || e.st === "match")).length;
+
+    const chip = (k, count) => `<div class="chip ${VIEWS[k].cls}${view === k ? " active" : ""}${count === 0 ? " zero" : ""}" data-view="${k}">${VIEWS[k].label}<b>${count === null ? "-" : count}</b></div>`;
+
+    let s = `<div class="round-info"><div>📅 <b>실사 회차 ${esc(dateInput.value)}</b> (${esc(relDayText(dateInput.value))}) · 입력 <b>${dateLogs.length}</b>건 · LOT <b>${lots}</b>개${last ? " · 마지막 입력 " + esc(last.slice(5, 16)) : ""}</div>` +
+        `<div class="${st.indexOf("⚠️") === 0 ? "warn" : ""}">${esc(st)}</div></div>`;
+    s += `<div class="chips">${chip("unchecked", hasStock ? unchecked : null)}${chip("checked", hasStock ? checked : null)}</div>`;
+    s += `<div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${hasStock ? percent : 0}%;"></div></div>`;
+    s += `<div class="percent-label">${hasStock ? `확인 ${checked} / ${total}건 · ${percent}%` : "재고가 없어 진행률을 계산할 수 없습니다"}</div>`;
+    s += `<div class="chips">${["match", "short", "over", "partial", "none"].map(k => chip(k, list[k].length)).join("")}</div>`;
+    s += `<div class="master-note">1F·청우는 같은 LOT 을 나눠 입력한 수량을 합산하고, 누적이 전산수량 이상일 때 확인 완료로 봅니다. 분할 진행은 미확인에 포함됩니다.</div>`;
+    if (hasStock && outOfStock > 0) s += `<div class="master-note">※ 재고에 없는 LOT ${outOfStock}건은 일치/부족/초과에는 포함되지만 확인됨(진행률)에서는 제외됩니다.</div>`;
+    summary.innerHTML = s;
+
+    const rows = list[view].slice().sort(VIEWS[view].sort);
+    let html = "";
+    if (!rows.length){
+        html = `<div class="empty">${view === "unchecked" ? "🎉 이 날짜 기준으로 미확인 LOT이 없습니다." : "해당하는 LOT이 없습니다."}</div>`;
+    } else if (view === "unchecked"){
+        html = '<div class="scroll-wrap"><table><thead><tr><th>#</th><th>LOT NO</th><th>부서</th><th>품번</th><th>품명</th><th>LOT상태</th><th>수량</th><th>누적 확인</th><th>창고</th></tr></thead><tbody>';
+        rows.forEach((e, i) => {
+            html += `<tr><td>${i + 1}</td><td>${esc(e.lot_no)}</td><td>${esc(e.department || "-")}${e.subcontract_type ? " (" + esc(e.subcontract_type) + ")" : ""}</td><td>${esc(e.item_no || "-")}</td><td>${esc(e.item_name || "-")}</td><td>${esc(statusText(e))}</td>` +
+                `<td>${fmt(e.qty)} ${esc(e.unit)}</td><td>${e.n ? '<b style="color:#c792ea;">' + fmt(e.cum) + "</b> / " + fmt(e.qty) + " (" + e.n + "회)" : "-"}</td><td>${esc(e.warehouse || "-")}</td></tr>`;
+        });
+        html += "</tbody></table></div>";
+    } else {
+        html = '<div class="scroll-wrap"><table><thead><tr><th>#</th><th>확인시각</th><th>확인자</th><th>확인부서</th><th>LOT NO</th><th>부서</th><th>품번</th><th>품명</th><th>LOT상태</th><th>시스템수량</th><th>실제수량</th><th>차이</th><th>입력횟수</th><th>창고</th><th>비고</th></tr></thead><tbody>';
+        rows.forEach((e, i) => {
+            const dcls = e.st === "short" ? "d-short" : e.st === "over" ? "d-over" : e.st === "partial" ? "d-partial" : (e.diff === 0 ? "d-ok" : "");
+            const deptMismatch = e.scanDept && e.department && e.scanDept !== e.department;
+            html += `<tr><td>${i + 1}</td><td>${esc(e.at.slice(5, 16))}</td><td>${esc(e.by || "-")}</td><td class="${deptMismatch ? "diff-bad" : ""}">${esc(e.scanDept || "-")}</td>` +
+                `<td>${esc(e.lot_no)}</td><td>${esc(e.department || "-")}${e.subcontract_type ? " (" + esc(e.subcontract_type) + ")" : ""}</td><td>${esc(e.item_no || "-")}</td><td>${esc(e.item_name || "-")}</td><td>${esc(statusText(e))}</td>` +
+                `<td>${e.qty === null ? "-" : fmt(e.qty) + " " + esc(e.unit)}</td><td>${fmt(e.cum)}${e.n > 1 ? ' <span class="dim">(합계)</span>' : ""}</td>` +
+                `<td class="${dcls}">${signed(e.diff)}</td><td>${e.n}회</td><td>${esc(e.warehouse || "-")}</td><td>${esc(e.note)}</td></tr>`;
+        });
+        html += "</tbody></table></div>";
+        if (view === "partial") html += '<div class="master-note">1F·청우의 나눠 작업하는 LOT 중 누적 수량이 아직 전산수량에 못 미친 건입니다. 차이는 지금까지 부족한 수량입니다.</div>';
+        if (view === "none") html += '<div class="master-note">재고에도 없고 스캔 당시 전산수량 기록도 없는 LOT입니다. LOT 번호 오인식이나 재고 미반영을 확인하세요.</div>';
+    }
+    content.innerHTML = html;
+    document.querySelectorAll(".chip").forEach(c => { c.onclick = () => { currentView = c.dataset.view; render(); }; });
+}
+
+// 엑셀: '전체'(미확인 포함 모든 LOT, 상태 열 포함) + 부족/초과/분할 진행/전산수량 없음 시트
+document.getElementById("exportBtn").onclick = () => {
+    const all = filtered();
+    if (!all.length){ alert("내보낼 데이터가 없습니다."); return; }
+    const header = ["#", "상태", "LOT NO", "부서", "외주구분", "품번", "품명", "LOT상태", "시스템수량", "단위", "창고", "확인시각", "확인자", "확인부서", "실제수량", "차이", "입력횟수", "비고"];
+    const toRow = (e, i) => [i + 1, ST_LABEL[e.st], e.lot_no, e.department, e.subcontract_type, e.item_no, e.item_name, statusText(e),
+        e.qty === null || e.qty === undefined ? "" : e.qty, e.unit, e.warehouse, e.at, e.by, e.scanDept, e.n ? e.cum : "", e.diff === null ? "" : e.diff, e.n, e.note];
+    const wb = XLSX.utils.book_new();
+    const sheet = (name, items) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([header].concat(items.map(toRow))), name);
+    const rank = e => (e.st === "unchecked" ? 0 : e.st === "partial" ? 1 : 2);   // 전체 시트: 미확인 → 분할 진행 → 확인된 LOT 순
+    sheet("전체", all.slice().sort((a, b) => rank(a) - rank(b)));
+    ["short", "over", "partial", "none"].forEach(k => {
+        const items = all.filter(VIEWS[k].pick).sort(VIEWS[k].sort);
+        if (items.length) sheet(VIEWS[k].label, items);
+    });
+    XLSX.writeFile(wb, `실사현황_${dateInput.value}.xlsx`);
+};
+
+document.getElementById("refreshBtn").onclick = loadData;
+dateInput.addEventListener("change", loadData);
+deptSelect.addEventListener("change", render);
+qInput.addEventListener("input", render);
+
+async function initDates(selected){
+    try { fillDateSelect(dateInput, await loadScanDates(), selected || roundDateKST(), "entry"); }   // 수량 입력이 있는 날짜만 목록으로 보여줌
+    catch(e){ console.error(e); fillDateSelect(dateInput, [], selected || roundDateKST(), "entry"); }
+}
+
+// 화면을 켜둔 채 방치해도 계속 조회가 나가지 않도록 유휴 5분이면 스캔 화면으로 이동
+let idleTimer = null;
+function resetIdleTimer(){
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => { location.href = "index.html"; }, 5 * 60 * 1000);
+}
+["click", "touchstart", "keydown"].forEach(evt => document.addEventListener(evt, resetIdleTimer));
+resetIdleTimer();
+
+initDates().then(loadData);
+
+// 날짜를 직접 고르지 않았다면 회차가 바뀔 때(07:00) 자동으로 오늘 회차로 넘어감
+let userPickedDate = false;
+dateInput.addEventListener("change", () => { userPickedDate = true; });
+setInterval(async () => {
+    if (userPickedDate) return;
+    const todayNow = roundDateKST();
+    if (dateInput.value !== todayNow){
+        await initDates(todayNow);
+        loadData();
+    }
+}, 60000);
+</script>
+
+</body>
+</html>

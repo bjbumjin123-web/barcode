@@ -9,6 +9,8 @@ export const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 export const MENU = [
     { id: "index",    href: "index.html",    label: "📸 스캔" },
     { id: "scanview", href: "scanview.html", label: "🕒 기록조회" },
+    { id: "round",    href: "round.html",    label: "📋 실사현황" },
+    // ↓ round.html(실사현황)이 진행률+차이를 합친 화면입니다. 확인이 끝나면 아래 두 줄을 지우세요.
     { id: "progress", href: "progress.html", label: "📋 진행률" },
     { id: "diff",     href: "diff.html",     label: "⚖️ 차이" },
     { id: "history",  href: "history.html",  label: "📅 이력조회" },
