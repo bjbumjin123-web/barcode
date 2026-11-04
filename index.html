@@ -239,14 +239,17 @@ body.manual-mode #backToCamBtn{ display:block; }
     max-width:380px; width:100%; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,0.9); padding:16px 14px;
 }
 #qtyModalBox h3{ margin:0 0 10px; color:#00e676; font-size:18px; }
-#qtyModalBox{ box-sizing:border-box; }
+#qtyModalBox{ box-sizing:border-box; display:flex; flex-direction:column; max-height:100%; overflow:hidden; }
+/* 입력칸·저장/취소 버튼은 항상 보이게(#qtyFooter 고정), 위쪽 안내 내용만 모자라면 스크롤 */
+#qtyScroll{ flex:1 1 auto; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+#qtyFooter{ flex:0 0 auto; display:flex; flex-direction:column; margin-top:6px; }
 #qtyModalBox.kb{ padding:10px 12px; }
 #qtyModalBox.kb h3{ margin:0 0 4px; font-size:15px; }
 #qtyModalBox.kb .wh-box{ display:none !important; }
 #qtyModalBox.kb .modal-info-group{ padding:6px 8px; margin-bottom:6px; font-size:12px; }
 #qtyModalBox.kb #modalWarn{ padding:5px 8px; margin-bottom:6px; font-size:12px; }
 /* 작은 폰: 키보드 때문에 간략 모드로도 저장/취소가 안 들어갈 때만 켜짐 -> LOT·전산수량 한 줄 + 입력칸 + 버튼만 */
-#qtyModalBox.tiny{ padding:6px 10px; display:flex; flex-direction:column; }
+#qtyModalBox.tiny{ padding:6px 10px; }
 #qtyModalBox.tiny h3{ display:none; }
 #qtyModalBox.tiny .modal-info-group{ display:flex; flex-wrap:wrap; justify-content:space-between; column-gap:10px; padding:3px 8px; margin-bottom:5px; font-size:12px; }
 #qtyModalBox.tiny .modal-info-item{ flex:0 1 auto; align-items:baseline; padding:1px 0; border-bottom:none; min-width:0; }
@@ -256,11 +259,10 @@ body.manual-mode #backToCamBtn{ display:block; }
 #qtyModalBox.tiny .modal-info-val.highlight{ font-size:13px; }
 #qtyModalBox.tiny #modalStatus{ margin:0 0 3px; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 #qtyModalBox.tiny #modalWarn{ margin:0 0 4px; padding:4px 8px; font-size:11px; line-height:1.25; }
-#qtyModalBox.tiny #modalMsg{ order:5; margin-top:0 !important; font-size:11px; }
-#qtyModalBox.tiny .qty-row{ order:6; margin-bottom:6px; }
+#qtyModalBox.tiny #modalMsg{ order:-1; margin:0 0 4px !important; font-size:11px; }
+#qtyModalBox.tiny .qty-row{ margin-bottom:6px; }
 #qtyModalBox.tiny #modalQtyInput{ height:40px; font-size:20px; }
 #qtyModalBox.tiny #calcOpenBtn{ height:40px; }
-#qtyModalBox.tiny .modal-btn-group{ order:7; }
 #qtyModalBox.tiny .modal-btn-group button{ height:38px; }
 
 /* 모달 내부 정보 표시 그룹 */
@@ -397,6 +399,7 @@ body.manual-mode #backToCamBtn{ display:block; }
 <!-- 모달 팝업: LOT, 품번, 품명, 전산수량 정렬 구조 -->
 <div id="qtyModalOverlay">
 <div id="qtyModalBox">
+<div id="qtyScroll">
 <h3 id="modalTitle">📝 실수량 입력</h3>
 <div class="modal-info-group">
     <div class="modal-info-item"><span class="modal-info-label">1. LOT</span><span id="modalLotNo" class="modal-info-val">-</span></div>
@@ -409,12 +412,15 @@ body.manual-mode #backToCamBtn{ display:block; }
 <div id="modalWarn"></div>
 <div id="modalDept"></div>
 <div id="modalCtx"></div>
+</div>
+<div id="qtyFooter">
 <div class="qty-row"><input id="modalQtyInput" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="실사수량 입력"><button id="calcOpenBtn" type="button" title="계산기">🧮</button></div>
 <div class="modal-btn-group">
 <button id="modalSaveBtn">저장</button>
 <button id="modalCloseBtn">취소</button>
 </div>
 <div id="modalMsg" style="margin-top:8px;font-size:12px;font-weight:bold;"></div>
+</div>
 </div>
 </div>
 
@@ -1858,23 +1864,24 @@ document.getElementById("calcApplyBtn").onclick = () => {
 function fitQtyModal(){
     if (qtyModalOverlay.style.display !== "flex") return;
     var vv = window.visualViewport;
-    if (!vv) return;
-    qtyModalOverlay.style.top = vv.offsetTop + "px";
+    var vh = vv ? vv.height : window.innerHeight;
+    qtyModalOverlay.style.top = (vv ? vv.offsetTop : 0) + "px";
     qtyModalOverlay.style.bottom = "auto";
-    qtyModalOverlay.style.height = vv.height + "px";
-    var box = document.getElementById("qtyModalBox");
-    box.style.maxHeight = Math.max(200, vv.height - 24) + "px";
-    box.style.overflowY = "auto";
-    var kbOn = vv.height < window.innerHeight * 0.8;
-    box.classList.toggle("kb", kbOn);   // 키보드가 올라온 상태면 간략 모드
-    box.classList.remove("tiny");       // 작은 폰: 간략 모드로도 내용이 넘쳐 버튼이 가려지면 한 단계 더 줄임
-    if (kbOn && box.scrollHeight > box.clientHeight + 1) box.classList.add("tiny");
-    if (document.activeElement === modalQtyInput) modalQtyInput.scrollIntoView({ block: "nearest" });
+    qtyModalOverlay.style.height = vh + "px";
+    var box = document.getElementById("qtyModalBox"), sc = document.getElementById("qtyScroll");
+    box.style.maxHeight = Math.max(160, vh - 24) + "px";   // 보이는 화면(키보드 위)보다 커지지 않게
+    // 입력칸/버튼(#qtyFooter)은 항상 보이고, 위쪽 안내(#qtyScroll)가 넘칠 때만 간략 -> 더 간략 순서로 줄임
+    // (카카오톡 등 앱 내 브라우저는 키보드가 올라오면 화면 자체가 줄어서 '키보드 감지' 비율이 안 맞으므로, 실제 넘침으로 판단)
+    box.classList.remove("kb"); box.classList.remove("tiny");
+    var over = function(){ return sc.scrollHeight > sc.clientHeight + 1; };
+    if (over()) box.classList.add("kb");
+    if (over()) box.classList.add("tiny");
 }
 function resetQtyModalFit(){
     var box = document.getElementById("qtyModalBox");
     qtyModalOverlay.style.top = "0"; qtyModalOverlay.style.bottom = "0"; qtyModalOverlay.style.height = "";
-    box.style.maxHeight = ""; box.style.overflowY = ""; box.classList.remove("kb"); box.classList.remove("tiny");
+    box.style.maxHeight = ""; box.classList.remove("kb"); box.classList.remove("tiny");
+    document.getElementById("qtyScroll").scrollTop = 0;
 }
 if (window.visualViewport){
     window.visualViewport.addEventListener("resize", fitQtyModal);
